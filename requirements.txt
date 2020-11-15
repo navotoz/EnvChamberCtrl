@@ -1,0 +1,11 @@
+numpy
+psutil>=5.7.0
+pyftdi
+pyudev>=0.22.0
+pyusb>=1.0.2
+scipy>=1.5
+pyserial
+tqdm
+matplotlib
+pillow
+pandas
