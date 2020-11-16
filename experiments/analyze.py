@@ -11,9 +11,60 @@ from matplotlib.ticker import StrMethodFormatter
 import numpy as np
 from tqdm import tqdm
 
-import devices.Oven.plots
-from utils.constants import PLOTS_PATH, FMT_TIME, DATETIME
+from utils.constants import *
 from utils.tools import check_and_make_path
+
+
+
+def plot_double_sides(dict_of_y_right:dict,
+                      x_values: (list, np.ndarray),
+                      save_path: (Path, None),
+                      y_values_left: (np.ndarray, list), y_values_right_names: tuple,
+                      y_label_left: str, y_label_right: str,
+                      x_label: str = 'Time [Minutes]') -> None:
+    if isinstance(save_path, str):
+        save_path = Path(save_path)
+    fig, ax = plt.subplots()
+    color_left = 'red'
+    plt.plot(x_values, y_values_left, label=y_label_left.capitalize(), color=color_left)
+    ax.xaxis.set_major_locator(plt.MaxNLocator(10))
+    ax.xaxis.set_minor_locator(plt.MaxNLocator(10))
+    ax.yaxis.set_major_locator(plt.MaxNLocator(10))
+    ax.yaxis.set_minor_locator(plt.MaxNLocator(10))
+    ax.set_xlabel(x_label, color='black')
+    ax.tick_params(axis='x', labelcolor='black')
+    ax.set_ylabel(y_label_left, color=color_left)
+    ax.tick_params(axis='y', labelcolor=color_left)
+
+    ax2 = ax.twinx()  # instantiate a second axes that shares the same x-axis
+    color_right = 'blue'
+    for y_values_right_name in y_values_right_names:
+        if 'floor' in y_values_right_name.lower():
+            kwargs = {'color': 'blue'}
+        elif 'setpoint' in y_values_right_name.lower():
+            kwargs = {'linestyle': 'dashed', 'color': 'blue'}
+        elif 'ctrlsignal' in y_values_right_name.lower():
+            kwargs = {'color': 'blue'}
+        else:
+            kwargs = {'color': 'blue'}
+        if 'avg' in y_values_right_name.lower():
+            label_name = y_values_right_name.split('_Avg')[0].capitalize()
+        else:
+            label_name = y_values_right_name.capitalize()
+        plt.plot(x_values, df[y_values_right_name], label=label_name, **kwargs)
+    ax2.xaxis.set_major_locator(plt.MaxNLocator(10))
+    ax2.xaxis.set_minor_locator(plt.MaxNLocator(10))
+    ax2.yaxis.set_major_locator(plt.MaxNLocator(10))
+    ax2.yaxis.set_minor_locator(plt.MaxNLocator(10))
+    ax2.set_ylabel(y_label_right, color=color_right)
+    ax2.tick_params(axis='y', labelcolor=color_right)
+    fig.legend()
+    plt.tight_layout()
+    plt.grid()
+    check_and_make_path(save_path.parent) if save_path else None
+    plt.savefig(save_path) if save_path else plt.show()
+    plt.close()
+
 
 
 def crop_image_tuples(image_tuple: Tuple[Path, np.ndarray], mask: np.ndarray) -> Tuple[Path, np.ndarray]:
@@ -111,7 +162,7 @@ def plot_3d(values_list, full_save_path: (str, Path, None), xaxis_label: str, ya
     x, y, z = values_list
     fig = plt.figure()
     ax = fig.add_subplot(111, projection='3d')
-    plotter = ax.scatter if use_scatter else devices.Oven.plots.plot
+    plotter = ax.scatter if use_scatter else plot
     plotter(x, y, z, cmap='viridis')
     ax.set_xlabel(xaxis_label)
     ax.set_ylabel(yaxis_label)
@@ -168,27 +219,36 @@ def group_same_blackbody_temperatures(results: List[Dict[str, float]]) -> Dict[f
     return clustered_results
 
 
-def plot_clustered(results, path_to_save):
+def plot_clustered(results, path_to_save:Path):
     clustered_results = group_same_blackbody_temperatures(results)
     for blackbody_temperature in clustered_results.keys():
         measurements = [item['measurement'] for item in clustered_results[blackbody_temperature]]
-        fpa = [item['fpa'] for item in clustered_results[blackbody_temperature]]
-        housing = [item['housing'] for item in clustered_results[blackbody_temperature]]
+        fpa = [item[T_FPA] for item in clustered_results[blackbody_temperature]]
+        housing = [item[T_HOUSING] for item in clustered_results[blackbody_temperature]]
+        time_running = [item[DATETIME] for item in clustered_results[blackbody_temperature]]
         plot_3d([fpa, housing, measurements],
-                Path(path_to_save) / Path(f"3d_{blackbody_temperature:.2f}C.png"),
+                path_to_save / Path(f"3d_{blackbody_temperature:.2f}C.png"),
                 'FPA', 'Housing', 'Measurements', f"Blackbody temperature {blackbody_temperature:.2f}C",
                 use_scatter=True)
         p = partial(plot, dict_of_y_values=dict(measurement=measurements), yaxis_label='Measurements [$C^\circ$]',
                     use_scatter=True, title=f"Blackbody temperature {blackbody_temperature:.2f}C", mark_mean=False)
         p(x_values=fpa, xaxis_label='FPA Temperature [$C^\circ$]',
-          full_save_path=Path(path_to_save) / Path(f"fpa_{blackbody_temperature:.2f}C.png"))
+          full_save_path=path_to_save / Path(f"fpa_{blackbody_temperature:.2f}C.png"))
         p(x_values=housing, xaxis_label='Housing Temperature [$C^\circ$]',
-          full_save_path=Path(path_to_save) / Path(f"housing_{blackbody_temperature:.2f}C.png"))
+          full_save_path=path_to_save / f"housing_{blackbody_temperature:.2f}C.png")
+
+        plot_double_sides(dict_of_y_right={T_FPA:fpa, T_HOUSING:housing},
+        x_values=time_running,
+        save_path=path_to_save / f"time_{blackbody_temperature:.2f}C.png",
+        y_values_left=measurements,
+        y_values_right_names=(T_FPA, T_HOUSING),
+        y_label_left='Measurements [Levels]', y_label_right=TEMPERATURE_LABEL)
+        p = partial()
 
 
 def plot_diff(results, path_to_save):
-    fpa = [item['fpa'] for item in results]
-    housing = [item['housing'] for item in results]
+    fpa = [item[T_FPA] for item in results]
+    housing = [item[T_HOUSING] for item in results]
     diff = [abs(item['blackbody'] - item['measurement']) for item in results]
     p = partial(plot, dict_of_y_values=dict(difference=diff), yaxis_label='Difference [$C^\circ$]', mark_mean=True,
                 use_scatter=True, title=f"Difference between real and measured temperatures")
@@ -201,16 +261,16 @@ def plot_diff(results, path_to_save):
 def plot_3d_fpa_housing_diff(results, path_to_save: Path) -> None:
     plot_3d([[item['blackbody'] for item in results],
              [item['measurement'] for item in results],
-             [item['fpa'] for item in results]], Path(path_to_save) / Path('3d_fpa.png'),
+             [item[T_FPA] for item in results]], Path(path_to_save) / Path('3d_fpa.png'),
             'Blackbody [$C^\circ$]', 'Measurement [$C^\circ$]', 'FPA [$C^\circ$]',
             mark_mean=True, title='Measurement as a function of FPA and blackbody [$C^\circ$]', use_scatter=True)
     plot_3d([[item['blackbody'] for item in results],
              [item['measurement'] for item in results],
-             [item['housing'] for item in results]], Path(path_to_save) / Path('3d_housing.png'),
+             [item[T_HOUSING] for item in results]], Path(path_to_save) / Path('3d_housing.png'),
             'Blackbody [$C^\circ$]', 'Measurement [$C^\circ$]', 'Housing [$C^\circ$]',
             mark_mean=True, title='Measurement as a function of Housing and blackbody [$C^\circ$]', use_scatter=True)
-    plot_3d([[item['housing'] for item in results],
-             [item['fpa'] for item in results],
+    plot_3d([[item[T_HOUSING] for item in results],
+             [item[T_FPA] for item in results],
              [abs(item['blackbody'] - item['measurement']) for item in results]],
             Path(path_to_save) / Path('3d_diff.png'),
             'Housing [$C^\circ$]', 'FPA [$C^\circ$]', 'Difference [$C^\circ$]',

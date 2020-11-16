@@ -116,8 +116,8 @@ def collect_camera_temperatures(camera: TeaxGrabber.get_inner_temperature, is_la
         with open(path_to_debug, 'a') as f_pointer:
             f_pointer.write(f'#######  {t_}  #######\n')
             writer_ = csv.writer(f_pointer)
-            writer_.writerow(['fpa'] + [f"mean{t_fpa_mean:.2f}"] + t_fpa_list)
-            writer_.writerow(['housing'] + [f"mean{t_housing_mean:.2f}"] + t_housing_list)
+            writer_.writerow([T_FPA] + [f"mean{t_fpa_mean:.2f}"] + t_fpa_list)
+            writer_.writerow([T_HOUSING] + [f"mean{t_housing_mean:.2f}"] + t_housing_list)
 
     fpa_mean_list, housing_mean_list = [], []
     time_plus_minute = (get_time() + timedelta(minutes=minutes_to_collect))
@@ -128,8 +128,8 @@ def collect_camera_temperatures(camera: TeaxGrabber.get_inner_temperature, is_la
         postfix = f"Last collection before logging at {time_plus_minute.strftime('%H:%M:%S')}"
     with tqdm(leave=False, postfix=postfix) as progress_bar:
         while datetime.now() <= time_plus_minute:  # microseconds matter here so use now()
-            fpa_mean_list.append(camera('fpa'))
-            housing_mean_list.append(camera('housing'))
+            fpa_mean_list.append(camera(T_FPA))
+            housing_mean_list.append(camera(T_HOUSING))
             progress_bar.update()
     temperature_fpa = Temperature(time_plus_minute, mean(fpa_mean_list))
     temperature_housing = Temperature(time_plus_minute, mean(housing_mean_list))

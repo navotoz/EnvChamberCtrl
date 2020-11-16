@@ -13,7 +13,7 @@ from pyftdi.ftdi import Ftdi
 
 import devices.Camera.tau2_config as ptc
 from devices.Camera.ThreadedFtdi import FtdiIO
-from utils.constants import WIDTH_IMAGE, HEIGHT_IMAGE
+from utils.constants import *
 from utils.logger import make_logger, make_logging_handlers, make_device_logging_handler
 from utils.tools import show_image, normalize_image
 
@@ -158,9 +158,9 @@ class Tau:
         return x, y, z
 
     def get_inner_temperature(self, temperature_type: str):
-        if 'fpa' in temperature_type.lower():
+        if T_FPA in temperature_type:
             arg_hex = ARGUMENT_FPA
-        elif 'housing' in temperature_type.lower():
+        elif T_HOUSING in temperature_type:
             arg_hex = ARGUMENT_HOUSING
         else:
             raise TypeError(f'{temperature_type} was not implemented as an inner temperature of TAU2.')
