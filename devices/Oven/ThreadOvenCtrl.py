@@ -5,6 +5,7 @@ from logging import Logger
 from pathlib import Path
 from queue import Queue, Empty
 from threading import Semaphore, Thread
+from time import time_ns
 from tkinter import Frame
 from typing import Dict
 
@@ -119,11 +120,15 @@ def set_and_wait_for_temperatures_to_settle(temperature_queue: Queue, semaphore_
         difference_lifo = VariableLengthDeque(maxlen=max(1, make_maxlen()))
         difference_lifo.append(float('inf'))  # +inf so that it is always bigger than DELTA_TEMPERATURE
         set_temperature(next_temp=next_temperature, verbose=True, offset=10.0)
+        time_of_setting = time_ns()
         tqdm_waiting(2 * (OVEN_LOG_TIME_SECONDS + PID_FREQ_SEC), 'PID settling')
         logger.info(f'Waiting for the Controlled Temperature to reach {next_temperature:.2f}C with +10C offset')
         while flag_run and get_error() >= 1.5:  # wait until signal error reaches within 1.5deg of setPoint
             pass
-        tqdm_waiting(30 * 60, 'Waiting')
+        time_of_setting -= time_ns()   # result is negative
+        time_of_setting *= 1e-9
+        time_of_setting += DELAY_FROM_FLOOR_TO_CAMERA_SECONDS
+        tqdm_waiting(int(max(0, time_of_setting)), 'Waiting')
         set_temperature(next_temp=next_temperature, verbose=True, offset=0)
         logger.info(f'Waiting for the Camera to settle near {next_temperature:.2f}C')
         logger_mean.info(f'#######   {next_temperature}   #######')

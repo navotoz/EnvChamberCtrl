@@ -61,6 +61,7 @@ RESOLUTION_STRING = " resolution"
 IMAGES_TO_RUN_LABEL = 'images_to_run'
 EXPERIMENT_SAVE_PATH = 'experiment_save_path'
 FREQ_INNER_TEMPERATURE_SECONDS = 2
+DELAY_FROM_FLOOR_TO_CAMERA_SECONDS = 60 * 60
 
 # holds limits and resolutions of all peripherals
 LIMIT_DICT = {OVEN_NAME: {MIN_STRING: 20, MAX_STRING: 90, RESOLUTION_STRING: 1,
