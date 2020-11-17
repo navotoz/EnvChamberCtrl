@@ -325,8 +325,6 @@ class Tau:
             fmt = ">cxccccccxxx"
 
         data = struct.pack(fmt, *packet)
-        self._log.debug("Sending {}".format(data))
-
         self._send_data(data)
         return data
 

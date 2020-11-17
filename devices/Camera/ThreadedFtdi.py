@@ -144,7 +144,7 @@ class FtdiIO:
         crc_2 = get_crc(data[8:8 + command.reply_bytes])
         if not crc_1 == data[6:8] or not crc_2 == data[-2:]:
             self._log.error('CRC codes are wrong on received packet.')
-            raise RuntimeError('CRC codes are wrong on received packet.')
+            return None
         ret_value = data[8:8 + command.reply_bytes]
         ret_value = struct.pack('<' + len(ret_value) * 'B', *ret_value)
         return ret_value
@@ -159,6 +159,7 @@ class FtdiIO:
         with self._lock_access:
             try:
                 self.ftdi.write_data(buffer)
+                self._log.debug(f"Send {data}")
             except FtdiError:
                 self._log.debug('Write error.')
                 self.reset()
@@ -169,14 +170,15 @@ class FtdiIO:
         for _ in range(n_retries):
             if res := self._parse_func(command):
                 self._event_read.clear()
-                Thread(target=self._buffer.clear_buffer(), name='th_clear_bytebuffer', daemon=True).start()
+                self._buffer.clear_buffer()
+                self._log.debug(f"Recv {res}")
                 return res
             self._log.debug('Could not parse, retrying..')
             self.write(SYNC_MSG)
             self.write(data)
         return None
 
-    def get_image(self)->bytes:
+    def get_image(self) -> bytes:
         self._event_read.set()
         self._event_get_image.clear()
         self._buffer.sync_teax()
@@ -184,6 +186,7 @@ class FtdiIO:
             continue
         res = self._buffer[:self._frame_size]
         self._event_get_image.set()
+        self._log.debug('Grabbed Image')
         return res
 
 

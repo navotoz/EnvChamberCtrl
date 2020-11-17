@@ -15,8 +15,7 @@ from utils.constants import *
 from utils.tools import check_and_make_path
 
 
-
-def plot_double_sides(dict_of_y_right:dict,
+def plot_double_sides(dict_of_y_right: dict,
                       x_values: (list, np.ndarray),
                       save_path: (Path, None),
                       y_values_left: (np.ndarray, list), y_values_right_names: tuple,
@@ -37,21 +36,11 @@ def plot_double_sides(dict_of_y_right:dict,
     ax.tick_params(axis='y', labelcolor=color_left)
 
     ax2 = ax.twinx()  # instantiate a second axes that shares the same x-axis
+    line_style_list = ['solid', 'dashed', 'dotted', 'dashdot']
     color_right = 'blue'
     for y_values_right_name in y_values_right_names:
-        if 'floor' in y_values_right_name.lower():
-            kwargs = {'color': 'blue'}
-        elif 'setpoint' in y_values_right_name.lower():
-            kwargs = {'linestyle': 'dashed', 'color': 'blue'}
-        elif 'ctrlsignal' in y_values_right_name.lower():
-            kwargs = {'color': 'blue'}
-        else:
-            kwargs = {'color': 'blue'}
-        if 'avg' in y_values_right_name.lower():
-            label_name = y_values_right_name.split('_Avg')[0].capitalize()
-        else:
-            label_name = y_values_right_name.capitalize()
-        plt.plot(x_values, df[y_values_right_name], label=label_name, **kwargs)
+        label_name = y_values_right_name.capitalize()
+        plt.plot(x_values, dict_of_y_right[y_values_right_name], label=label_name, linestyle=line_style_list.pop())
     ax2.xaxis.set_major_locator(plt.MaxNLocator(10))
     ax2.xaxis.set_minor_locator(plt.MaxNLocator(10))
     ax2.yaxis.set_major_locator(plt.MaxNLocator(10))
@@ -64,7 +53,6 @@ def plot_double_sides(dict_of_y_right:dict,
     check_and_make_path(save_path.parent) if save_path else None
     plt.savefig(save_path) if save_path else plt.show()
     plt.close()
-
 
 
 def crop_image_tuples(image_tuple: Tuple[Path, np.ndarray], mask: np.ndarray) -> Tuple[Path, np.ndarray]:
@@ -83,7 +71,7 @@ def load_np_to_dict(path_to_load: Path) -> Tuple[str, np.ndarray]:
 def load_files_to_mem(path_to_load: (str, Path)) -> Tuple[List[Tuple[Path, np.ndarray]], np.ndarray]:
     path_list = list(filter(lambda x: 'mask' not in str(x), Path(path_to_load).rglob('*.npy')))
     with Pool(cpu_count()) as pool:
-        list_files = list(tqdm(pool.imap(load_np_to_dict, path_list), total=len(path_list), leave=False))
+        list_files = list(pool.imap(load_np_to_dict, path_list))
     list_files.sort(key=lambda x: x[0])
     path_mask = Path(path_to_load) / 'mask.npy'
     try:
@@ -96,7 +84,7 @@ def load_files_to_mem(path_to_load: (str, Path)) -> Tuple[List[Tuple[Path, np.nd
 def crop_images(files_list: List[Tuple[Path, np.ndarray]], mask: np.ndarray) -> List[Tuple[Path, np.ndarray]]:
     cropper = partial(crop_image_tuples, mask=mask)
     with Pool(cpu_count()) as pool:
-        list_files = list(tqdm(pool.imap(cropper, files_list), total=len(files_list), leave=False))
+        list_files = list(pool.imap(cropper, files_list))
     list_files.sort(key=lambda x: x[0])
     return list_files
 
@@ -219,17 +207,17 @@ def group_same_blackbody_temperatures(results: List[Dict[str, float]]) -> Dict[f
     return clustered_results
 
 
-def plot_clustered(results, path_to_save:Path):
+def plot_clustered(results, path_to_save: Path):
     clustered_results = group_same_blackbody_temperatures(results)
     for blackbody_temperature in clustered_results.keys():
         measurements = [item['measurement'] for item in clustered_results[blackbody_temperature]]
         fpa = [item[T_FPA] for item in clustered_results[blackbody_temperature]]
         housing = [item[T_HOUSING] for item in clustered_results[blackbody_temperature]]
         time_running = [item[DATETIME] for item in clustered_results[blackbody_temperature]]
-        plot_3d([fpa, housing, measurements],
-                path_to_save / Path(f"3d_{blackbody_temperature:.2f}C.png"),
-                'FPA', 'Housing', 'Measurements', f"Blackbody temperature {blackbody_temperature:.2f}C",
-                use_scatter=True)
+        # plot_3d([fpa, housing, measurements],
+        #         path_to_save / Path(f"3d_{blackbody_temperature:.2f}C.png"),
+        #         'FPA', 'Housing', 'Measurements', f"Blackbody temperature {blackbody_temperature:.2f}C",
+        #         use_scatter=True)
         p = partial(plot, dict_of_y_values=dict(measurement=measurements), yaxis_label='Measurements [$C^\circ$]',
                     use_scatter=True, title=f"Blackbody temperature {blackbody_temperature:.2f}C", mark_mean=False)
         p(x_values=fpa, xaxis_label='FPA Temperature [$C^\circ$]',
@@ -237,13 +225,10 @@ def plot_clustered(results, path_to_save:Path):
         p(x_values=housing, xaxis_label='Housing Temperature [$C^\circ$]',
           full_save_path=path_to_save / f"housing_{blackbody_temperature:.2f}C.png")
 
-        plot_double_sides(dict_of_y_right={T_FPA:fpa, T_HOUSING:housing},
-        x_values=time_running,
-        save_path=path_to_save / f"time_{blackbody_temperature:.2f}C.png",
-        y_values_left=measurements,
-        y_values_right_names=(T_FPA, T_HOUSING),
-        y_label_left='Measurements [Levels]', y_label_right=TEMPERATURE_LABEL)
-        p = partial()
+        plot_double_sides(dict_of_y_right={T_FPA: fpa, T_HOUSING: housing}, x_values=time_running,
+                          save_path=path_to_save / f"time_{blackbody_temperature:.2f}C.png",
+                          y_values_left=measurements, y_values_right_names=(T_FPA, T_HOUSING),
+                          y_label_left='Measurements [Levels]', y_label_right=TEMPERATURE_LABEL)
 
 
 def plot_diff(results, path_to_save):
@@ -290,10 +275,10 @@ def plot_images_cmp(path_to_experiment, path_to_save):
     if not results:
         return
     results.sort(key=lambda x: x['blackbody'])
-    try:
-        plot_3d_fpa_housing_diff(results.copy(), path_to_save)
-    except:
-        pass
+    # try:
+    #     plot_3d_fpa_housing_diff(results.copy(), path_to_save)
+    # except:
+    #     pass
     try:
         plot_clustered(results.copy(), path_to_save)
     except:

@@ -12,7 +12,7 @@ import numpy as np
 from devices.Oven.ThreadOvenCtrl import thread_handle_oven_temperature, thread_collect_oven_temperatures
 from devices.Oven.make_oven_program import make_oven_basic_prog
 from devices.Oven.plots import plot_btn_func
-from experiments.analyze import process_plot_images_comparison
+from utils.analyze import process_plot_images_comparison
 from gui.makers import make_frames, make_buttons
 from gui.mask import make_mask_win_and_save
 from gui.utils import apply_value_and_make_filename, disable_fields_and_buttons, \

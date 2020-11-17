@@ -96,6 +96,8 @@ def set_and_wait_for_temperatures_to_settle(temperature_queue: Queue, semaphore_
             return int(mean_change // OVEN_LOG_TIME_SECONDS)
         return int(mean_change // FREQ_INNER_TEMPERATURE_SECONDS)
 
+    logger_mean = make_logger('OvenTempDiff',
+                              make_logging_handlers(Path('log/log_oven_temperature_differences.txt'), False))
     next_temperature, prev_temperature = 0, 0
     set_temperature = partial(set_oven_temperature, flag_run=flag_run, logger=logger, oven=devices_dict[OVEN_NAME])
     if int(frame.getvar(USE_CAM_INNER_TEMPS)):
@@ -112,9 +114,8 @@ def set_and_wait_for_temperatures_to_settle(temperature_queue: Queue, semaphore_
                 break
             except Empty:
                 pass
-        logger_mean = make_logger(f'OvenTempDiff{next_temperature:.2f}',
-                                  make_logging_handlers(
-                                      Path(f'log/log_oven_temperature_differences_{next_temperature:.2f}.txt'), False))
+        if next_temperature == 0:
+            break
         difference_lifo = VariableLengthDeque(maxlen=max(1, make_maxlen()))
         difference_lifo.append(float('inf'))  # +inf so that it is always bigger than DELTA_TEMPERATURE
         set_temperature(next_temp=next_temperature, verbose=True, offset=10.0)
@@ -122,9 +123,10 @@ def set_and_wait_for_temperatures_to_settle(temperature_queue: Queue, semaphore_
         logger.info(f'Waiting for the Controlled Temperature to reach {next_temperature:.2f}C with +10C offset')
         while flag_run and get_error() >= 1.5:  # wait until signal error reaches within 1.5deg of setPoint
             pass
-        tqdm_waiting(30 * 60, 'Waiting')
+        tqdm_waiting(25 * 60, 'Waiting')
         set_temperature(next_temp=next_temperature, verbose=True, offset=0)
         logger.info(f'Waiting for the Camera to settle near {next_temperature:.2f}C')
+        logger_mean.info(f'#######   {next_temperature}   #######')
         while flag_run and max(difference_lifo) > float(frame.getvar(DELTA_TEMPERATURE)):
             difference_lifo.maxlen = make_maxlen()
             current_temperature = get_inner_temperature()

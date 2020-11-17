@@ -148,13 +148,15 @@ def get_device_status(device):
 
 
 def thread_get_fpa_housing_temperatures(devices_dict, frame: tk.Frame, flag):
-    func_wait_for_temperature = wait_for_time(devices_dict[CAMERA_NAME].get_inner_temperature,
-                                              FREQ_INNER_TEMPERATURE_SECONDS * 1e9)
-    while flag:
-        t_fpa = mean(func_wait_for_temperature(T_FPA))
+    def getter():
+        t_fpa = devices_dict[CAMERA_NAME].get_inner_temperature(T_FPA)
         frame.setvar(T_FPA, t_fpa) if t_fpa != -float('inf') else None
-        t_housing = mean(func_wait_for_temperature(T_HOUSING))
+        t_housing = devices_dict[CAMERA_NAME].get_inner_temperature(T_HOUSING)
         frame.setvar(T_HOUSING, t_housing) if t_housing != -float('inf') else None
+
+    func_wait_and_get_temperature = wait_for_time(getter, FREQ_INNER_TEMPERATURE_SECONDS * 1e9)
+    while flag:
+        func_wait_and_get_temperature()
         frame.nametowidget(f"{T_FPA}_label").config(text=f"{dict_variables[T_FPA].get():.2f} C")
         frame.nametowidget(f"{T_HOUSING}_label").config(text=f"{dict_variables[T_HOUSING].get():.2f} C")
 
