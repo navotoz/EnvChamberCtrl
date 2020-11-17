@@ -100,9 +100,7 @@ def change_spinbox_parameters_state(frame: tk.Frame, state):
 
 def disable_fields_and_buttons(root: tk.Tk, buttons_dict: dict):
     root.nametowidget(FRAME_HEAD).nametowidget(EXPERIMENT_NAME).config(state=tk.DISABLED)
-    # change_state_radiobuttons(root, state=tk.DISABLED)
     buttons_dict[BUTTON_BROWSE].config(state=tk.DISABLED)
-    # change_spinbox_parameters_state(root.nametowidget(FRAME_PARAMS), tk.DISABLED)
     buttons_dict[BUTTON_START].config(state=tk.DISABLED, relief=tk.SUNKEN)
     buttons_dict[BUTTON_VIEWER].config(state=tk.DISABLED, relief=tk.SUNKEN)
     buttons_dict[BUTTON_UPLOAD].config(state=tk.DISABLED, relief=tk.SUNKEN)
@@ -149,16 +147,18 @@ def get_device_status(device):
 
 def thread_get_fpa_housing_temperatures(devices_dict, frame: tk.Frame, flag):
     def getter():
-        t_fpa = devices_dict[CAMERA_NAME].get_inner_temperature(T_FPA)
-        frame.setvar(T_FPA, t_fpa) if t_fpa != -float('inf') else None
-        t_housing = devices_dict[CAMERA_NAME].get_inner_temperature(T_HOUSING)
-        frame.setvar(T_HOUSING, t_housing) if t_housing != -float('inf') else None
+        for t_type in [T_FPA, T_HOUSING]:
+            t = devices_dict[CAMERA_NAME].get_inner_temperature(t_type)
+            if t and t != -float('inf'):
+                dict_variables[t_type].set(t)
+                try:
+                    frame.nametowidget(f"{t_type}_label").config(text=f"{t:.2f} C")
+                except (TypeError, ValueError):
+                    pass
 
     func_wait_and_get_temperature = wait_for_time(getter, FREQ_INNER_TEMPERATURE_SECONDS * 1e9)
     while flag:
         func_wait_and_get_temperature()
-        frame.nametowidget(f"{T_FPA}_label").config(text=f"{dict_variables[T_FPA].get():.2f} C")
-        frame.nametowidget(f"{T_HOUSING}_label").config(text=f"{dict_variables[T_HOUSING].get():.2f} C")
 
 
 def get_values_list(frame: tk.Frame, devices_dict: dict) -> tuple:

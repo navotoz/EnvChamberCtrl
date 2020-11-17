@@ -67,8 +67,10 @@ def collect_oven_records(oven, logger, path_to_log: Path, frame: Frame, oven_key
         records[DATETIME] = str(to_datetime(records[DATETIME]) + timedelta(seconds=OVEN_LOG_TIME_SECONDS))
         logger.debug('Failed to get records, using previous records.')
     if is_real_camera:
-        records[T_FPA] = float(frame.getvar(T_FPA))
-        records[T_HOUSING] = float(frame.getvar(T_HOUSING))
+        for t_type in [T_FPA, T_HOUSING]:
+            while (t := frame.getvar(t_type)) is None:
+                pass
+            records[t_type] = float(t)
     records = {key: val for key, val in records.items() if key in oven_keys}
     for key in [CTRLSIGNAL, 'dInputKd', 'sumErrKi', f'{SIGNALERROR}Kp', 'dInput', 'sumErr', f'{SIGNALERROR}']:
         try:

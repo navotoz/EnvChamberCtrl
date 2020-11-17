@@ -123,7 +123,7 @@ def set_and_wait_for_temperatures_to_settle(temperature_queue: Queue, semaphore_
         logger.info(f'Waiting for the Controlled Temperature to reach {next_temperature:.2f}C with +10C offset')
         while flag_run and get_error() >= 1.5:  # wait until signal error reaches within 1.5deg of setPoint
             pass
-        tqdm_waiting(25 * 60, 'Waiting')
+        tqdm_waiting(30 * 60, 'Waiting')
         set_temperature(next_temp=next_temperature, verbose=True, offset=0)
         logger.info(f'Waiting for the Camera to settle near {next_temperature:.2f}C')
         logger_mean.info(f'#######   {next_temperature}   #######')
@@ -131,9 +131,9 @@ def set_and_wait_for_temperatures_to_settle(temperature_queue: Queue, semaphore_
             difference_lifo.maxlen = make_maxlen()
             current_temperature = get_inner_temperature()
             diff = abs(current_temperature - prev_temperature)
-            prev_temperature = current_temperature
             difference_lifo.append(diff)
-            logger_mean.info(f"{diff:.4f}")
+            logger_mean.info(f"{diff:.4f} prev{prev_temperature:.4f} curr{current_temperature:.4f}")
+            prev_temperature = current_temperature
             if current_temperature >= next_temperature:
                 break
         semaphore_wait4temp.release()

@@ -121,6 +121,7 @@ def thread_run_experiment(semaphore_mask: Semaphore, output_path: Path):
 
 
 def func_start_run_loop() -> None:
+    root.focus_set()
     disable_fields_and_buttons(root, buttons_dict)
     update_status_label(frames_dict[FRAME_STATUS], WORKING)
 
