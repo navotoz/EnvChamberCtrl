@@ -163,7 +163,7 @@ def thread_get_fpa_housing_temperatures(devices_dict, frame: tk.Frame, flag):
 
 def get_values_list(frame: tk.Frame, devices_dict: dict) -> tuple:
     values_list = []
-    for device_name in [BLACKBODY_NAME, SCANNER_NAME, FOCUS_NAME]:   # NOT VERY GOOD - CAN LEAD TO PROBLEMS...
+    for device_name in [BLACKBODY_NAME, SCANNER_NAME, FOCUS_NAME]:  # NOT VERY GOOD - CAN LEAD TO PROBLEMS...
         state_device = get_device_status(devices_dict[device_name])
         # The range is invalid or device is off
         if (inc_value := frame.getvar(device_name + INC_STRING)) == 0 or state_device == DEVICE_OFF:
@@ -228,9 +228,11 @@ def get_inner_temperatures(frame: Frame, type_to_get: str = T_HOUSING) -> float:
     raise NotImplementedError(f"{type_to_get} was not implemented for inner temperatures.")
 
 
-def tqdm_waiting(time_to_wait_seconds: int, postfix: str):
+def tqdm_waiting(time_to_wait_seconds: int, postfix: str, flag: (ThreadedSyncFlag, None) = None):
     for _ in tqdm(range(time_to_wait_seconds), total=time_to_wait_seconds, leave=True, postfix=postfix):
         sleep(1)
+        if flag is not None and not flag:
+            return
 
 
 dict_variables = {}

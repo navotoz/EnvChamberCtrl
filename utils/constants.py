@@ -5,7 +5,7 @@ FMT_TIME = "%Y%m%d_h%Hm%Ms%S"
 # PID parameters
 Kp = 1.0
 Ki = 3.0
-Kd = 500.0
+Kd = 400.0
 LOW_VOLT_LIMIT = 1   # the time constant of the LOW_VOLT is around 30minutes/Degree
 MID_VOLT_LIMIT = 3   # keep distance between LOW, MID, HIGH > 1
 HIGH_VOLT_LIMIT = 40
@@ -54,7 +54,7 @@ ITERATIONS_IN_TEMPERATURE_INIT_VAL = 3
 SETTLING_TIME_MINUTES = 'settling_time_minutes'
 SETTLING_TIME_MINUTES_INIT_VAL = 5
 DELTA_TEMPERATURE = 'delta_temperature'
-DELTA_TEMPERATURE_INIT_VAL = 5e-2
+DELTA_TEMPERATURE_INIT_VAL = 4e-2
 USE_CAM_INNER_TEMPS = 'use_cam_inner_temps'
 USE_CAM_INNER_TEMPS_INIT_VAL = '1'
 RESOLUTION_STRING = " resolution"

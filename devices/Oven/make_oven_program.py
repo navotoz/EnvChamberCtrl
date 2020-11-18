@@ -78,7 +78,7 @@ Sub SetMainPort(condition)
     EndIf
 EndSub
 
-DataTable ({OVEN_TABLE_NAME},1,6000)  ' Is 6000 enough??
+DataTable ({OVEN_TABLE_NAME},1,1000)
     DataInterval (0,{OVEN_LOG_TIME_SECONDS},SECONDS,10)
     Average (1,{T_FLOOR},FP2,False)
     Average (1,{T_INSULATION},FP2,False)
