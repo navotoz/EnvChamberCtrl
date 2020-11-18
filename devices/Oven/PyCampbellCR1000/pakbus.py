@@ -16,6 +16,7 @@ from __future__ import division, unicode_literals
 import struct
 import time
 
+from utils.constants import PAKBUS_HEADER_LENGTH
 from .compat import ord, chr, is_text, is_py3, bytes
 from .logger import LOGGER
 from .utils import Singleton
@@ -157,7 +158,7 @@ class PakBus(object):
         '''
         LOGGER.info('Wait packet with transaction %s' % transac_id)
         data = self.read()
-        if data is None or data == b'':
+        if not data or data == b'' or len(data) < PAKBUS_HEADER_LENGTH:
             return {}, {}
 
         hdr, msg = self.decode_packet(data)

@@ -97,7 +97,6 @@ def set_and_wait_for_temperatures_to_settle(temperature_queue: Queue, semaphore_
 
     logger_mean = make_logger('OvenTempDiff',
                               make_logging_handlers(Path('log/log_oven_temperature_differences.txt'), False))
-    max_temperature = MaxTemperatureTimer()
     next_temperature, prev_temperature = 0, 0
     set_temperature = partial(set_oven_temperature, flag_run=flag_run, logger=logger, oven=devices_dict[OVEN_NAME])
     if int(frame.getvar(USE_CAM_INNER_TEMPS)):
@@ -131,12 +130,13 @@ def set_and_wait_for_temperatures_to_settle(temperature_queue: Queue, semaphore_
         set_temperature(next_temp=next_temperature, verbose=True, offset=0)
         logger.info(f'Waiting for the Camera to settle near {next_temperature:.2f}C')
         logger_mean.info(f'#######   {next_temperature}   #######')
+        max_temperature = MaxTemperatureTimer()
         while flag_run and \
                 max(difference_lifo) > float(frame.getvar(DELTA_TEMPERATURE)) and \
                 max_temperature.time_since_setting_in_minutes < frame.getvar(SETTLING_TIME_MINUTES):
             difference_lifo.maxlength = make_maxlength()
             current_temperature = get_inner_temperature()
-            max_temperature = current_temperature
+            max_temperature.max = current_temperature
             diff = abs(current_temperature - prev_temperature)
             difference_lifo.append(diff)
             logger_mean.info(f"{diff:.4f} "
@@ -211,7 +211,7 @@ def thread_handle_oven_temperature(**kwargs) -> None:
 
 
 class MaxTemperatureTimer:
-    def __init__(self):
+    def __init__(self) -> None:
         self._max_temperature = -float('inf')
         self._time_of_setting = time_ns()
 

@@ -78,10 +78,10 @@ class CR1000(object):
             except NoDeviceException:
                 self.pakbus.link.close()
                 self.pakbus.link.open()
-        self._log.info('Connected.')
-        self.set_value('Public', SETPOINT, 0.0)
         if not self.connected:
             raise NoDeviceException()
+        self.set_value('Public', SETPOINT, 0.0)
+        self._log.info('Connected.')
 
     @property
     def log(self):
@@ -114,16 +114,17 @@ class CR1000(object):
             self.pakbus.write(packet)
             # wait response packet
             response = self.pakbus.wait_packet(transac_id)
+            if not response:
+                return None, None, None
             end = time.time()
             send_time = timedelta(seconds=int((end - begin) / 2))
             return response[0], response[1], send_time
 
     def ping_node(self):
-
         '''Check if remote host is available.'''
         # send hello command and wait for response packet
         hdr, msg, send_time = self.send_wait(self.pakbus.get_hello_cmd())
-        if not (hdr and msg):
+        if not hdr or not msg or not (hdr and msg):
             raise NoDeviceException()
         return True
 
