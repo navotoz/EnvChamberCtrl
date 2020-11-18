@@ -348,6 +348,10 @@ class CR1000(object):
 
     def __del__(self):
         '''Send bye cmd when object is deleted.'''
+        try:
+            self.set_value('Public', SETPOINT, 0.0)
+        except Exception as err:
+            pass
         self.bye()
 
     def get_value(self, table_name:str, field_name:str)->float:

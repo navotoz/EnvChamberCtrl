@@ -19,7 +19,6 @@ from utils.logger import make_logger, make_logging_handlers
 from utils.tools import check_and_make_path, wait_for_time
 
 
-##################  GETTER  ##################
 def process_plotter(path_to_log: Path, semaphore_plotter: mp.Semaphore, logger: Logger):
     path_to_save = path_to_log.parent / PLOTS_PATH / 'oven'
     check_and_make_path(path_to_save)
@@ -57,7 +56,6 @@ def thread_collect_oven_temperatures(devices_dict: dict, flag_run_experiment: Th
     p.kill()
 
 
-##################  SETTER  ##################
 def wait_for_experiment_iterations(semaphore_oven_sync: Semaphore, flag_run: ThreadedSyncFlag, logger: Logger,
                                    n_of_experiments: int, next_temperature: float, semaphore_exp: Semaphore):
     [semaphore_exp.release() for _ in range(n_of_experiments)]  # allows the experiments to run
@@ -91,7 +89,7 @@ def set_oven_temperature(oven: CR1000, next_temp: float, logger: Logger, flag_ru
 
 def set_and_wait_for_temperatures_to_settle(temperature_queue: Queue, semaphore_wait4temp: Semaphore, frame: Frame,
                                             flag_run: ThreadedSyncFlag, logger: Logger, devices_dict: dict):
-    def make_maxlen():
+    def make_maxlength() -> int:
         mean_change = int(frame.getvar(SETTLING_TIME_MINUTES)) * 60
         if not int(frame.getvar(USE_CAM_INNER_TEMPS)):
             return int(mean_change // OVEN_LOG_TIME_SECONDS)
@@ -118,7 +116,7 @@ def set_and_wait_for_temperatures_to_settle(temperature_queue: Queue, semaphore_
                 pass
         if next_temperature == 0:
             break
-        difference_lifo = VariableLengthDeque(maxlen=max(1, make_maxlen()))
+        difference_lifo = VariableLengthDeque(maxlen=max(1, make_maxlength()))
         difference_lifo.append(float('inf'))  # +inf so that it is always bigger than DELTA_TEMPERATURE
         set_temperature(next_temp=next_temperature, verbose=True, offset=10.0)
         time_of_setting = time_ns()
@@ -136,19 +134,22 @@ def set_and_wait_for_temperatures_to_settle(temperature_queue: Queue, semaphore_
         while flag_run and \
                 max(difference_lifo) > float(frame.getvar(DELTA_TEMPERATURE)) and \
                 max_temperature.time_since_setting_in_minutes < frame.getvar(SETTLING_TIME_MINUTES):
-            difference_lifo.maxlen = make_maxlen()
+            difference_lifo.maxlength = make_maxlength()
             current_temperature = get_inner_temperature()
             max_temperature = current_temperature
             diff = abs(current_temperature - prev_temperature)
             difference_lifo.append(diff)
-            logger_mean.info(f"{diff:.4f} prev{prev_temperature:.4f} curr{current_temperature:.4f}")
+            logger_mean.info(f"{diff:.4f} "
+                             f"prev{prev_temperature:.4f} "
+                             f"curr{current_temperature:.4f} "
+                             f"max{max_temperature.max:.4f}")
             prev_temperature = current_temperature
             if current_temperature >= next_temperature:
                 break
         semaphore_wait4temp.release()
-        logger.info(f'Camera reached temperature {prev_temperature:.2f}C'
-                    f' and settled for {frame.getvar(SETTLING_TIME_MINUTES)} minutes'
-                    f' under {frame.getvar(DELTA_TEMPERATURE):g} delta.')
+        logger.info(f'Camera reached temperature {prev_temperature:.2f}C '
+                    f'and settled for {frame.getvar(SETTLING_TIME_MINUTES)} minutes '
+                    f'under {frame.getvar(DELTA_TEMPERATURE):g} delta.')
     set_temperature(next_temp=0.0, verbose=True)
 
 

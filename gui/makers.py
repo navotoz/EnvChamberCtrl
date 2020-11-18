@@ -149,7 +149,7 @@ def make_device_and_handle_parameters(name: str, frame: tk.Frame, logger, handle
         device = initialize_device(name, logger, handlers, True if status == DEVICE_DUMMY else False)
     else:
         device = None
-        logger.info(f"{name} is off.")
+        logger.info(f"{name.capitalize()} is off.")
     frame.setvar(f'device_status_{name}', get_device_status(device))
     update_spinbox_parameters_devices_states(frame, {name: device})
     return device

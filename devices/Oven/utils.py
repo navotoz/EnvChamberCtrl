@@ -117,12 +117,12 @@ class VariableLengthDeque:
             self._deque.append(value)
 
     @property
-    def maxlen(self):
+    def maxlength(self):
         with self._lock:
             return self._deque.maxlen
 
-    @maxlen.setter
-    def maxlen(self, new_len: int):
+    @maxlength.setter
+    def maxlength(self, new_len: int):
         new_len = int(new_len)
         with self._lock:
             if new_len == self._deque.maxlen:
