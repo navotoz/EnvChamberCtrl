@@ -113,27 +113,27 @@ def set_and_wait_for_temperatures_to_settle(temperature_queue: Queue, semaphore_
                 break
             except Empty:
                 pass
-        if next_temperature == 0:
+        if next_temperature == 0 or not flag_run:
             break
         difference_lifo = VariableLengthDeque(maxlen=max(1, make_maxlength()))
         difference_lifo.append(float('inf'))  # +inf so that it is always bigger than DELTA_TEMPERATURE
-        set_temperature(next_temp=next_temperature, verbose=True, offset=10.0)
-        time_of_setting = time_ns()
+        current_temperature = get_inner_temperature()
+        offset = round(DELAY_FROM_FLOOR_TO_CAMERA_CONSTANT * (next_temperature - current_temperature), 0)
+        set_temperature(next_temp=next_temperature, verbose=True, offset=offset)
         tqdm_waiting(2 * (OVEN_LOG_TIME_SECONDS + PID_FREQ_SEC), 'PID settling', flag_run)
-        logger.info(f'Waiting for the Controlled Temperature to reach {next_temperature:.2f}C with +10C offset')
         while flag_run and get_error() >= 1.5:  # wait until signal error reaches within 1.5deg of setPoint
             pass
-        time_of_setting -= time_ns()  # result is negative
-        time_of_setting *= 1e-9
-        time_of_setting += DELAY_FROM_FLOOR_TO_CAMERA_SECONDS
-        tqdm_waiting(int(max(0, time_of_setting)), 'Waiting', flag_run)
+        # time_of_setting -= time_ns()  # result is negative
+        # time_of_setting *= 1e-9
+        # time_of_setting += DELAY_FROM_FLOOR_TO_CAMERA_SECONDS
+        # tqdm_waiting(int(max(0, time_of_setting)), 'Waiting', flag_run)
         set_temperature(next_temp=next_temperature, verbose=True, offset=0)
         logger.info(f'Waiting for the Camera to settle near {next_temperature:.2f}C')
         logger_mean.info(f'#######   {next_temperature}   #######')
         max_temperature = MaxTemperatureTimer()
         while flag_run and \
-                max(difference_lifo) > float(frame.getvar(DELTA_TEMPERATURE)) and \
-                max_temperature.time_since_setting_in_minutes < frame.getvar(SETTLING_TIME_MINUTES):
+                (max(difference_lifo) > float(frame.getvar(DELTA_TEMPERATURE)) or
+                 max_temperature.time_since_setting_in_minutes < frame.getvar(SETTLING_TIME_MINUTES)):
             difference_lifo.maxlength = make_maxlength()
             current_temperature = get_inner_temperature()
             max_temperature.max = current_temperature
@@ -164,8 +164,9 @@ def _thread_handle_oven_func(devices_dict: dict, semaphore_oven_sync: Semaphore,
            args=(devices_dict, flag_run_experiment,), daemon=True).start()
     tqdm_waiting(OVEN_LOG_TIME_SECONDS + PID_FREQ_SEC, 'Wait for first measurement from controller',
                  flag_run_experiment)
-    Thread(target=set_and_wait_for_temperatures_to_settle, name='th_wait_for_oven_temperature',
-           kwargs=wait_for_temperature_kwargs, daemon=True).start()
+    th_set_temperature = Thread(target=set_and_wait_for_temperatures_to_settle, name='th_wait_for_oven_temperature',
+                                kwargs=wait_for_temperature_kwargs, daemon=True)
+    th_set_temperature.start()
     wait_for_iters = partial(wait_for_experiment_iterations, semaphore_oven_sync=semaphore_oven_sync,
                              flag_run=flag_run_experiment, logger=logger, semaphore_exp=semaphore_experiment_sync)
 
@@ -185,6 +186,7 @@ def _thread_handle_oven_func(devices_dict: dict, semaphore_oven_sync: Semaphore,
         if flag_run_experiment:
             wait_for_iters(n_of_experiments=get_n_experiments(frame), next_temperature=next_temperature)
     queue_temperature.put_nowait(0.0)
+    th_set_temperature.join()
 
 
 def thread_get_oven_temperatures(devices_dict: dict, flag_run: ThreadedSyncFlag):
