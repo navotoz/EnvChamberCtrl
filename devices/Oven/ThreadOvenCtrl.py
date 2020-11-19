@@ -1,3 +1,6 @@
+import math
+
+import numpy as np
 import csv
 import multiprocessing as mp
 from functools import partial
@@ -68,12 +71,11 @@ def wait_for_experiment_iterations(semaphore_oven_sync: Semaphore, flag_run: Thr
     logger.info(f'{n_of_experiments} experiments conducted for {next_temperature}.')
 
 
-def set_oven_temperature(oven: CR1000, next_temp: float, logger: Logger, flag_run: ThreadedSyncFlag,
-                         offset: float = 0.0, verbose: bool = True):
+def set_oven_temperature(oven: CR1000, next_temp: float, logger: Logger, offset: float = 0.0, verbose: bool = True):
     if offset < 0:
         logger.warning(f"Oven was given negative offset {offset:.2f}, Disregarding.")
         offset = 0.0
-    while flag_run:
+    for _ in range(10):
         try:
             if oven.set_value('Public', SETPOINT, float(next_temp) + offset):
                 msg = f'Setting the oven to {next_temp:.2f}C'
@@ -83,7 +85,9 @@ def set_oven_temperature(oven: CR1000, next_temp: float, logger: Logger, flag_ru
             else:
                 logger.debug(f'next temperature {next_temp:.2f}C is already set in the oven.') if verbose else None
             break
-        except ValueError:
+        except AttributeError:
+            break
+        except (ValueError, RuntimeError, ModuleNotFoundError, NameError, ReferenceError, IOError, SystemError):
             pass
 
 
@@ -98,7 +102,7 @@ def set_and_wait_for_temperatures_to_settle(temperature_queue: Queue, semaphore_
     logger_mean = make_logger('OvenTempDiff',
                               make_logging_handlers(Path('log/log_oven_temperature_differences.txt'), False))
     next_temperature, prev_temperature = 0, 0
-    set_temperature = partial(set_oven_temperature, flag_run=flag_run, logger=logger, oven=devices_dict[OVEN_NAME])
+    set_temperature = partial(set_oven_temperature, logger=logger, oven=devices_dict[OVEN_NAME])
     if int(frame.getvar(USE_CAM_INNER_TEMPS)):
         get_inner_temperature = wait_for_time(partial(get_inner_temperatures, frame=frame),
                                               wait_time_in_nsec=FREQ_INNER_TEMPERATURE_SECONDS * 1e9)
@@ -117,8 +121,7 @@ def set_and_wait_for_temperatures_to_settle(temperature_queue: Queue, semaphore_
             break
         difference_lifo = VariableLengthDeque(maxlen=max(1, make_maxlength()))
         difference_lifo.append(float('inf'))  # +inf so that it is always bigger than DELTA_TEMPERATURE
-        current_temperature = get_inner_temperature()
-        offset = round(DELAY_FROM_FLOOR_TO_CAMERA_CONSTANT * (next_temperature - current_temperature), 0)
+        offset = round(max(0, DELAY_FLOOR2CAMERA_CONST * (next_temperature - oven_temperatures.get(T_FLOOR))), 1)
         set_temperature(next_temp=next_temperature, verbose=True, offset=offset)
         tqdm_waiting(2 * (OVEN_LOG_TIME_SECONDS + PID_FREQ_SEC), 'PID settling', flag_run)
         while flag_run and get_error() >= 1.5:  # wait until signal error reaches within 1.5deg of setPoint
@@ -162,7 +165,7 @@ def _thread_handle_oven_func(devices_dict: dict, semaphore_oven_sync: Semaphore,
                                        semaphore_wait4temp=semaphore_wait4temp)
     Thread(target=thread_get_oven_temperatures, name='thread_get_oven_temperatures',
            args=(devices_dict, flag_run_experiment,), daemon=True).start()
-    tqdm_waiting(OVEN_LOG_TIME_SECONDS + PID_FREQ_SEC, 'Wait for first measurement from controller',
+    tqdm_waiting(max(OVEN_LOG_TIME_SECONDS, PID_FREQ_SEC)+1, 'Wait for first measurement from controller',
                  flag_run_experiment)
     th_set_temperature = Thread(target=set_and_wait_for_temperatures_to_settle, name='th_wait_for_oven_temperature',
                                 kwargs=wait_for_temperature_kwargs, daemon=True)
