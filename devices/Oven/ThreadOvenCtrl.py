@@ -152,7 +152,7 @@ def set_and_wait_for_temperatures_to_settle(temperature_queue: Queue, semaphore_
         semaphore_wait4temp.release()
         logger.info(f'Camera reached temperature {prev_temperature:.2f}C '
                     f'and settled for {frame.getvar(SETTLING_TIME_MINUTES)} minutes '
-                    f'under {frame.getvar(DELTA_TEMPERATURE):g} delta.')
+                    f'under {frame.getvar(DELTA_TEMPERATURE)} delta.')
     set_temperature(next_temp=0.0, verbose=True)
 
 
