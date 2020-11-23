@@ -11,7 +11,7 @@ import numpy as np
 from PIL import Image
 
 from utils.constants import *
-from utils.tools import wait_for_time, mean, get_time, normalize_image, check_and_make_path
+from utils.tools import wait_for_time,  get_time, normalize_image, check_and_make_path
 from tqdm import tqdm
 
 
@@ -99,6 +99,7 @@ def change_spinbox_parameters_state(frame: tk.Frame, state):
 
 
 def disable_fields_and_buttons(root: tk.Tk, buttons_dict: dict):
+    change_spinbox_parameters_state(root.nametowidget(FRAME_PARAMS), tk.DISABLED)
     root.nametowidget(FRAME_HEAD).nametowidget(EXPERIMENT_NAME).config(state=tk.DISABLED)
     buttons_dict[BUTTON_BROWSE].config(state=tk.DISABLED)
     buttons_dict[BUTTON_START].config(state=tk.DISABLED, relief=tk.SUNKEN)

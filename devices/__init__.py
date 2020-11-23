@@ -46,5 +46,5 @@ def make_oven(logging_handlers: tuple = make_logging_handlers(None, True), loggi
 
 
 def make_oven_dummy(logging_handlers: tuple = make_logging_handlers(None, True), logging_level: int = 20):
-    from devices.Oven.DummyOven import CR1000
+    from devices.Oven.PyCampbellCR1000.DummyOven import CR1000
     return CR1000(None, logging_handlers=logging_handlers, logging_level=logging_level)

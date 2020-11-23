@@ -9,7 +9,7 @@ from time import sleep
 
 import numpy as np
 
-from devices.Oven.ThreadOvenCtrl import thread_handle_oven_temperature, thread_collect_oven_temperatures
+from devices.Oven.OvenCtrl import thread_handle_oven_temperature, thread_collect_oven_temperatures
 from devices.Oven.make_oven_program import make_oven_basic_prog
 from devices.Oven.plots import plot_btn_func
 from utils.analyze import process_plot_images_comparison
