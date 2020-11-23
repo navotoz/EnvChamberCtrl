@@ -165,4 +165,5 @@ set_buttons_by_devices_status(root.nametowidget(FRAME_BUTTONS), devices_dict)
 root.mainloop()
 
 
+# todo: wait for the FPA\HOUSING temperatures to update before every grab()?
 # todo: when oven temperatures end, the setpoint goes to zero and stays there...
