@@ -31,7 +31,7 @@ def process_plotter(path_to_log: Path, semaphore_plotter: mp.Semaphore, logger: 
         logger.debug('Fetched oven logs and plotted them.')
 
 
-def thread_collect_oven_temperatures(devices_dict: dict, flag_run_experiment: ThreadedSyncFlag, frame: Frame,
+def thread_collect_oven_temperatures(devices_dict: dict, flag_run: ThreadedSyncFlag, frame: Frame,
                                      path_to_log: (Path, str), logger=Logger):
     if get_device_status(devices_dict[OVEN_NAME]) != DEVICE_REAL:
         return
@@ -50,7 +50,7 @@ def thread_collect_oven_temperatures(devices_dict: dict, flag_run_experiment: Th
     p = mp.Process(target=process_plotter, daemon=True, name='proc_oven_temps_plotter',
                    kwargs=dict(path_to_log=path_to_log, semaphore_plotter=semaphore_plotter, logger=logger))
     p.start()
-    while flag_run_experiment:
+    while flag_run:
         # notice that wait_for_time doesn't block CR1000, because the func returns before the wait
         if not collect_oven_records(devices_dict[OVEN_NAME], logger, path_to_log, frame, oven_keys, is_real_camera):
             continue
@@ -121,7 +121,8 @@ def set_and_wait_for_temperatures_to_settle(temperature_queue: Queue, semaphore_
             break
         difference_lifo = VariableLengthDeque(maxlen=max(1, make_maxlength()))
         difference_lifo.append(float('inf'))  # +inf so that it is always bigger than DELTA_TEMPERATURE
-        offset = round(max(0, DELAY_FLOOR2CAMERA_CONST * (next_temperature - oven_temperatures.get(T_FLOOR))), 1)
+        offset = next_temperature - max(oven_temperatures.get(T_FLOOR), get_inner_temperatures(frame))
+        offset = round(max(0, DELAY_FLOOR2CAMERA_CONST * offset), 1)
         set_temperature(next_temp=next_temperature, verbose=True, offset=offset)
         tqdm_waiting(2 * (OVEN_LOG_TIME_SECONDS + PID_FREQ_SEC), 'PID settling', flag_run)
         while flag_run and get_error() >= 1.5:  # wait until signal error reaches within 1.5deg of setPoint
@@ -157,21 +158,21 @@ def set_and_wait_for_temperatures_to_settle(temperature_queue: Queue, semaphore_
 
 
 def _thread_handle_oven_func(devices_dict: dict, semaphore_oven_sync: Semaphore, logger: Logger, frame: Frame,
-                             semaphore_experiment_sync: Semaphore, flag_run_experiment: ThreadedSyncFlag) -> None:
+                             semaphore_experiment_sync: Semaphore, flag_run: ThreadedSyncFlag) -> None:
     semaphore_wait4temp = Semaphore(value=0)
     queue_temperature = Queue()
-    wait_for_temperature_kwargs = dict(frame=frame, flag_run=flag_run_experiment, logger=logger,
+    wait_for_temperature_kwargs = dict(frame=frame, flag_run=flag_run, logger=logger,
                                        temperature_queue=queue_temperature, devices_dict=devices_dict,
                                        semaphore_wait4temp=semaphore_wait4temp)
     Thread(target=thread_get_oven_temperatures, name='thread_get_oven_temperatures',
-           args=(devices_dict, flag_run_experiment,), daemon=True).start()
-    tqdm_waiting(max(OVEN_LOG_TIME_SECONDS, PID_FREQ_SEC)+1, 'Wait for first measurement from controller',
-                 flag_run_experiment)
+           args=(devices_dict, flag_run,), daemon=True).start()
+    tqdm_waiting(max(OVEN_LOG_TIME_SECONDS, PID_FREQ_SEC) + 1, 'Wait for first measurement from controller',
+                 flag_run)
     th_set_temperature = Thread(target=set_and_wait_for_temperatures_to_settle, name='th_wait_for_oven_temperature',
                                 kwargs=wait_for_temperature_kwargs, daemon=True)
     th_set_temperature.start()
     wait_for_iters = partial(wait_for_experiment_iterations, semaphore_oven_sync=semaphore_oven_sync,
-                             flag_run=flag_run_experiment, logger=logger, semaphore_exp=semaphore_experiment_sync)
+                             flag_run=flag_run, logger=logger, semaphore_exp=semaphore_experiment_sync)
 
     if get_device_status(devices_dict[OVEN_NAME]) == DEVICE_OFF:
         return
@@ -181,12 +182,12 @@ def _thread_handle_oven_func(devices_dict: dict, semaphore_oven_sync: Semaphore,
     temperatures_list = make_oven_temperatures_list(oven_temperatures.get(T_FLOOR))
     devices_dict[OVEN_NAME].log.debug('Entering oven control loop')
     for next_temperature in temperatures_list:
-        if not flag_run_experiment:
+        if not flag_run:
             break
         queue_temperature.put(next_temperature, block=False)
-        while flag_run_experiment and not semaphore_wait4temp.acquire(timeout=3):
+        while flag_run and not semaphore_wait4temp.acquire(timeout=3):
             pass
-        if flag_run_experiment:
+        if flag_run:
             wait_for_iters(n_of_experiments=get_n_experiments(frame), next_temperature=next_temperature)
     queue_temperature.put_nowait(0.0)
     th_set_temperature.join()
@@ -209,8 +210,13 @@ def thread_get_oven_temperatures(devices_dict: dict, flag_run: ThreadedSyncFlag)
 def thread_handle_oven_temperature(**kwargs) -> None:
     try:
         _thread_handle_oven_func(**kwargs)
-    except RuntimeError:
-        pass
+    except RuntimeError as err:
+        msg = f'OvenCtrl handler failed with {err}'
+        print(msg)
+        try:
+            kwargs['logger'].error(msg)
+        except (KeyError, ValueError, TypeError, AttributeError):
+            pass
     for _ in range(int(1e6)):
         kwargs['semaphore_experiment_sync'].release()
 

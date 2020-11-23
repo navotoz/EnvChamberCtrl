@@ -2,6 +2,7 @@ import csv
 import multiprocessing as mp
 from collections import deque
 from datetime import datetime, timedelta
+from logging import Logger
 from pathlib import Path
 from time import sleep
 from tkinter import Frame
@@ -52,7 +53,7 @@ def interp_missing_values(res_with_missing_values: list):
     return res_with_missing_values
 
 
-def collect_oven_records(oven, logger, path_to_log: Path, frame: Frame, oven_keys: (list, tuple),
+def collect_oven_records(oven:  CR1000, logger: Logger, path_to_log: Path, frame: Frame, oven_keys: (list, tuple),
                          is_real_camera: bool) -> bool:
     get = wait_for_time(func=get_last_measurements, wait_time_in_nsec=OVEN_LOG_TIME_SECONDS * 1e9)
     records = get(oven)

@@ -31,11 +31,11 @@ semaphore_oven_sync = Semaphore(0)
 semaphore_experiment_sync = Semaphore(0)
 semaphore_plot_proc = mp.Semaphore(0)
 semaphore_mask_sync = Semaphore(0)
-flag_run_experiment = ThreadedSyncFlag()
+flag_run = ThreadedSyncFlag()
 
 
 def _stop():
-    flag_run_experiment.set(False)
+    flag_run.set(False)
     semaphore_plot_proc.release()
     semaphore_mask_sync.release()
     semaphore_experiment_sync.release()
@@ -54,9 +54,9 @@ def func_stop_run() -> None:
 
 
 def thread_run_experiment(semaphore_mask: Semaphore, output_path: Path):
-    global flag_run_experiment
+    global flag_run
     semaphore_mask.acquire()
-    kwargs = dict(devices_dict=devices_dict, flag_run_experiment=flag_run_experiment,
+    kwargs = dict(devices_dict=devices_dict, flag_run=flag_run,
                   frame=frames_dict[FRAME_TEMPERATURES], path_to_log=output_path, logger=devices_dict[OVEN_NAME].log)
     Thread(target=thread_collect_oven_temperatures, daemon=True, name='th_oven_getter', kwargs=kwargs).start()
     kwargs.pop('path_to_log')
@@ -66,14 +66,14 @@ def thread_run_experiment(semaphore_mask: Semaphore, output_path: Path):
     kwargs['logger'] = logger  # gui logger
     Thread(target=thread_handle_oven_temperature, daemon=True, name='th_oven_setter', kwargs=kwargs).start()
 
-    flag_run_experiment.set(True)
+    flag_run.set(True)
     proc_plot = mp.Process(kwargs=dict(path_to_experiment=output_path, semaphore=semaphore_plot_proc,
-                                       flag=flag_run_experiment), name=f'proc_plot_res_{get_time().strftime("%H%M%S")}',
+                                       flag=flag_run), name=f'proc_plot_res_{get_time().strftime("%H%M%S")}',
                            target=process_plot_images_comparison, daemon=True)
     proc_plot.start()
     output_path /= 'images'
     check_and_make_path(output_path)
-    while flag_run_experiment:
+    while flag_run:
         semaphore_experiment_sync.acquire()
         frames_dict[FRAME_PROGRESSBAR].nametowidget(PROGRESSBAR).stop()  # resets the progress bar
 
@@ -86,8 +86,8 @@ def thread_run_experiment(semaphore_mask: Semaphore, output_path: Path):
         logger.info(f"Experiment started. Running {total_images} images in total.")
         for blackbody_temperature, scanner_angle, focus in permutations:
             if blackbody_temperature == -float('inf'):
-                flag_run_experiment.set(False)
-            if not flag_run_experiment:
+                flag_run.set(False)
+            if not flag_run:
                 logger.warning('Stopped the experiment.')
                 break
             f_name = apply_value_and_make_filename(blackbody_temperature, scanner_angle, focus, devices_dict, logger)
@@ -99,7 +99,7 @@ def thread_run_experiment(semaphore_mask: Semaphore, output_path: Path):
             f_name += f"fpa_{t_fpa:.2f}_housing_{t_housing:.2f}_"
             devices_dict[CAMERA_NAME].ffc()  # calibrate
             for i in range(1, n_images_per_iteration + 1):
-                if not flag_run_experiment:
+                if not flag_run:
                     break
                 img = grab()
                 f_name_to_save = str(output_path / f"{f_name}{i}|{n_images_per_iteration}")
@@ -156,7 +156,7 @@ func_dict = {BUTTON_BROWSE: partial(browse_btn_func, f_btn=frames_dict[FRAME_BUT
 buttons_dict = make_buttons(frames_dict[FRAME_BUTTONS], func_dict)
 
 Thread(target=thread_get_fpa_housing_temperatures, name='th_get_fpa_housing_temperatures',
-       args=(devices_dict, frames_dict[FRAME_TEMPERATURES], flag_run_experiment,), daemon=True).start()
+       args=(devices_dict, frames_dict[FRAME_TEMPERATURES], flag_run,), daemon=True).start()
 
 update_status_label(frames_dict[FRAME_STATUS], READY)
 update_spinbox_parameters_devices_states(root.nametowidget(FRAME_PARAMS), devices_dict)

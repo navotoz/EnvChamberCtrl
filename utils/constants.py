@@ -57,20 +57,20 @@ SETTLING_TIME_MINUTES_INIT_VAL = 3
 DELTA_TEMPERATURE = 'delta_temperature'
 # large delta means that the system is only relevant for INCREASING temperatures,
 # because only the max temperature condition can be true
-DELTA_TEMPERATURE_INIT_VAL = 5e-2
+DELTA_TEMPERATURE_INIT_VAL = 6e-2
 USE_CAM_INNER_TEMPS = 'use_cam_inner_temps'
 USE_CAM_INNER_TEMPS_INIT_VAL = '1'
 RESOLUTION_STRING = " resolution"
 IMAGES_TO_RUN_LABEL = 'images_to_run'
 EXPERIMENT_SAVE_PATH = 'experiment_save_path'
-FREQ_INNER_TEMPERATURE_SECONDS = 2.1
+FREQ_INNER_TEMPERATURE_SECONDS = 2
 
 # rate of climb for the camera is approx. 1C / 8.5min ~= 0.12C / 1min ~= 8.3min / 1C
 # rate of climb for the floor is approx. 10C / 9min ~= 1C / 1min ~= 1min / 1C
 # rate of decay for the floor is approx. 3C / 6.5min ~= 0.46C / 1min ~= 2.17min / 1C
 # for the settling time of the floor and the camera to be equal:
 # max temperature of floor above desired camera temperature = 2.3 * desired temperature of the camera
-DELAY_FLOOR2CAMERA_CONST = 2.0
+DELAY_FLOOR2CAMERA_CONST = 2.1
 
 # holds limits and resolutions of all peripherals
 LIMIT_DICT = {OVEN_NAME: {MIN_STRING: 20, MAX_STRING: 90, RESOLUTION_STRING: 1,

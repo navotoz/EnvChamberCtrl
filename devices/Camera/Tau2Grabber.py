@@ -531,7 +531,7 @@ class Tau:
         data = self._send_packet(command, argument)
         res = self._recv_threaded(data, command)
         if res:
-            self._log.debug(f'Set FFC mode to {mode.capitalize()}.')
+            self._log.info(f'Set FFC mode to {mode.capitalize()}.')
             return True
         self._log.warning(f'Setting FFC mode to {mode.capitalize()} failed.')
         return False
