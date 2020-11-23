@@ -178,7 +178,7 @@ def get_values_list(frame: tk.Frame, devices_dict: dict) -> tuple:
     return values_list, prod(map(lambda x: len(x), values_list))
 
 
-class ThreadedSyncFlag:
+class SyncFlag:
     def __init__(self, init_state: bool = True) -> None:
         self._event = Event()
         self._event.set() if init_state else self._event.clear()
@@ -229,7 +229,7 @@ def get_inner_temperatures(frame: Frame, type_to_get: str = T_HOUSING) -> float:
     raise NotImplementedError(f"{type_to_get} was not implemented for inner temperatures.")
 
 
-def tqdm_waiting(time_to_wait_seconds: int, postfix: str, flag: (ThreadedSyncFlag, None) = None):
+def tqdm_waiting(time_to_wait_seconds: int, postfix: str, flag: (SyncFlag, None) = None):
     for _ in tqdm(range(time_to_wait_seconds), total=time_to_wait_seconds, leave=True, postfix=postfix):
         sleep(1)
         if flag is not None and not flag:

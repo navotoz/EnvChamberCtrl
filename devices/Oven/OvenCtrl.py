@@ -16,7 +16,7 @@ from devices.Oven.PyCampbellCR1000.device import CR1000
 from devices.Oven.plots import plot_oven_records_in_path
 from devices.Oven.utils import collect_oven_records, make_oven_temperatures_list, \
     get_n_experiments, VariableLengthDeque
-from gui.utils import get_spinbox_value, ThreadedSyncFlag, get_device_status, get_inner_temperatures, tqdm_waiting
+from gui.utils import get_spinbox_value, SyncFlag, get_device_status, get_inner_temperatures, tqdm_waiting
 from utils.constants import *
 from utils.logger import make_logger, make_logging_handlers
 from utils.tools import check_and_make_path, wait_for_time
@@ -31,7 +31,7 @@ def process_plotter(path_to_log: Path, semaphore_plotter: mp.Semaphore, logger: 
         logger.debug('Fetched oven logs and plotted them.')
 
 
-def thread_collect_oven_temperatures(devices_dict: dict, flag_run: ThreadedSyncFlag, frame: Frame,
+def thread_collect_oven_temperatures(devices_dict: dict, flag_run: SyncFlag, frame: Frame,
                                      path_to_log: (Path, str), logger=Logger):
     if get_device_status(devices_dict[OVEN_NAME]) != DEVICE_REAL:
         return
@@ -59,7 +59,7 @@ def thread_collect_oven_temperatures(devices_dict: dict, flag_run: ThreadedSyncF
     p.kill()
 
 
-def wait_for_experiment_iterations(semaphore_oven_sync: Semaphore, flag_run: ThreadedSyncFlag, logger: Logger,
+def wait_for_experiment_iterations(semaphore_oven_sync: Semaphore, flag_run: SyncFlag, logger: Logger,
                                    n_of_experiments: int, next_temperature: float, semaphore_exp: Semaphore):
     [semaphore_exp.release() for _ in range(n_of_experiments)]  # allows the experiments to run
     logger.info(f'Waiting for {n_of_experiments} experiments to occur for next oven level.')
@@ -92,7 +92,7 @@ def set_oven_temperature(oven: CR1000, next_temp: float, logger: Logger, offset:
 
 
 def set_and_wait_for_temperatures_to_settle(temperature_queue: Queue, semaphore_wait4temp: Semaphore, frame: Frame,
-                                            flag_run: ThreadedSyncFlag, logger: Logger, devices_dict: dict):
+                                            flag_run: SyncFlag, logger: Logger, devices_dict: dict):
     def make_maxlength() -> int:
         mean_change = int(frame.getvar(SETTLING_TIME_MINUTES)) * 60
         if not int(frame.getvar(USE_CAM_INNER_TEMPS)):
@@ -137,7 +137,7 @@ def set_and_wait_for_temperatures_to_settle(temperature_queue: Queue, semaphore_
         max_temperature = MaxTemperatureTimer()
         while flag_run and \
                 (max(difference_lifo) > float(frame.getvar(DELTA_TEMPERATURE)) or
-                 max_temperature.time_since_setting_in_minutes < frame.getvar(SETTLING_TIME_MINUTES)):
+                 max_temperature.time_since_setting_in_minutes < float(frame.getvar(SETTLING_TIME_MINUTES))):
             difference_lifo.maxlength = make_maxlength()
             current_temperature = get_inner_temperature()
             max_temperature.max = current_temperature
@@ -158,7 +158,7 @@ def set_and_wait_for_temperatures_to_settle(temperature_queue: Queue, semaphore_
 
 
 def _thread_handle_oven_func(devices_dict: dict, semaphore_oven_sync: Semaphore, logger: Logger, frame: Frame,
-                             semaphore_experiment_sync: Semaphore, flag_run: ThreadedSyncFlag) -> None:
+                             semaphore_experiment_sync: Semaphore, flag_run: SyncFlag) -> None:
     semaphore_wait4temp = Semaphore(value=0)
     queue_temperature = Queue()
     wait_for_temperature_kwargs = dict(frame=frame, flag_run=flag_run, logger=logger,
@@ -193,7 +193,7 @@ def _thread_handle_oven_func(devices_dict: dict, semaphore_oven_sync: Semaphore,
     th_set_temperature.join()
 
 
-def thread_get_oven_temperatures(devices_dict: dict, flag_run: ThreadedSyncFlag):
+def thread_get_oven_temperatures(devices_dict: dict, flag_run: SyncFlag):
     def get() -> None:
         try:
             for t in [T_FLOOR, T_INSULATION, T_CAMERA, SIGNALERROR]:

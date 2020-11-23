@@ -16,7 +16,7 @@ from utils.analyze import process_plot_images_comparison
 from gui.makers import make_frames, make_buttons
 from gui.mask import make_mask_win_and_save
 from gui.utils import apply_value_and_make_filename, disable_fields_and_buttons, \
-    update_status_label, get_values_list, ThreadedSyncFlag, reset_all_fields, set_buttons_by_devices_status, \
+    update_status_label, get_values_list, SyncFlag, reset_all_fields, set_buttons_by_devices_status, \
     browse_btn_func, get_inner_temperatures, thread_get_fpa_housing_temperatures, \
     update_spinbox_parameters_devices_states
 from gui.windows import open_upload_window, open_viewer_window
@@ -31,7 +31,7 @@ semaphore_oven_sync = Semaphore(0)
 semaphore_experiment_sync = Semaphore(0)
 semaphore_plot_proc = mp.Semaphore(0)
 semaphore_mask_sync = Semaphore(0)
-flag_run = ThreadedSyncFlag()
+flag_run = SyncFlag()
 
 
 def _stop():

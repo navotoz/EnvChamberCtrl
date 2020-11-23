@@ -70,7 +70,7 @@ FREQ_INNER_TEMPERATURE_SECONDS = 2
 # rate of decay for the floor is approx. 3C / 6.5min ~= 0.46C / 1min ~= 2.17min / 1C
 # for the settling time of the floor and the camera to be equal:
 # max temperature of floor above desired camera temperature = 2.3 * desired temperature of the camera
-DELAY_FLOOR2CAMERA_CONST = 2.1
+DELAY_FLOOR2CAMERA_CONST = 2.3
 
 # holds limits and resolutions of all peripherals
 LIMIT_DICT = {OVEN_NAME: {MIN_STRING: 20, MAX_STRING: 90, RESOLUTION_STRING: 1,
