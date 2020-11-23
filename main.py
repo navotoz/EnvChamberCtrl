@@ -93,16 +93,15 @@ def thread_run_experiment(semaphore_mask: Semaphore, output_path: Path):
             f_name = apply_value_and_make_filename(blackbody_temperature, scanner_angle, focus, devices_dict, logger)
             logger.info(f"Blackbody temperature {blackbody_temperature}C is set.")
             grab = wait_for_time(devices_dict[CAMERA_NAME].grab, wait_time_in_nsec=2e8)
-            t_fpa = get_inner_temperatures(frames_dict[FRAME_TEMPERATURES], T_FPA)
-            t_housing = get_inner_temperatures(frames_dict[FRAME_TEMPERATURES], T_HOUSING)
-            logger.debug(f"FPA {t_fpa:.2f}C Housing {t_housing:.2f}")
-            f_name += f"fpa_{t_fpa:.2f}_housing_{t_housing:.2f}_"
             devices_dict[CAMERA_NAME].ffc()  # calibrate
             for i in range(1, n_images_per_iteration + 1):
                 if not flag_run:
                     break
+                t_fpa = get_inner_temperatures(frames_dict[FRAME_TEMPERATURES], T_FPA)
+                t_housing = get_inner_temperatures(frames_dict[FRAME_TEMPERATURES], T_HOUSING)
+                f_name_to_save = f_name + f"fpa_{t_fpa:.2f}_housing_{t_housing:.2f}_"
                 img = grab()
-                f_name_to_save = str(output_path / f"{f_name}{i}|{n_images_per_iteration}")
+                f_name_to_save = str(output_path / f"{f_name_to_save}{i}|{n_images_per_iteration}")
                 np.save(f_name_to_save, img)
                 normalize_image(img).save(f_name_to_save, format='jpeg')
                 logger.debug(f"Taken {i} image")
@@ -165,5 +164,4 @@ set_buttons_by_devices_status(root.nametowidget(FRAME_BUTTONS), devices_dict)
 root.mainloop()
 
 
-# todo: wait for the FPA\HOUSING temperatures to update before every grab()?
 # todo: when oven temperatures end, the setpoint goes to zero and stays there...

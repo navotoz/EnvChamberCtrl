@@ -63,7 +63,7 @@ USE_CAM_INNER_TEMPS_INIT_VAL = '1'
 RESOLUTION_STRING = " resolution"
 IMAGES_TO_RUN_LABEL = 'images_to_run'
 EXPERIMENT_SAVE_PATH = 'experiment_save_path'
-FREQ_INNER_TEMPERATURE_SECONDS = 2
+FREQ_INNER_TEMPERATURE_SECONDS = 1
 
 # rate of climb for the camera is approx. 1C / 8.5min ~= 0.12C / 1min ~= 8.3min / 1C
 # rate of climb for the floor is approx. 10C / 9min ~= 1C / 1min ~= 1min / 1C
