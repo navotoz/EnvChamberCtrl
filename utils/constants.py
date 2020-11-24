@@ -57,7 +57,7 @@ SETTLING_TIME_MINUTES_INIT_VAL = 3
 DELTA_TEMPERATURE = 'delta_temperature'
 # large delta means that the system is only relevant for INCREASING temperatures,
 # because only the max temperature condition can be true
-DELTA_TEMPERATURE_INIT_VAL = 6e-2
+DELTA_TEMPERATURE_INIT_VAL = 8e-2
 USE_CAM_INNER_TEMPS = 'use_cam_inner_temps'
 USE_CAM_INNER_TEMPS_INIT_VAL = '1'
 RESOLUTION_STRING = " resolution"
