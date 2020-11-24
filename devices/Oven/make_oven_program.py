@@ -1,5 +1,6 @@
-from utils.constants import *
 from pathlib import Path
+
+from utils.constants import *
 
 
 def make_oven_basic_prog(path: Path = Path.cwd() / 'devices' / 'Oven'):

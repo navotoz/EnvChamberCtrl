@@ -7,9 +7,8 @@ from pathlib import Path
 from typing import Dict, Tuple, List
 
 import matplotlib.pyplot as plt
-from matplotlib.ticker import StrMethodFormatter
 import numpy as np
-from tqdm import tqdm
+from matplotlib.ticker import StrMethodFormatter
 
 from utils.constants import *
 from utils.tools import check_and_make_path

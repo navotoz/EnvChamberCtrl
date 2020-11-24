@@ -34,11 +34,11 @@ def show_image(image: (Image.Image, np.ndarray), title=None, v_min=None, v_max=N
     plt.close() if to_close else None
 
 
-def wait_for_time(func, wait_time_in_nsec: float = 1e9):
+def wait_for_time(func, wait_time_in_sec: float = 1):
     def do_func(*args, **kwargs):
         start_time = time_ns()
         res = func(*args, **kwargs)
-        sleep(max(0.0, 1e-9 * (start_time + wait_time_in_nsec - time_ns())))
+        sleep(max(0.0, 1e-9 * (start_time + wait_time_in_sec * 1e9 - time_ns())))
         return res
 
     return do_func

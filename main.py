@@ -1,5 +1,6 @@
 import logging
 import multiprocessing as mp
+import signal
 from datetime import datetime
 from functools import partial
 from itertools import product
@@ -9,17 +10,18 @@ from time import sleep
 
 import numpy as np
 
-from devices.Oven.OvenCtrl import thread_handle_oven_temperature, thread_collect_oven_temperatures
+from devices.Oven.OvenProcess import OvenCtrl
 from devices.Oven.make_oven_program import make_oven_basic_prog
 from devices.Oven.plots import plot_btn_func
-from utils.analyze import process_plot_images_comparison
+from devices.Oven.utils import get_n_experiments, make_oven_temperatures_list
 from gui.makers import make_frames, make_buttons
 from gui.mask import make_mask_win_and_save
 from gui.utils import apply_value_and_make_filename, disable_fields_and_buttons, \
     update_status_label, get_values_list, SyncFlag, reset_all_fields, set_buttons_by_devices_status, \
-    browse_btn_func, get_inner_temperatures, thread_get_fpa_housing_temperatures, \
+    browse_btn_func, thread_get_fpa_housing_temperatures, getter_safe_variables, get_inner_temperatures, \
     update_spinbox_parameters_devices_states
 from gui.windows import open_upload_window, open_viewer_window
+from utils.analyze import process_plot_images_comparison
 from utils.constants import *
 from utils.logger import make_logger, make_logging_handlers
 from utils.tools import wait_for_time, normalize_image, get_time, check_and_make_path
@@ -27,8 +29,9 @@ from utils.tools import wait_for_time, normalize_image, get_time, check_and_make
 handlers = make_logging_handlers(logfile_path=Path('log/log.txt'), verbose=True)
 logger = make_logger('GUI', handlers=handlers, level=logging.INFO)
 
-semaphore_oven_sync = Semaphore(0)
-semaphore_experiment_sync = Semaphore(0)
+oven_process: mp.Process
+recv_temperature, send_temperature = mp.Pipe(duplex=False)
+recv_is_temperature_set, send_is_temperature_set = mp.Pipe(duplex=False)
 semaphore_plot_proc = mp.Semaphore(0)
 semaphore_mask_sync = Semaphore(0)
 flag_run = SyncFlag()
@@ -38,15 +41,22 @@ def _stop():
     flag_run.set(False)
     semaphore_plot_proc.release()
     semaphore_mask_sync.release()
-    semaphore_experiment_sync.release()
 
 
 def close_gui() -> None:
+    flag_run.set(False)
+    try:
+        oven_process.terminate()
+    except NameError:
+        pass
     _stop()
-    semaphore_oven_sync.release()
     sleep(3)
     root.destroy()
     exit()
+
+
+def signal_handler(sig, frame):
+    close_gui()
 
 
 def func_stop_run() -> None:
@@ -56,15 +66,6 @@ def func_stop_run() -> None:
 def thread_run_experiment(semaphore_mask: Semaphore, output_path: Path):
     global flag_run
     semaphore_mask.acquire()
-    kwargs = dict(devices_dict=devices_dict, flag_run=flag_run,
-                  frame=frames_dict[FRAME_TEMPERATURES], path_to_log=output_path, logger=devices_dict[OVEN_NAME].log)
-    Thread(target=thread_collect_oven_temperatures, daemon=True, name='th_oven_getter', kwargs=kwargs).start()
-    kwargs.pop('path_to_log')
-    kwargs.pop('logger')  # oven logger
-    kwargs['semaphore_oven_sync'] = semaphore_oven_sync
-    kwargs['semaphore_experiment_sync'] = semaphore_experiment_sync
-    kwargs['logger'] = logger  # gui logger
-    Thread(target=thread_handle_oven_temperature, daemon=True, name='th_oven_setter', kwargs=kwargs).start()
 
     flag_run.set(True)
     proc_plot = mp.Process(kwargs=dict(path_to_experiment=output_path, semaphore=semaphore_plot_proc,
@@ -73,53 +74,57 @@ def thread_run_experiment(semaphore_mask: Semaphore, output_path: Path):
     proc_plot.start()
     output_path /= 'images'
     check_and_make_path(output_path)
+    oven_temperatures_list = make_oven_temperatures_list()
     while flag_run:
-        semaphore_experiment_sync.acquire()
-        frames_dict[FRAME_PROGRESSBAR].nametowidget(PROGRESSBAR).stop()  # resets the progress bar
+        send_temperature.send(oven_temperatures_list.pop(0))
+        while flag_run and not recv_is_temperature_set.poll(timeout=2):  # checks if the oven proc set a stable temp.
+            continue
+        for _ in range(get_n_experiments(frame=frames_dict[FRAME_TEMPERATURES])):
+            frames_dict[FRAME_PROGRESSBAR].nametowidget(PROGRESSBAR).stop()  # resets the progress bar
 
-        # make current values list from GUI
-        n_images_per_iteration = int(frames_dict[FRAME_PARAMS].getvar(CAMERA_NAME + INC_STRING))
-        values_list, total_stops = get_values_list(frames_dict[FRAME_PARAMS], devices_dict)
-        total_images = total_stops * n_images_per_iteration
-        permutations = list(product(*values_list))
+            # make current values list from GUI
+            n_images_per_iteration = int(frames_dict[FRAME_PARAMS].getvar(CAMERA_NAME + INC_STRING))
+            values_list, total_stops = get_values_list(frames_dict[FRAME_PARAMS], devices_dict)
+            total_images = total_stops * n_images_per_iteration
+            permutations = list(product(*values_list))
 
-        logger.info(f"Experiment started. Running {total_images} images in total.")
-        for blackbody_temperature, scanner_angle, focus in permutations:
-            if blackbody_temperature == -float('inf'):
-                flag_run.set(False)
-            if not flag_run:
-                logger.warning('Stopped the experiment.')
-                break
-            f_name = apply_value_and_make_filename(blackbody_temperature, scanner_angle, focus, devices_dict, logger)
-            logger.info(f"Blackbody temperature {blackbody_temperature}C is set.")
-            grab = wait_for_time(devices_dict[CAMERA_NAME].grab, wait_time_in_nsec=2e8)
-            devices_dict[CAMERA_NAME].ffc()  # calibrate
-            for i in range(1, n_images_per_iteration + 1):
+            logger.info(f"Experiment started. Running {total_images} images in total.")
+            for blackbody_temperature, scanner_angle, focus in permutations:
+                if blackbody_temperature == -float('inf'):
+                    flag_run.set(False)
                 if not flag_run:
+                    logger.warning('Stopped the experiment.')
                     break
-                t_fpa = get_inner_temperatures(frames_dict[FRAME_TEMPERATURES], T_FPA)
-                t_housing = get_inner_temperatures(frames_dict[FRAME_TEMPERATURES], T_HOUSING)
-                f_name_to_save = f_name + f"fpa_{t_fpa:.2f}_housing_{t_housing:.2f}_"
-                img = grab()
-                f_name_to_save = str(output_path / f"{f_name_to_save}{i}|{n_images_per_iteration}")
-                np.save(f_name_to_save, img)
-                normalize_image(img).save(f_name_to_save, format='jpeg')
-                logger.debug(f"Taken {i} image")
-                frames_dict[FRAME_PROGRESSBAR].nametowidget(PROGRESSBAR).step(1 / total_images * 100)
-                frames_dict[FRAME_PROGRESSBAR].nametowidget(PROGRESSBAR).update_idletasks()
+                f_name = apply_value_and_make_filename(blackbody_temperature, scanner_angle, focus, devices_dict, logger)
+                logger.info(f"Blackbody temperature {blackbody_temperature}C is set.")
+                grab = wait_for_time(devices_dict[CAMERA_NAME].grab, wait_time_in_sec=0.2)
+                devices_dict[CAMERA_NAME].ffc()  # calibrate
+                for i in range(1, n_images_per_iteration + 1):
+                    if not flag_run:
+                        break
+                    t_fpa = get_inner_temperatures(frames_dict[FRAME_TEMPERATURES], T_FPA)
+                    t_housing = get_inner_temperatures(frames_dict[FRAME_TEMPERATURES], T_HOUSING)
+                    f_name_to_save = f_name + f"fpa_{t_fpa:.2f}_housing_{t_housing:.2f}_"
+                    img = grab()
+                    f_name_to_save = str(output_path / f"{f_name_to_save}{i}|{n_images_per_iteration}")
+                    np.save(f_name_to_save, img)
+                    normalize_image(img).save(f_name_to_save, format='jpeg')
+                    logger.debug(f"Taken {i} image")
+                    frames_dict[FRAME_PROGRESSBAR].nametowidget(PROGRESSBAR).step(1 / total_images * 100)
+                    frames_dict[FRAME_PROGRESSBAR].nametowidget(PROGRESSBAR).update_idletasks()
 
-        logger.info(f"Experiment ended.")
-        blackbody_temperature = permutations[0][0]
-        if blackbody_temperature and blackbody_temperature != -float('inf'):
-            Thread(None, devices_dict[BLACKBODY_NAME], 'th_bb_reset', (blackbody_temperature,), daemon=True).start()
-        semaphore_oven_sync.release()
-        semaphore_plot_proc.release()
+            logger.info(f"Experiment ended.")
+            blackbody_temperature = permutations[0][0]
+            if blackbody_temperature and blackbody_temperature != -float('inf'):
+                Thread(None, devices_dict[BLACKBODY_NAME], 'th_bb_reset', (blackbody_temperature,), daemon=True).start()
+            semaphore_plot_proc.release()
     semaphore_plot_proc.release()
     proc_plot.kill()
     reset_all_fields(root, buttons_dict, devices_dict)
 
 
 def func_start_run_loop() -> None:
+    global oven_process
     root.focus_set()
     disable_fields_and_buttons(root, buttons_dict)
     update_status_label(frames_dict[FRAME_STATUS], WORKING)
@@ -134,6 +139,14 @@ def func_start_run_loop() -> None:
     output_path /= Path(datetime.now().strftime("%Y%m%d_h%Hm%Ms%S") + (f'_{name}' if name else ''))
     check_and_make_path(output_path)
 
+    # init oven
+    oven_status = frames_dict[FRAME_PARAMS].getvar(f"device_status_{OVEN_NAME}")
+    if oven_status != DEVICE_OFF:
+        oven_process = OvenCtrl(log_path=output_path, recv_temperature=recv_temperature,
+                                send_temperature_is_set=send_is_temperature_set,
+                                flag_run=flag_run, is_dummy=oven_status == DEVICE_DUMMY, **getter_safe_variables())
+        oven_process.start()
+
     # apply mask to camera output
     make_mask_win_and_save(devices_dict[CAMERA_NAME], semaphore_mask_sync, output_path)
 
@@ -144,6 +157,8 @@ def func_start_run_loop() -> None:
 devices_dict = dict().fromkeys([OVEN_NAME, CAMERA_NAME, BLACKBODY_NAME, SCANNER_NAME, FOCUS_NAME])
 root, frames_dict = make_frames(logger, handlers, devices_dict)
 root.protocol('WM_DELETE_WINDOW', close_gui)
+signal.signal(signal.SIGINT, close_gui)
+signal.signal(signal.SIGTERM, close_gui)
 
 func_dict = {BUTTON_BROWSE: partial(browse_btn_func, f_btn=frames_dict[FRAME_BUTTONS], f_path=frames_dict[FRAME_PATH]),
              BUTTON_STOP: func_stop_run,
@@ -162,6 +177,5 @@ update_spinbox_parameters_devices_states(root.nametowidget(FRAME_PARAMS), device
 set_buttons_by_devices_status(root.nametowidget(FRAME_BUTTONS), devices_dict)
 
 root.mainloop()
-
 
 # todo: when oven temperatures end, the setpoint goes to zero and stays there...

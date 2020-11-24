@@ -9,10 +9,10 @@ from tkinter import filedialog as fd, Frame
 
 import numpy as np
 from PIL import Image
+from tqdm import tqdm
 
 from utils.constants import *
-from utils.tools import wait_for_time,  get_time, normalize_image, check_and_make_path
-from tqdm import tqdm
+from utils.tools import wait_for_time, get_time, normalize_image, check_and_make_path
 
 
 def get_spinbox_value(sp_widget_name: str) -> float:
@@ -157,9 +157,15 @@ def thread_get_fpa_housing_temperatures(devices_dict, frame: tk.Frame, flag):
                 except (TypeError, ValueError):
                     pass
 
-    func_wait_and_get_temperature = wait_for_time(getter, FREQ_INNER_TEMPERATURE_SECONDS * 1e9)
+    func_wait_and_get_temperature = wait_for_time(getter, FREQ_INNER_TEMPERATURE_SECONDS)
     while flag:
         func_wait_and_get_temperature()
+
+
+def getter_safe_variables():
+    return dict(delta_temperature=dict_variables[DELTA_TEMPERATURE].value, fpa_temperature=dict_variables[T_FPA].value,
+                housing_temperature=dict_variables[T_HOUSING].value,
+                settling_time_minutes=dict_variables[SETTLING_TIME_MINUTES].value)
 
 
 def get_values_list(frame: tk.Frame, devices_dict: dict) -> tuple:
@@ -214,6 +220,13 @@ def browse_btn_func(f_btn: tk.Frame, f_path: tk.Frame) -> None:
         f_path.nametowidget(f"{FRAME_PATH}_label").config(text=msg)
 
 
+def tqdm_waiting(time_to_wait_seconds: int, postfix: str, flag: (SyncFlag, None) = None):
+    for _ in tqdm(range(time_to_wait_seconds), total=time_to_wait_seconds, leave=True, postfix=postfix):
+        sleep(1)
+        if flag is not None and not flag:
+            return
+
+
 def get_inner_temperatures(frame: Frame, type_to_get: str = T_HOUSING) -> float:
     type_to_get = type_to_get.lower()
     if T_HOUSING.lower() in type_to_get:
@@ -229,11 +242,8 @@ def get_inner_temperatures(frame: Frame, type_to_get: str = T_HOUSING) -> float:
     raise NotImplementedError(f"{type_to_get} was not implemented for inner temperatures.")
 
 
-def tqdm_waiting(time_to_wait_seconds: int, postfix: str, flag: (SyncFlag, None) = None):
-    for _ in tqdm(range(time_to_wait_seconds), total=time_to_wait_seconds, leave=True, postfix=postfix):
-        sleep(1)
-        if flag is not None and not flag:
-            return
+
 
 
 dict_variables = {}
+

@@ -7,8 +7,8 @@ from tkinter import filedialog
 import numpy as np
 from PIL import ImageTk
 
-from utils.constants import HEIGHT_VIEWER, WIDTH_VIEWER
 from gui.utils import func_thread_grabber
+from utils.constants import HEIGHT_VIEWER, WIDTH_VIEWER
 from utils.tools import normalize_image
 
 

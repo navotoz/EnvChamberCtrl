@@ -15,7 +15,6 @@ import devices.Camera.tau2_config as ptc
 from devices.Camera.ThreadedFtdi import FtdiIO
 from utils.constants import *
 from utils.logger import make_logger, make_logging_handlers, make_device_logging_handler
-from utils.tools import show_image, normalize_image
 
 # Tau Status codes
 CAM_OK = 0x00

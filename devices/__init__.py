@@ -3,7 +3,7 @@ from logging import Logger
 
 from serial.serialutil import SerialException, SerialTimeoutException
 
-from utils.constants import CAMERA_NAME, SCANNER_NAME, BLACKBODY_NAME, FOCUS_NAME, OVEN_NAME
+from utils.constants import CAMERA_NAME, SCANNER_NAME, BLACKBODY_NAME, FOCUS_NAME
 from utils.logger import make_logging_handlers
 
 
@@ -17,8 +17,8 @@ def initialize_device(element_name: str, logger: Logger, handlers: tuple, use_du
         m = import_module(f"devices.Blackbody.{use_dummies}BlackBodyCtrl", f"BlackBody").BlackBody
     elif FOCUS_NAME.lower() in element_name.lower():
         m = import_module(f"devices.Focus.{use_dummies}FocusStageCtrl", f"FocusStage").FocusStage
-    elif OVEN_NAME.lower() in element_name.lower():
-        m = make_oven if not use_dummies else make_oven_dummy
+    # elif OVEN_NAME.lower() in element_name.lower():
+    #     m = make_oven if not use_dummies else make_oven_dummy
     else:
         raise TypeError(f"{element_name} was not implemented as a module.")
     try:

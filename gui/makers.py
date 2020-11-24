@@ -1,25 +1,71 @@
-from tkinter import ttk
 import tkinter as tk
+from collections import namedtuple
+from ctypes import c_int64, c_double
 from functools import partial
 from logging import Logger
+from multiprocessing import Value, RLock
 from pathlib import Path
+from tkinter import ttk
 from typing import Tuple, Dict, Any
 
 from devices import initialize_device
-from utils.constants import *
 from gui.utils import spinbox_validation, dict_variables, update_spinbox_parameters_devices_states, \
-    validate_spinbox_range
-from gui.utils import get_device_status, set_buttons_by_devices_status
+    validate_spinbox_range, get_device_status, set_buttons_by_devices_status
+from utils.constants import *
 from utils.logger import GuiMsgHandler
+
+
+class SafeIntVar(tk.Variable):
+    def __init__(self, *kwargs):
+        super().__init__(*kwargs)
+        self._mp_value = Value(c_int64, lock=RLock())
+
+    @property
+    def value(self):
+        return self._mp_value
+
+    def set(self, value):
+        """Set the variable to VALUE."""
+        self._mp_value.value = int(value)
+        return self._tk.globalsetvar(self._name, value)
+
+    def get(self):
+        value = self._tk.globalgetvar(self._name)
+        try:
+            value = self._tk.getint(value)
+        except (TypeError, tk.TclError):
+            value = self._tk.getdouble(value)
+        self._mp_value.value = int(value)
+        return value
+
+
+class SafeDoubleVar(tk.Variable):
+    def __init__(self, *kwargs):
+        super().__init__( *kwargs)
+        self._mp_value = Value(c_double, lock=RLock())
+
+    @property
+    def value(self):
+        return self._mp_value
+
+    def set(self, value):
+        """Set the variable to VALUE."""
+        self._mp_value.value = float(value)
+        return self._tk.globalsetvar(self._name, value)
+
+    def get(self):
+        value = float(self._tk.getdouble(self._tk.globalgetvar(self._name)))
+        self._mp_value.value = float(value)
+        return value
 
 
 def make_spinbox(frame: tk.Frame, row: int, col: int, name: str,
                  from_: (int, float), to: (int, float), res: (int, float)) -> None:
     sp_name = SP_PREFIX + name
     if isinstance(res, int):
-        var = tk.IntVar
+        var = SafeIntVar
     else:
-        var = tk.DoubleVar
+        var = SafeDoubleVar
     var = var(frame, from_, name)
     spinbox = tk.Spinbox(frame, from_=from_, to=to, bd=1, width=7, wrap=1, increment=res, name=sp_name)
     spinbox.config(textvariable=var)
@@ -48,15 +94,15 @@ def make_label(frame: tk.Frame, row: int, col: int, text: str = "", pad_y: int =
 
 def make_range_params(frame: tk.Frame, init_row: int, func_device_maker, devices_dict):
     row = init_row
-    for row, name in enumerate([OVEN_NAME, BLACKBODY_NAME, SCANNER_NAME, FOCUS_NAME], start=init_row):
+    for row, name in enumerate([OVEN_NAME, BLACKBODY_NAME, SCANNER_NAME, FOCUS_NAME], start=row):
         make_label(frame, row=row, col=0, text=f"{name.capitalize()} [{METRICS_DICT[name]}]:", pad_y=10)
         make_spinboxes_with_range(frame, row=row, col=1, name=name)
-        make_dummy_radiobox(frame, row=row, col=9, name=name, cmd=func_device_maker, devices_dict=devices_dict)
+        make_devices_status_radiobox(frame, row=row, col=9, name=name, cmd=func_device_maker, devices_dict=devices_dict)
     row += 1
     make_label(frame, row=row, col=0, text="# images per configuration", pad_y=10)
     make_spinbox(frame, row=row, col=1, name=CAMERA_NAME + INC_STRING, from_=LIMIT_DICT[CAMERA_NAME][MIN_STRING],
                  to=LIMIT_DICT[CAMERA_NAME][MAX_STRING], res=LIMIT_DICT[CAMERA_NAME][RESOLUTION_STRING])
-    make_dummy_radiobox(frame, row=row, col=2, name=CAMERA_NAME, cmd=func_device_maker, devices_dict=devices_dict)
+    make_devices_status_radiobox(frame, row=row, col=2, name=CAMERA_NAME, cmd=func_device_maker, devices_dict=devices_dict)
 
     # set some initial values
     for key in dict_variables.keys():
@@ -74,7 +120,7 @@ def make_frame(parent: tk.Tk, row: int, bd: int = 0, name: str = "") -> tk.Frame
     return frame
 
 
-def make_dummy_radiobox(frame: tk.Frame, row: int, col: int, name: str, cmd, devices_dict: dict):
+def make_devices_status_radiobox(frame: tk.Frame, row: int, col: int, name: str, cmd, devices_dict: dict):
     def run_func(frame_func: tk.Frame, next_device_status: tk.IntVar, name_func: str, func, devices_dict: dict):
         next_device_status = next_device_status.get()
         curr_device_status = get_device_status(devices_dict[name_func])
@@ -145,8 +191,10 @@ def make_devices(logger, handlers, use_dummy: bool):
 
 
 def make_device_and_handle_parameters(name: str, frame: tk.Frame, logger, handlers, status: int):
-    if status != DEVICE_OFF:
-        device = initialize_device(name, logger, handlers, True if status == DEVICE_DUMMY else False)
+    if name in OVEN_NAME:
+        device = namedtuple('mockup_oven', field_names=['is_dummy'])(status == DEVICE_DUMMY)
+    elif status != DEVICE_OFF:
+        device = initialize_device(name, logger, handlers, status == DEVICE_DUMMY)
     else:
         device = None
         logger.info(f"{name.capitalize()} is off.")
@@ -197,8 +245,8 @@ def make_frames(logger, handler, devices_dict) -> Tuple[tk.Tk, Dict[Any, tk.Fram
     make_spinbox(frame_temperatures, row=0, col=5, name=ITERATIONS_IN_TEMPERATURE, from_=1, to=20, res=1)
     dict_variables[ITERATIONS_IN_TEMPERATURE].set(ITERATIONS_IN_TEMPERATURE_INIT_VAL)
 
-    dict_variables[T_FPA] = tk.DoubleVar(frame_temperatures, 0.0, T_FPA)
-    dict_variables[T_HOUSING] = tk.DoubleVar(frame_temperatures, 0.0, T_HOUSING)
+    dict_variables[T_FPA] = SafeDoubleVar(frame_temperatures, 0.0, T_FPA)
+    dict_variables[T_HOUSING] = SafeDoubleVar(frame_temperatures, 0.0, T_HOUSING)
 
     make_range_params(frame_params, 1, func_device_maker, devices_dict)
     dict_variables[EXPERIMENT_SAVE_PATH] = tk.StringVar(master=frame_buttons, name=EXPERIMENT_SAVE_PATH,

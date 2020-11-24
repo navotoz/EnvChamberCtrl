@@ -1,9 +1,9 @@
-from tkinter import Frame
-from tkinter.filedialog import askdirectory
 import csv
 from functools import partial
 from pathlib import Path
 from threading import Thread
+from tkinter import Frame
+from tkinter.filedialog import askdirectory
 from typing import Dict
 
 import numpy as np
@@ -103,7 +103,7 @@ def plot_oven_records_in_path(path_to_log: Path, path_to_save: Path):
     try:
         df = get_dataframe(path_to_log)
         list_running_time = make_runtime_list(df)
-    except (KeyError, ValueError, RuntimeError, AttributeError, FileNotFoundError, FileExistsError, IndexError):
+    except (KeyError, ValueError, RuntimeError, AttributeError, FileNotFoundError, IsADirectoryError, IndexError):
         return
 
     names_list = [name.split('_')[1] for name in list(df.columns) if 'T_' in name]
