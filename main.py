@@ -109,6 +109,7 @@ def thread_run_experiment(semaphore_mask: Semaphore, output_path: Path):
                         break
                     t_fpa = get_inner_temperatures(frames_dict[FRAME_TEMPERATURES], T_FPA)
                     t_housing = get_inner_temperatures(frames_dict[FRAME_TEMPERATURES], T_HOUSING)
+                    # the precision of the housing temperature is 0.01C and the precision for the fpa is 0.1C
                     f_name_to_save = f_name + f"fpa_{t_fpa:.2f}_housing_{t_housing:.2f}_"
                     img = grab()
                     f_name_to_save = str(output_path / f"{f_name_to_save}{i}|{n_images_per_iteration}")
