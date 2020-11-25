@@ -75,7 +75,7 @@ def thread_run_experiment(semaphore_mask: Semaphore, output_path: Path):
     output_path /= 'images'
     check_and_make_path(output_path)
     oven_temperatures_list = make_oven_temperatures_list()
-    while flag_run:
+    while flag_run and oven_temperatures_list:
         next_temperature = oven_temperatures_list.pop(0)
         send_temperature.send(next_temperature)
         logger.info(f'Waiting for the Oven to settle near {next_temperature:.2f}C')
@@ -124,6 +124,7 @@ def thread_run_experiment(semaphore_mask: Semaphore, output_path: Path):
             if blackbody_temperature and blackbody_temperature != -float('inf'):
                 Thread(None, devices_dict[BLACKBODY_NAME], 'th_bb_reset', (blackbody_temperature,), daemon=True).start()
             semaphore_plot_proc.release()
+    send_temperature.send(0)
     semaphore_plot_proc.release()
     proc_plot.kill()
     reset_all_fields(root, buttons_dict, devices_dict)
