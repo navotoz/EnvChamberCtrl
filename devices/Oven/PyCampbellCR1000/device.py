@@ -341,7 +341,10 @@ class CR1000(object):
 
     def bye(self):
         '''Send a bye command.'''
-        self._log.debug("Send bye command")
+        try:
+            self._log.debug("Send bye command")
+        except:
+            pass
         if self.connected:
             packet, transac_id = self.pakbus.get_bye_cmd()
             self.pakbus.write(packet)
@@ -351,9 +354,12 @@ class CR1000(object):
         '''Send bye cmd when object is deleted.'''
         try:
             self.set_value('Public', SETPOINT, 0.0)
-        except Exception as err:
+        except:
             pass
-        self.bye()
+        try:
+            self.bye()
+        except:
+            pass
 
     def get_value(self, table_name:str, field_name:str)->float:
         ''' Set variable value in dataself._log '''
