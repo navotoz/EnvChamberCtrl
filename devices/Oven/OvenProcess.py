@@ -212,6 +212,9 @@ class OvenCtrl(mp.Process):
             difference_lifo.append(float('inf'))  # +inf so that it is always bigger than DELTA_TEMPERATURE
             offset = next_temperature - max(self._oven_temperatures.get(T_FLOOR), get_inner_temperature())
             offset = round(max(0, DELAY_FLOOR2CAMERA_CONST * offset), 1)
+            # empirically, MAX_TEMPERATURE_LINEAR_RISE is very slow to get to - around 75C
+            if next_temperature + offset >= MAX_TEMPERATURE_LINEAR_RISE:
+                offset = MAX_TEMPERATURE_LINEAR_RISE - next_temperature
             self._set_oven_temperature(next_temperature, offset=offset, verbose=True)
             tqdm_waiting(2 * (OVEN_LOG_TIME_SECONDS + PID_FREQ_SEC), 'Waiting for PID to settle', self._flag_run)
             while self._flag_run and get_error() >= 1.5:  # wait until signal error reaches within 1.5deg of setPoint
