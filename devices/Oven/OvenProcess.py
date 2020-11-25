@@ -5,7 +5,6 @@ from datetime import timedelta
 from functools import partial
 from multiprocessing.connection import Connection
 from pathlib import Path
-from time import sleep
 from typing import Dict
 
 from devices import make_oven, make_oven_dummy
@@ -21,10 +20,12 @@ class OvenCtrl(mp.Process):
     _use_camera_inner_temperatures = True
     _oven = None
 
-    def __init__(self, log_path: Path, recv_temperature: Connection, send_temperature_is_set: Connection,
+    def __init__(self, log_path: Path, logging_handlers:(tuple,list),
+                 recv_temperature: Connection, send_temperature_is_set: Connection,
                  delta_temperature: mp.Value, fpa_temperature: mp.Value, housing_temperature: mp.Value,
                  flag_run: SyncFlag, settling_time_minutes: mp.Value, is_dummy: bool):
         super(OvenCtrl, self).__init__()
+        self._logging_handlers = logging_handlers
         self._path_to_log = log_path
         self._flag_run = flag_run
         self._oven_temperatures: Dict[str, float] = dict()
@@ -36,16 +37,34 @@ class OvenCtrl(mp.Process):
         self._send_temperature_is_set = send_temperature_is_set
         self._workers_dict = dict()
         self._is_dummy = is_dummy
+        self._path_to_records = self._path_to_log / OVEN_RECORDS_FILENAME
 
-    def start(self) -> None:
+        self._event_start = th.Event()
+        self._event_start.clear()
+        th.Thread(target=self._starter, daemon=True, name='th_oven_starter').start()
+
+    def start(self):
+        self._event_start.set()
+
+    def _starter(self) -> None:
+        while self._flag_run and not self._event_start.wait(timeout=1):
+            continue
+        if not self._flag_run:
+            return
+        self._event_start.clear()
         try:
-            self._oven = make_oven() if not self._is_dummy else make_oven_dummy()
+            self._oven = make_oven(self._logging_handlers) if not self._is_dummy else make_oven_dummy()
         except RuntimeError:
             self._oven = make_oven_dummy()
 
         # temperature collector
         self._workers_dict['t_collector'] = th.Thread(target=self._th_get_oven_temperatures, name='t_collector')
         self._workers_dict['t_collector'].start()
+
+        while self._flag_run and not self._event_start.wait(timeout=1):
+            continue
+        if not self._flag_run:
+            return
 
         if not self._oven.is_dummy:
             # records collector
@@ -91,11 +110,11 @@ class OvenCtrl(mp.Process):
         raise NotImplementedError(f"{type_to_get} was not implemented for inner temperatures.")
 
     def _process_plotter(self):
-        path_to_save = self._path_to_log.parent / PLOTS_PATH / 'oven'
+        path_to_save = self._path_to_log / PLOTS_PATH / 'oven'
         check_and_make_path(path_to_save)
-        p = wait_for_time(plot_oven_records_in_path, 30)
+        p = wait_for_time(plot_oven_records_in_path, OVEN_LOG_TIME_SECONDS)
         while self._flag_run:
-            p(self._path_to_log, path_to_save)
+            p(self._path_to_records, path_to_save)
 
     def _th_get_oven_temperatures(self):
         def get() -> None:
@@ -106,6 +125,8 @@ class OvenCtrl(mp.Process):
                 self._oven.log.error(err)
                 pass
 
+        get()
+        self._event_start.set()
         getter = wait_for_time(get, OVEN_LOG_TIME_SECONDS)
         while self._flag_run:
             getter()
@@ -115,15 +136,15 @@ class OvenCtrl(mp.Process):
                      if OVEN_TABLE_NAME.encode() in t['Header']['TableName']][0]
         oven_keys = [t['FieldName'].decode() for t in oven_keys]
         oven_keys.insert(0, DATETIME)
-        self._path_to_log /= OVEN_RECORDS_FILENAME
-        with open(self._path_to_log, 'w') as fp_csv:
+        oven_keys.append(T_FPA), oven_keys.append(T_HOUSING)
+        with open(self._path_to_records, 'w') as fp_csv:
             writer_csv = csv.writer(fp_csv)
             writer_csv.writerow(oven_keys)
         get = wait_for_time(func=get_last_measurements, wait_time_in_sec=OVEN_LOG_TIME_SECONDS)
         while self._flag_run:
             records = get(self._oven)
             if not records:
-                with open(self._path_to_log, 'r') as fp_csv:
+                with open(self._path_to_records, 'r') as fp_csv:
                     reader_csv = csv.reader(fp_csv)
                     rows = list(reader_csv)
                 records = dict().fromkeys(rows[0])
@@ -140,7 +161,7 @@ class OvenCtrl(mp.Process):
                     records[f"{key}_Avg"] = 0 if records[SETPOINT] <= 0 else records[f"{key}_Avg"]
                 except (IndexError, KeyError, TypeError):
                     pass
-            with open(self._path_to_log, 'a') as fp_csv:
+            with open(self._path_to_records, 'a') as fp_csv:
                 writer_csv = csv.writer(fp_csv)
                 writer_csv.writerow([records[key] for key in oven_keys])
             self._oven.log.debug("Added a line to the oven logs.")
@@ -173,7 +194,7 @@ class OvenCtrl(mp.Process):
 
     def _th_temperature_setter(self):
         handlers = make_logging_handlers(Path('log/log_oven_temperature_differences.txt'))
-        logger_mean = make_logger('OvenTempDiff', handlers, False)
+        logger_waiting = make_logger('OvenTempDiff', handlers, False)
         next_temperature, prev_temperature = 0, 0
         if self._use_camera_inner_temperatures:
             get_inner_temperature = wait_for_time(self._inner_temperatures, FREQ_INNER_TEMPERATURE_SECONDS)
@@ -197,7 +218,7 @@ class OvenCtrl(mp.Process):
                 pass
             self._set_oven_temperature(next_temperature, offset=0, verbose=True)
             self._oven.log.info(f'Waiting for the Camera to settle near {next_temperature:.2f}C')
-            logger_mean.info(f'#######   {next_temperature}   #######')
+            logger_waiting.info(f'#######   {next_temperature}   #######')
             max_temperature = MaxTemperatureTimer()
             while self._flag_run and \
                     (max(difference_lifo) > float(self._delta_temperature.value) or
@@ -207,7 +228,7 @@ class OvenCtrl(mp.Process):
                 max_temperature.max = current_temperature
                 diff = abs(current_temperature - prev_temperature)
                 difference_lifo.append(diff)
-                logger_mean.info(f"{diff:.4f} "
+                logger_waiting.info(f"{diff:.4f} "
                                  f"prev{prev_temperature:.4f} "
                                  f"curr{current_temperature:.4f} "
                                  f"max{max_temperature.max:.4f}")

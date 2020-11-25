@@ -15,7 +15,7 @@ from utils.constants import *
 from utils.logger import GuiMsgHandler
 
 
-class SafeIntVar(tk.Variable):
+class SafeIntVar(tk.IntVar):
     def __init__(self, *kwargs):
         super().__init__(*kwargs)
         self._mp_value = Value(c_int64, lock=RLock())
@@ -35,11 +35,12 @@ class SafeIntVar(tk.Variable):
             value = self._tk.getint(value)
         except (TypeError, tk.TclError):
             value = self._tk.getdouble(value)
-        self._mp_value.value = int(value)
+        value = int(value)
+        self._mp_value.value = value
         return value
 
 
-class SafeDoubleVar(tk.Variable):
+class SafeDoubleVar(tk.DoubleVar):
     def __init__(self, *kwargs):
         super().__init__( *kwargs)
         self._mp_value = Value(c_double, lock=RLock())

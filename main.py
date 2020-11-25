@@ -43,7 +43,7 @@ def _stop():
     semaphore_mask_sync.release()
 
 
-def close_gui() -> None:
+def close_gui(*kwargs) -> None:
     flag_run.set(False)
     try:
         oven_process.terminate()
@@ -76,10 +76,15 @@ def thread_run_experiment(semaphore_mask: Semaphore, output_path: Path):
     check_and_make_path(output_path)
     oven_temperatures_list = make_oven_temperatures_list()
     while flag_run:
-        send_temperature.send(oven_temperatures_list.pop(0))
+        next_temperature = oven_temperatures_list.pop(0)
+        send_temperature.send(next_temperature)
+        logger.info(f'Waiting for the Oven to settle near {next_temperature:.2f}C')
         while flag_run and not recv_is_temperature_set.poll(timeout=2):  # checks if the oven proc set a stable temp.
             continue
-        for _ in range(get_n_experiments(frame=frames_dict[FRAME_TEMPERATURES])):
+        recv_is_temperature_set.recv()  # to clear the PIPE
+        logger.info(f'Oven has settled near {next_temperature:.2f}C')
+        idx = 0
+        while idx < get_n_experiments(frame=frames_dict[FRAME_TEMPERATURES]):
             frames_dict[FRAME_PROGRESSBAR].nametowidget(PROGRESSBAR).stop()  # resets the progress bar
 
             # make current values list from GUI
@@ -112,7 +117,7 @@ def thread_run_experiment(semaphore_mask: Semaphore, output_path: Path):
                     logger.debug(f"Taken {i} image")
                     frames_dict[FRAME_PROGRESSBAR].nametowidget(PROGRESSBAR).step(1 / total_images * 100)
                     frames_dict[FRAME_PROGRESSBAR].nametowidget(PROGRESSBAR).update_idletasks()
-
+            idx += 1
             logger.info(f"Experiment ended.")
             blackbody_temperature = permutations[0][0]
             if blackbody_temperature and blackbody_temperature != -float('inf'):
@@ -142,7 +147,8 @@ def func_start_run_loop() -> None:
     # init oven
     oven_status = frames_dict[FRAME_PARAMS].getvar(f"device_status_{OVEN_NAME}")
     if oven_status != DEVICE_OFF:
-        oven_process = OvenCtrl(log_path=output_path, recv_temperature=recv_temperature,
+        oven_process = OvenCtrl(logging_handlers = handlers,
+                                log_path=output_path, recv_temperature=recv_temperature,
                                 send_temperature_is_set=send_is_temperature_set,
                                 flag_run=flag_run, is_dummy=oven_status == DEVICE_DUMMY, **getter_safe_variables())
         oven_process.start()
