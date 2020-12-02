@@ -115,8 +115,8 @@ def thread_run_experiment(semaphore_mask: Semaphore, output_path: Path):
                     img, data = grab()
                     f_name_to_save = str(output_path / f"{f_name_to_save}{i}|{n_images_per_iteration}")
                     np.save(f_name_to_save, img)
-                    normalize_image(img).save(f_name_to_save, format='jpeg')
-                    with open(f_name_to_save, 'wb') as fp:
+                    normalize_image(img).save(f_name_to_save+'.jpeg', format='jpeg')
+                    with open(f_name_to_save + '.pkl', 'wb') as fp:
                         pickle.dump(data, fp)
                     logger.debug(f"Taken {i} image")
                     frames_dict[FRAME_PROGRESSBAR].nametowidget(PROGRESSBAR).step(1 / total_images * 100)

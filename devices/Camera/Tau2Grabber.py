@@ -165,8 +165,7 @@ class Tau:
             raise TypeError(f'{temperature_type} was not implemented as an inner temperature of TAU2.')
         command = ptc.READ_SENSOR_TEMPERATURE
         argument = struct.pack(">h", arg_hex)
-        data = self._send_packet(command, argument)
-        res = self._recv_threaded(data, command)
+        res = self._send_and_recv_threaded(command, argument)
         if res:
             res = struct.unpack(">H", res)[0]
             res /= 10.0 if arg_hex == ARGUMENT_FPA else 100.0
@@ -174,7 +173,7 @@ class Tau:
                 return None
         return res
 
-    def _recv_threaded(self, data, command):
+    def _send_and_recv_threaded(self, data, command):
         pass
 
     def close_shutter(self):
@@ -279,7 +278,7 @@ class Tau:
     def enable_tlinear(self):
         pass
 
-    def _send_packet(self, command: ptc.Code, argument=None) -> bytes:
+    def _make_packet(self, command: ptc.Code, argument=None) -> bytes:
         if argument is None:
             argument = []
 
@@ -324,7 +323,6 @@ class Tau:
             fmt = ">cxccccccxxx"
 
         data = struct.pack(fmt, *packet)
-        self._send_data(data)
         return data
 
     def _check_header(self, data):
@@ -527,8 +525,7 @@ class Tau:
         else:
             raise NotImplementedError(f"FFC mode {mode} is not implemented.")
 
-        data = self._send_packet(command, argument)
-        res = self._recv_threaded(data, command)
+        res = self._send_and_recv_threaded(command, argument)
         if res:
             self._log.info(f'Set FFC mode to {mode.capitalize()}.')
             return True
@@ -536,8 +533,11 @@ class Tau:
         return False
 
     def ffc(self, length: bytes = ptc.FFC_LONG) -> None:
-        self._send_packet(ptc.DO_FFC, length)
-        self._log.debug('FFC')
+        res = self._send_and_recv_threaded(ptc.DO_FFC, length)
+        if res and struct.unpack('H', res)[0] == 0xffff:
+            self._log.debug('FFC')
+        else:
+            self._log.debug('FFC Failed')
 
     def get_last_image(self):
         num_snapshots, _ = self.get_num_snapshots()
@@ -614,10 +614,8 @@ class TeaxGrabber(Tau):
                         print("Could not detach kernel driver from interface({0}): {1}".format(intf.bInterfaceNumber,
                                                                                                str(e)))
 
-    def _send_data(self, data):
-        return self.io.write(data)
-
-    def _recv_threaded(self, data: bytes, command: ptc.Code) -> list:
+    def _send_and_recv_threaded(self, command: ptc.Code, argument: bytes) -> list:
+        data = self._make_packet(command, argument)
         return self.io.parse(data, command)
 
     def grab(self, to_temperature: bool = False, width: int = 336):

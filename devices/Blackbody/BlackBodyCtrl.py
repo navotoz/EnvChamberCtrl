@@ -26,7 +26,10 @@ class BlackBody(BlackBodyAbstract):
 
         self._send_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         self._send_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-        self._send_socket.connect((self.__client_ip, self.__client_port))
+        try:
+            self._send_socket.connect((self.__client_ip, self.__client_port))
+        except OSError:
+            raise RuntimeError
 
         self.__recv_msg_queue = SimpleQueue()
         self.__recv_thread = th.Thread(target=self.__recv_thread_func, daemon=True, name='th_recv_blackbody')

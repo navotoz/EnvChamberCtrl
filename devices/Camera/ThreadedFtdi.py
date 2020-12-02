@@ -1,7 +1,7 @@
 import binascii
 import re
 import struct
-from threading import Thread, Lock, Event
+from threading import Thread, Lock, Event, Semaphore
 from time import sleep
 from typing import List
 
@@ -99,8 +99,9 @@ class FtdiIO:
         self.ftdi = ftdi
         self._frame_size = frame_size
         self._lock_access = Lock()
-        self._event_get_image = Event()
-        self._event_get_image.set()
+        self._semaphore_access_ftdi = Semaphore(value=1)
+        self._event_allow_ftdi_access = Event()
+        self._event_allow_ftdi_access.set()
         self._event_read = Event()
         self._event_read.clear()
         self._buffer = BytesBuffer()
@@ -113,7 +114,7 @@ class FtdiIO:
         self.ftdi.set_bitmode(0xFF, Ftdi.BitMode.RESET)
         self.ftdi.set_bitmode(0xFF, Ftdi.BitMode.SYNCFF)
         self._buffer.clear_buffer()
-        self._event_get_image.set()
+        self._event_allow_ftdi_access.set()
         self._event_read.clear()
         self._log.debug('Reset.')
 
@@ -149,8 +150,7 @@ class FtdiIO:
         ret_value = struct.pack('<' + len(ret_value) * 'B', *ret_value)
         return ret_value
 
-    def write(self, data: bytes, to_start_reading: bool = True) -> None:
-        self._event_get_image.wait()
+    def _write(self, data: bytes, to_start_reading: bool = True) -> None:
         buffer = b"UART"
         buffer += int(len(data)).to_bytes(1, byteorder='big')  # doesn't matter
         buffer += data
@@ -166,28 +166,38 @@ class FtdiIO:
         sleep(0.2) if to_start_reading else None
 
     def parse(self, data: bytes, command: Code, n_retries: int = 3) -> (bytes, None):
-        self._event_get_image.wait()
-        for _ in range(n_retries):
-            if res := self._parse_func(command):
-                self._event_read.clear()
-                self._buffer.clear_buffer()
-                self._log.debug(f"Recv {res}")
-                return res
-            self._log.debug('Could not parse, retrying..')
-            self.write(SYNC_MSG)
-            self.write(data)
-        return None
+        self._event_allow_ftdi_access.wait()
+        with self._semaphore_access_ftdi:
+            self._write(data)
+            sleep(0.05)
+            for _ in range(n_retries):
+                if res := self._parse_func(command):
+                    self._event_read.clear()
+                    self._buffer.clear_buffer()
+                    self._log.debug(f"Recv {res}")
+                    return res
+                self._log.debug('Could not parse, retrying..')
+                self._write(SYNC_MSG)
+                self._write(data)
+            return None
 
     def get_image(self) -> bytes:
+        self._event_allow_ftdi_access.clear()
+        with self._semaphore_access_ftdi:
+            self._event_read.set()
+            self._buffer.sync_teax()
+            while len(self._buffer) < self._frame_size:
+                continue
+            res = self._buffer[:self._frame_size]
+            self._event_allow_ftdi_access.set()
+            self._log.debug('Grabbed Image')
+            return res
+
+    def __del__(self):
+        self._lock_access.release()
         self._event_read.set()
-        self._event_get_image.clear()
-        self._buffer.sync_teax()
-        while len(self._buffer) < self._frame_size:
-            continue
-        res = self._buffer[:self._frame_size]
-        self._event_get_image.set()
-        self._log.debug('Grabbed Image')
-        return res
+        self._event_allow_ftdi_access.set()
+        self._semaphore_access_ftdi.release()
 
 
 def get_crc(data) -> List[int]:
