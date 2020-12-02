@@ -110,7 +110,7 @@ class FtdiIO:
         self.thread_read.start()
         self._log.info('Ready.')
 
-    def reset(self) -> None:
+    def _reset(self) -> None:
         self.ftdi.set_bitmode(0xFF, Ftdi.BitMode.RESET)
         self.ftdi.set_bitmode(0xFF, Ftdi.BitMode.SYNCFF)
         self._buffer.clear_buffer()
@@ -162,7 +162,7 @@ class FtdiIO:
                 self._log.debug(f"Send {data}")
             except FtdiError:
                 self._log.debug('Write error.')
-                self.reset()
+                self._reset()
         sleep(0.2) if to_start_reading else None
 
     def parse(self, data: bytes, command: Code, n_retries: int = 3) -> (bytes, None):
@@ -194,8 +194,8 @@ class FtdiIO:
             return res
 
     def __del__(self):
-        self._lock_access.release()
         self._event_read.set()
+        self._lock_access.release()
         self._event_allow_ftdi_access.set()
         self._semaphore_access_ftdi.release()
 

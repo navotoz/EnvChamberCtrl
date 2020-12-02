@@ -139,9 +139,10 @@ def func_start_run_loop() -> None:
     disable_fields_and_buttons(root, buttons_dict)
     update_status_label(frames_dict[FRAME_STATUS], WORKING)
 
-    # set ffc here because the mask process is blocking
+    # set ffc and gain here because the mask process is blocking
     while not devices_dict[CAMERA_NAME].ffc_mode_select('ext'):
         pass
+    devices_dict[CAMERA_NAME].gain = 'high'
 
     # make output path
     name = frames_dict[FRAME_HEAD].getvar(EXPERIMENT_NAME)
@@ -189,6 +190,3 @@ set_buttons_by_devices_status(root.nametowidget(FRAME_BUTTONS), devices_dict)
 
 root.mainloop()
 
-# todo: when oven temperatures end, the setpoint goes to zero and stays there...
-# todo: set gain to high (?) when camera connects
-# todo: check what is the difference between low and high gains

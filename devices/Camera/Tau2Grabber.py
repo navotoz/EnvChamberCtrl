@@ -228,6 +228,24 @@ class Tau:
         else:
             return False
 
+    @property
+    def gain(self):
+        res = self._send_and_recv_threaded(ptc.GET_GAIN_MODE, None)
+        return struct.unpack('H', res)[0] if res else 0xffff
+
+    @gain.setter
+    def gain(self, mode: str):
+        if not (mode := ptc.GAIN_CODE_DICT[mode.lower()]):
+            raise NotImplementedError(f"Gain mode {mode} is not implemented.")
+        if mode == self.gain:
+            return
+        for _ in range(9):
+            res = self._send_and_recv_threaded(ptc.SET_GAIN_MODE, struct.pack('>H', mode))
+            if res and struct.unpack('H', res)[0] == mode:
+                self._log.info(f'Set Gain mode to {mode}')
+                return
+        self._log.warning(f'Setting Gain mode to {mode} failed.')
+
     def get_xp_mode(self):
         function = ptc.GET_DIGITAL_OUTPUT_MODE
         argument = struct.pack(">h", 0x0200)
@@ -278,7 +296,7 @@ class Tau:
     def enable_tlinear(self):
         pass
 
-    def _make_packet(self, command: ptc.Code, argument=None) -> bytes:
+    def _make_packet(self, command: ptc.Code, argument: (bytes, None) = None) -> bytes:
         if argument is None:
             argument = []
 
@@ -575,7 +593,7 @@ class TeaxGrabber(Tau):
         self._height = height
 
         if self._dev:
-            self.connect()
+            self._connect()
             # Check for UART and TEAX magic strings, but
             # it's OK if we timeout here
             # using threads for FtdiIO
@@ -583,7 +601,7 @@ class TeaxGrabber(Tau):
         else:
             raise RuntimeError('Could not connect to the Tau2 camera.')
 
-    def connect(self) -> None:
+    def _connect(self) -> None:
         if self._dev.is_kernel_driver_active(0):
             self._dev.detach_kernel_driver(0)
 
@@ -614,7 +632,7 @@ class TeaxGrabber(Tau):
                         print("Could not detach kernel driver from interface({0}): {1}".format(intf.bInterfaceNumber,
                                                                                                str(e)))
 
-    def _send_and_recv_threaded(self, command: ptc.Code, argument: bytes) -> list:
+    def _send_and_recv_threaded(self, command: ptc.Code, argument: (bytes, None)) -> list:
         data = self._make_packet(command, argument)
         return self.io.parse(data, command)
 

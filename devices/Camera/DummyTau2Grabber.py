@@ -39,3 +39,11 @@ class TeaxGrabber:
 
     def ffc(self, length=None):
         pass
+
+    @property
+    def gain(self):
+        return 0x0002
+
+    @gain.setter
+    def gain(self, mode: int):
+        pass

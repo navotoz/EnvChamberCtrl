@@ -19,12 +19,11 @@ SERIAL_NUMBER = Code(0x04, 0, 8)
 GET_REVISION = Code(0x05, 0, 8)
 
 # Gain Commands
-
 GET_GAIN_MODE = Code(0x0A, 0, 2)
+GAIN_CODE_DICT = dict(auto=0x0000, low=0x0001, high=0x0002, manual=0x0003)
 SET_GAIN_MODE = Code(0x0A, 2, 2)
 
 # FFC Commands
-
 GET_FFC_MODE = Code(0x0B, 0, 2)
 SET_FFC_MODE = Code(0x0B, 2, 2)
 
