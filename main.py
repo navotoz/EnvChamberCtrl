@@ -190,3 +190,5 @@ set_buttons_by_devices_status(root.nametowidget(FRAME_BUTTONS), devices_dict)
 root.mainloop()
 
 # todo: when oven temperatures end, the setpoint goes to zero and stays there...
+# todo: set gain to high (?) when camera connects
+# todo: check what is the difference between low and high gains
