@@ -6,13 +6,16 @@ from utils.tools import check_and_make_path
 
 
 def make_device_logging_handler(name, logging_handlers):
-    handler = [handler for handler in logging_handlers if isinstance(handler, logging.FileHandler)][0]
-    path = Path(handler.baseFilename).parent / ('log_'+name.lower()+'.txt')
-    fmt = handler.formatter
-    handler = logging.FileHandler(str(path), mode='w')
-    handler.setLevel(logging.DEBUG)
-    handler.setFormatter(fmt)
-    return logging_handlers + (handler, )
+    handler = [handler for handler in logging_handlers if isinstance(handler, logging.FileHandler)]
+    if handler:
+        handler = handler[0]
+        path = Path(handler.baseFilename).parent / ('log_'+name.lower()+'.txt')
+        fmt = handler.formatter
+        handler = logging.FileHandler(str(path), mode='w')
+        handler.setLevel(logging.DEBUG)
+        handler.setFormatter(fmt)
+        return logging_handlers + (handler, )
+    return logging_handlers
 
 
 def make_logging_handlers(logfile_path: (None, Path) = None, verbose: bool = False) -> tuple:

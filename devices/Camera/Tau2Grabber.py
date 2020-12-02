@@ -33,7 +33,7 @@ MAGIC_IMAGE_ENDING = 0x0ff0
 
 
 class Tau:
-    def __init__(self, port=None, baud=921600,logging_handlers: tuple = make_logging_handlers(None, True),
+    def __init__(self, port=None, baud=921600, logging_handlers: tuple = make_logging_handlers(None, True),
                  logging_level: int = logging.INFO):
         super().__init__()
         logging_handlers = make_device_logging_handler('Tau2', logging_handlers)
@@ -567,12 +567,14 @@ class TeaxGrabber(Tau):
         super().__init__(logging_handlers=logging_handlers, logging_level=logging_level)
         logging_handlers = make_device_logging_handler('TeaxGrabber', logging_handlers)
         self._log = make_logger('TeaxGrabber', logging_handlers, logging_level)
-        self.__dev = usb.core.find(idVendor=vid, idProduct=pid)
+        self._dev = usb.core.find(idVendor=vid, idProduct=pid)
 
         self.ftdi_ = None
         self.frame_size = 2 * height * width + 10 + 4 * height  # 10 byte header, 4 bytes pad per row
+        self._width = width
+        self._height = height
 
-        if self.__dev:
+        if self._dev:
             self.connect()
             # Check for UART and TEAX magic strings, but
             # it's OK if we timeout here
@@ -582,32 +584,32 @@ class TeaxGrabber(Tau):
             raise RuntimeError('Could not connect to the Tau2 camera.')
 
     def connect(self) -> None:
-        if self.__dev.is_kernel_driver_active(0):
-            self.__dev.detach_kernel_driver(0)
+        if self._dev.is_kernel_driver_active(0):
+            self._dev.detach_kernel_driver(0)
 
         self._claim_dev()
 
         self.ftdi_ = Ftdi()
-        self.ftdi_.open_from_device(self.__dev)
+        self.ftdi_.open_from_device(self._dev)
 
         self.ftdi_.set_bitmode(0xFF, Ftdi.BitMode.RESET)
         self.ftdi_.set_bitmode(0xFF, Ftdi.BitMode.SYNCFF)
 
     def _claim_dev(self):
-        self.__dev.reset()
+        self._dev.reset()
         self._release()
 
-        self.__dev.set_configuration(1)
+        self._dev.set_configuration(1)
 
-        usb.util.claim_interface(self.__dev, 0)
-        usb.util.claim_interface(self.__dev, 1)
+        usb.util.claim_interface(self._dev, 0)
+        usb.util.claim_interface(self._dev, 1)
 
     def _release(self):
-        for cfg in self.__dev:
+        for cfg in self._dev:
             for intf in cfg:
-                if self.__dev.is_kernel_driver_active(intf.bInterfaceNumber):
+                if self._dev.is_kernel_driver_active(intf.bInterfaceNumber):
                     try:
-                        self.__dev.detach_kernel_driver(intf.bInterfaceNumber)
+                        self._dev.detach_kernel_driver(intf.bInterfaceNumber)
                     except usb.core.USBError as e:
                         print("Could not detach kernel driver from interface({0}): {1}".format(intf.bInterfaceNumber,
                                                                                                str(e)))
@@ -641,16 +643,18 @@ class TeaxGrabber(Tau):
                 frame_width = np.frombuffer(data[5:7], dtype='uint16')[0] - 2
                 if frame_width != width:
                     self._log.debug(f"Received frame has width of {frame_width} - different than expected {width}.")
+                    continue
                 raw_image_8bit = np.frombuffer(data[10:], dtype='uint8').reshape((-1, 2 * (width + 2)))
+                if not self._is_8bit_image_borders_valid(raw_image_8bit):
+                    continue
                 raw_image_16bit = 0x3FFF & raw_image_8bit.view('uint16')[:, 1:-1]
 
                 # results should be within [0,100] Celsius
                 if (6825 >= raw_image_16bit).all() or (raw_image_16bit >= 9325).all():
                     continue
                 if to_temperature:
-                    return 0.04 * raw_image_16bit - 273
-                else:
-                    return raw_image_16bit
+                    raw_image_16bit = 0.04 * raw_image_16bit - 273
+                return raw_image_16bit, data
 
     def __exit__(self, type, value, traceback):
         self._log.info("Disconnecting from camera.")
@@ -658,3 +662,14 @@ class TeaxGrabber(Tau):
     @property
     def is_dummy(self):
         return False
+
+    def _is_8bit_image_borders_valid(self, raw_image_8bit: np.ndarray) -> bool:
+        if np.nonzero(raw_image_8bit[:, 0] != 0)[0]:
+            return False
+        valid_idx = np.nonzero(raw_image_8bit[:, -1] != BORDER_VALUE)
+        if len(valid_idx) != 1:
+            return False
+        valid_idx = int(valid_idx[0])
+        if valid_idx != self._height - 1:  # the different value should be in the bottom of the border
+            return False
+        return True

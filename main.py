@@ -1,3 +1,4 @@
+import pickle
 import logging
 import multiprocessing as mp
 import signal
@@ -111,10 +112,12 @@ def thread_run_experiment(semaphore_mask: Semaphore, output_path: Path):
                     t_housing = get_inner_temperatures(frames_dict[FRAME_TEMPERATURES], T_HOUSING)
                     # the precision of the housing temperature is 0.01C and the precision for the fpa is 0.1C
                     f_name_to_save = f_name + f"fpa_{t_fpa:.2f}_housing_{t_housing:.2f}_"
-                    img = grab()
+                    img, data = grab()
                     f_name_to_save = str(output_path / f"{f_name_to_save}{i}|{n_images_per_iteration}")
                     np.save(f_name_to_save, img)
                     normalize_image(img).save(f_name_to_save, format='jpeg')
+                    with open(f_name_to_save, 'wb') as fp:
+                        pickle.dump(data, fp)
                     logger.debug(f"Taken {i} image")
                     frames_dict[FRAME_PROGRESSBAR].nametowidget(PROGRESSBAR).step(1 / total_images * 100)
                     frames_dict[FRAME_PROGRESSBAR].nametowidget(PROGRESSBAR).update_idletasks()
