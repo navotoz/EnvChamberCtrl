@@ -2,7 +2,6 @@ import tkinter as tk
 from functools import partial
 from logging import Logger
 from math import prod
-from multiprocessing import Event
 from pathlib import Path
 from time import sleep
 from tkinter import filedialog as fd, Frame
@@ -12,7 +11,7 @@ from PIL import Image
 from tqdm import tqdm
 
 from utils.constants import *
-from utils.tools import wait_for_time, get_time, normalize_image, check_and_make_path
+from utils.tools import get_time, normalize_image, check_and_make_path, SyncFlag
 
 
 def get_spinbox_value(sp_widget_name: str) -> float:
@@ -182,21 +181,6 @@ def get_values_list(frame: tk.Frame, devices_dict: dict) -> tuple:
                                       float(inc_value))  # 1e-9 to include upper limit
         values_list.append(list_of_intervals)
     return values_list, prod(map(lambda x: len(x), values_list))
-
-
-class SyncFlag:
-    def __init__(self, init_state: bool = True) -> None:
-        self._event = Event()
-        self._event.set() if init_state else self._event.clear()
-
-    def __call__(self) -> bool:
-        return self._event.is_set()
-
-    def set(self, new_state: bool):
-        self._event.set() if new_state else self._event.clear()
-
-    def __bool__(self) -> bool:
-        return self._event.is_set()
 
 
 def reset_all_fields(root: tk.Tk, buttons_dict: dict, devices_dict: dict) -> None:

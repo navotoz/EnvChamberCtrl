@@ -11,10 +11,10 @@ from typing import Dict
 from devices import make_oven, make_oven_dummy
 from devices.Oven.plots import plot_oven_records_in_path
 from devices.Oven.utils import get_last_measurements, to_datetime, VariableLengthDeque, MaxTemperatureTimer
-from gui.utils import SyncFlag, tqdm_waiting
+from gui.utils import tqdm_waiting
 from utils.constants import *
 from utils.logger import make_logger, make_logging_handlers
-from utils.tools import wait_for_time, check_and_make_path
+from utils.tools import wait_for_time, check_and_make_path, SyncFlag
 
 
 class PlotterProc(mp.Process):

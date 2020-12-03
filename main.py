@@ -17,14 +17,14 @@ from devices.Oven.utils import get_n_experiments, make_oven_temperatures_list
 from gui.makers import make_frames, make_buttons
 from gui.mask import make_mask_win_and_save
 from gui.utils import apply_value_and_make_filename, disable_fields_and_buttons, \
-    update_status_label, get_values_list, SyncFlag, reset_all_fields, set_buttons_by_devices_status, \
+    update_status_label, get_values_list, reset_all_fields, set_buttons_by_devices_status, \
     browse_btn_func, thread_get_fpa_housing_temperatures, getter_safe_variables, get_inner_temperatures, \
     update_spinbox_parameters_devices_states
 from gui.windows import open_upload_window, open_viewer_window
 from utils.analyze import process_plot_images_comparison
 from utils.constants import *
 from utils.logger import make_logger, make_logging_handlers
-from utils.tools import wait_for_time, normalize_image, get_time, check_and_make_path
+from utils.tools import wait_for_time, normalize_image, get_time, check_and_make_path, SyncFlag
 
 handlers = make_logging_handlers(logfile_path=Path('log/log.txt'), verbose=True)
 logger = make_logger('GUI', handlers=handlers, level=logging.INFO)
@@ -195,5 +195,8 @@ set_buttons_by_devices_status(root.nametowidget(FRAME_BUTTONS), devices_dict)
 
 root.mainloop()
 
+# todo: check the new mechanizems in the ThreadedFtdi (does the wait for the image work, send/recv...)
+# todo: add corrisponding functions to dummy camera
+# todo: change the ffc to property
 # todo: sometimes when starting the experiment the mask doesn't come out right
 # todo: check that the exit of ThreadedIO works
