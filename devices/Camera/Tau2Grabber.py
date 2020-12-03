@@ -13,8 +13,10 @@ from pyftdi.ftdi import Ftdi
 
 import devices.Camera.tau2_config as ptc
 from devices.Camera.ThreadedFtdi import FtdiIO
+from gui.utils import SyncFlag
 from utils.constants import *
 from utils.logger import make_logger, make_logging_handlers, make_device_logging_handler
+from utils.tools import show_image
 
 # Tau Status codes
 CAM_OK = 0x00
@@ -594,19 +596,20 @@ class Tau:
         self._log.warning(f'Setting AGC mode to {mode} failed.')
 
     @property
-    def sso(self) -> float:
+    def sso(self) -> int:
         res = self._send_and_recv_threaded(ptc.GET_AGC_THRESHOLD, struct.pack('>h', 0x0400))
-        return struct.unpack('>e', res)[0] if res else 0xffff
+        return struct.unpack('>h', res)[0] if res else 0xffff
 
     @sso.setter
-    def sso(self, percentage: float):
+    def sso(self, percentage: int):
         if percentage == self.sso:
-            self._log.info(f'Set SSO to {percentage:.2f}')
+            self._log.info(f'Set SSO to {percentage}')
             return
         for _ in range(9):
-            res = self._send_and_recv_threaded(ptc.SET_AGC_THRESHOLD, struct.pack('>he', 0x0400, percentage))
-            if res:  # todo: there should be no response.. check this issue and maybe compare to the self.sso
-                break
+            self._send_and_recv_threaded(ptc.SET_AGC_THRESHOLD, struct.pack('>hh', 0x0400, percentage))
+            if self.sso == percentage:
+                self._log.info(f'Set SSO to {percentage}')
+                return
         self._log.warning(f'Setting SSO to {percentage:.2f} failed.')
 
     def _get_agc_values(self, command):
@@ -667,7 +670,8 @@ class TeaxGrabber(Tau):
         self._log = make_logger('TeaxGrabber', logging_handlers, logging_level)
         self._dev = usb.core.find(idVendor=vid, idProduct=pid)
 
-        self.ftdi_ = None
+        self._flag_run = SyncFlag(True)
+        self._ftdi = None
         self.frame_size = 2 * height * width + 10 + 4 * height  # 10 byte header, 4 bytes pad per row
         self._width = width
         self._height = height
@@ -677,9 +681,13 @@ class TeaxGrabber(Tau):
             # Check for UART and TEAX magic strings, but
             # it's OK if we timeout here
             # using threads for FtdiIO
-            self.io = FtdiIO(self.ftdi_, self.frame_size, logging_handlers, logging_level)
+            self.io = FtdiIO(self._ftdi, self.frame_size, self._flag_run, logging_handlers, logging_level)
+            self.io.start()
         else:
             raise RuntimeError('Could not connect to the Tau2 camera.')
+
+    def __del__(self)->None:
+        self._flag_run.set(False)
 
     def _connect(self) -> None:
         if self._dev.is_kernel_driver_active(0):
@@ -687,11 +695,11 @@ class TeaxGrabber(Tau):
 
         self._claim_dev()
 
-        self.ftdi_ = Ftdi()
-        self.ftdi_.open_from_device(self._dev)
+        self._ftdi = Ftdi()
+        self._ftdi.open_from_device(self._dev)
 
-        self.ftdi_.set_bitmode(0xFF, Ftdi.BitMode.RESET)
-        self.ftdi_.set_bitmode(0xFF, Ftdi.BitMode.SYNCFF)
+        self._ftdi.set_bitmode(0xFF, Ftdi.BitMode.RESET)
+        self._ftdi.set_bitmode(0xFF, Ftdi.BitMode.SYNCFF)
 
     def _claim_dev(self):
         self._dev.reset()
@@ -731,7 +739,7 @@ class TeaxGrabber(Tau):
         # serial stream and we have some kind of helper function which responds
         # to commands and waits to see the answer from the camera.
         # data = idx = None
-        while True:
+        while self._flag_run:
             data = self.io.get_image()
             if data:
                 if struct.unpack('H', data[10:12])[0] != 0x4000:  # a magic word
@@ -745,9 +753,6 @@ class TeaxGrabber(Tau):
                     continue
                 raw_image_16bit = 0x3FFF & raw_image_8bit.view('uint16')[:, 1:-1]
 
-                # results should be within [0,100] Celsius
-                if (6825 >= raw_image_16bit).all() or (raw_image_16bit >= 9325).all():
-                    continue
                 if to_temperature:
                     raw_image_16bit = 0.04 * raw_image_16bit - 273
                 return raw_image_16bit

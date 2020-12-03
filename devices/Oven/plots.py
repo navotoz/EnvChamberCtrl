@@ -102,7 +102,7 @@ def plot_double_sides(df, x_values: (list, np.ndarray, pd.DataFrame), save_path:
 def plot_oven_records_in_path(path_to_log: Path, path_to_save: Path):
     try:
         df = get_dataframe(path_to_log)
-        list_running_time = make_runtime_list(df)
+        list_running_time = make_runtime_seconds_list(df) / 60
     except (KeyError, ValueError, RuntimeError, AttributeError, FileNotFoundError, IsADirectoryError, IndexError):
         return
 
@@ -160,9 +160,11 @@ def get_dataframe(log_path: (Path, str)) -> pd.DataFrame:
     return df.astype('float')
 
 
-def make_runtime_list(df) -> np.ndarray:
-    run_time_minutes = (to_datetime(df.index[-1]) - to_datetime(df.index[0])).total_seconds() / 60  # to minutes
-    return np.linspace(0, run_time_minutes, num=len(df.index), dtype=int)
+def make_runtime_seconds_list(df) -> np.ndarray:
+    times_list = list(map(lambda x: to_datetime(x), df.index))
+    times_list = list(map(lambda x: x - times_list[0], times_list))
+    times_list = list(map(lambda x: int(x.total_seconds()), times_list))
+    return np.array(times_list)
 
 
 def plot_btn_func(frame_button: Frame):

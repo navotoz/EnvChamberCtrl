@@ -157,9 +157,9 @@ def thread_get_fpa_housing_temperatures(devices_dict, frame: tk.Frame, flag):
                 except (TypeError, ValueError):
                     pass
 
-    func_wait_and_get_temperature = wait_for_time(getter, FREQ_INNER_TEMPERATURE_SECONDS)
     while flag:
-        func_wait_and_get_temperature()
+        getter()
+        sleep(FREQ_INNER_TEMPERATURE_SECONDS)
 
 
 def getter_safe_variables():

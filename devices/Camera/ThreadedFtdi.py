@@ -9,6 +9,7 @@ from pyftdi.ftdi import Ftdi
 from pyftdi.ftdi import FtdiError
 
 from devices.Camera.tau2_config import Code
+from gui.utils import SyncFlag
 from utils.logger import make_logger
 
 BUFFER_SIZE = int(1e7)  # 10 MBytes
@@ -22,7 +23,7 @@ class BytesBuffer:
         self._buffer = b''
         self._lock = Lock()
 
-    def __del__(self):
+    def __del__(self) -> None:
         pass
 
     def clear_buffer(self) -> None:
@@ -91,12 +92,17 @@ def generate_overlapping_list_chunks(generator: (map, filter), n: int):
     return filter(lambda sub: len(sub) == n, subset_generator)
 
 
-class FtdiIO:
-    def __init__(self, ftdi: (Ftdi, None), frame_size: int, logging_handlers: (list, tuple), logging_level: int):
+class FtdiIO(Thread):
+    _thread_read = None
+
+    def __init__(self, ftdi: (Ftdi, None), frame_size: int, flag_run: SyncFlag, logging_handlers: (list, tuple),
+                 logging_level: int):
+        super().__init__()
         if not ftdi:
             raise RuntimeError('Error in FTDI.')
         self._log = make_logger('FtdiIO', logging_handlers, logging_level)
-        self.ftdi = ftdi
+        self._ftdi = ftdi
+        self._flag_run = flag_run
         self._frame_size = frame_size
         self._lock_access = Lock()
         self._semaphore_access_ftdi = Semaphore(value=1)
@@ -105,25 +111,27 @@ class FtdiIO:
         self._event_read = Event()
         self._event_read.clear()
         self._buffer = BytesBuffer()
-        self.thread_read = Thread(target=self._func_reader_thread, name='th_tau2grabber_reader', daemon=True)
-        sleep(0.2)
-        self.thread_read.start()
+
+    def run(self) -> None:
         self._log.info('Ready.')
+        while self._flag_run:
+            if self._event_read.is_set():
+                with self._lock_access:
+                    data = self._ftdi.read_data(FTDI_PACKET_SIZE)
+                self._buffer += data
+
+    def __del__(self) -> None:
+        self._flag_run.set(False)
+        self._event_allow_ftdi_access.set()
 
     def _reset(self) -> None:
-        self.ftdi.set_bitmode(0xFF, Ftdi.BitMode.RESET)
-        self.ftdi.set_bitmode(0xFF, Ftdi.BitMode.SYNCFF)
+        with self._lock_access:
+            self._ftdi.set_bitmode(0xFF, Ftdi.BitMode.RESET)
+            self._ftdi.set_bitmode(0xFF, Ftdi.BitMode.SYNCFF)
         self._buffer.clear_buffer()
         self._event_allow_ftdi_access.set()
         self._event_read.clear()
         self._log.debug('Reset.')
-
-    def _func_reader_thread(self) -> None:
-        while True:
-            if self._event_read.is_set():
-                with self._lock_access:
-                    data = self.ftdi.read_data(FTDI_PACKET_SIZE)
-                self._buffer += data
 
     def _parse_func(self, command: Code) -> (List, None):
         len_in_bytes = command.reply_bytes + 10
@@ -150,20 +158,20 @@ class FtdiIO:
         ret_value = struct.pack('<' + len(ret_value) * 'B', *ret_value)
         return ret_value
 
-    def _write(self, data: bytes, to_start_reading: bool = True) -> None:
+    def _write(self, data: bytes) -> None:
         buffer = b"UART"
         buffer += int(len(data)).to_bytes(1, byteorder='big')  # doesn't matter
         buffer += data
-        self._event_read.set() if to_start_reading else None
-        sleep(0.01) if to_start_reading else None
-        with self._lock_access:
-            try:
-                self.ftdi.write_data(buffer)
-                self._log.debug(f"Send {data}")
-            except FtdiError:
-                self._log.debug('Write error.')
-                self._reset()
-        sleep(0.2) if to_start_reading else None
+        self._event_read.set()
+        sleep(0.01)
+        try:
+            with self._lock_access:
+                self._ftdi.write_data(buffer)
+            self._log.debug(f"Send {data}")
+        except FtdiError:
+            self._log.debug('Write error.')
+            self._reset()
+        sleep(0.2)
 
     def parse(self, data: bytes, command: Code, n_retries: int = 3) -> (bytes, None):
         self._event_allow_ftdi_access.wait()
@@ -176,6 +184,8 @@ class FtdiIO:
                     self._buffer.clear_buffer()
                     self._log.debug(f"Recv {res}")
                     return res
+                if not self._flag_run:
+                    break
                 self._log.debug('Could not parse, retrying..')
                 self._write(SYNC_MSG)
                 self._write(data)
@@ -186,18 +196,12 @@ class FtdiIO:
         with self._semaphore_access_ftdi:
             self._event_read.set()
             self._buffer.sync_teax()
-            while len(self._buffer) < self._frame_size:
+            while (buffer_len := len(self._buffer)) < self._frame_size and self._flag_run:
                 continue
-            res = self._buffer[:self._frame_size]
+            res = self._buffer[:min(self._frame_size, buffer_len)]
             self._event_allow_ftdi_access.set()
             self._log.debug('Grabbed Image')
             return res
-
-    def __del__(self):
-        self._event_read.set()
-        self._lock_access.release()
-        self._event_allow_ftdi_access.set()
-        self._semaphore_access_ftdi.release()
 
 
 def get_crc(data) -> List[int]:

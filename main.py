@@ -1,4 +1,3 @@
-import pickle
 import logging
 import multiprocessing as mp
 import signal
@@ -40,20 +39,22 @@ flag_run = SyncFlag()
 
 def _stop():
     flag_run.set(False)
-    semaphore_plot_proc.release()
-    semaphore_mask_sync.release()
+    [semaphore_plot_proc.release() for x in range(3)]
+    [semaphore_mask_sync.release() for x in range(3)]
 
 
 def close_gui(*kwargs) -> None:
     flag_run.set(False)
+    _stop()
+    for key in devices_dict.keys():
+        devices_dict[key] = None
     try:
         oven_process.terminate()
+        oven_process.join()
     except NameError:
         pass
-    _stop()
-    sleep(3)
     root.destroy()
-    exit()
+    exit(0)
 
 
 def signal_handler(sig, frame):
@@ -104,21 +105,19 @@ def thread_run_experiment(semaphore_mask: Semaphore, output_path: Path):
                 f_name = apply_value_and_make_filename(blackbody_temperature, scanner_angle, focus, devices_dict,
                                                        logger)
                 logger.info(f"Blackbody temperature {blackbody_temperature}C is set.")
-                grab = wait_for_time(devices_dict[CAMERA_NAME].grab, wait_time_in_sec=0.5)
                 devices_dict[CAMERA_NAME].ffc()  # calibrate
                 for i in range(1, n_images_per_iteration + 1):
                     if not flag_run:
                         break
+                    sleep(1)
                     t_fpa = get_inner_temperatures(frames_dict[FRAME_TEMPERATURES], T_FPA)
                     t_housing = get_inner_temperatures(frames_dict[FRAME_TEMPERATURES], T_HOUSING)
                     # the precision of the housing temperature is 0.01C and the precision for the fpa is 0.1C
                     f_name_to_save = f_name + f"fpa_{t_fpa:.2f}_housing_{t_housing:.2f}_"
-                    img = grab()
+                    image = devices_dict[CAMERA_NAME].grab()
                     f_name_to_save = str(output_path / f"{f_name_to_save}{i}|{n_images_per_iteration}")
-                    np.save(f_name_to_save, img)
-                    normalize_image(img).save(f_name_to_save + '.jpeg', format='jpeg')
-                    with open(f_name_to_save + '.pkl', 'wb') as fp:
-                        pickle.dump(data, fp)
+                    np.save(f_name_to_save, image)
+                    normalize_image(image).save(f_name_to_save + '.jpeg', format='jpeg')
                     logger.debug(f"Taken {i} image")
                     frames_dict[FRAME_PROGRESSBAR].nametowidget(PROGRESSBAR).step(1 / total_images * 100)
                     frames_dict[FRAME_PROGRESSBAR].nametowidget(PROGRESSBAR).update_idletasks()
@@ -141,14 +140,14 @@ def func_start_run_loop() -> None:
     update_status_label(frames_dict[FRAME_STATUS], WORKING)
 
     # set ffc and gain here because the mask process is blocking
-    while not devices_dict[CAMERA_NAME].ffc_mode_select('ext'):
+    while not devices_dict[CAMERA_NAME].ffc_mode_select('manual'):
         pass
     devices_dict[CAMERA_NAME].gain = 'high'
     devices_dict[CAMERA_NAME].agc = 'manual'
-    devices_dict[CAMERA_NAME].sso = 0.0
+    devices_dict[CAMERA_NAME].sso = 0
     devices_dict[CAMERA_NAME].contrast = 0
     devices_dict[CAMERA_NAME].brightness = 0
-    devices_dict[CAMERA_NAME].brightness_bais = 0
+    devices_dict[CAMERA_NAME].brightness_bias = 0
 
     # make output path
     name = frames_dict[FRAME_HEAD].getvar(EXPERIMENT_NAME)
@@ -195,3 +194,5 @@ update_spinbox_parameters_devices_states(root.nametowidget(FRAME_PARAMS), device
 set_buttons_by_devices_status(root.nametowidget(FRAME_BUTTONS), devices_dict)
 
 root.mainloop()
+
+# todo: sometimes when starting the experiment the mask doesn't come out right
