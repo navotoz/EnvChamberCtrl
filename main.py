@@ -144,7 +144,7 @@ def func_start_run_loop() -> None:
         pass
     devices_dict[CAMERA_NAME].gain = 'high'
     devices_dict[CAMERA_NAME].agc = 'manual'
-    devices_dict[CAMERA_NAME].sso = 0
+    # devices_dict[CAMERA_NAME].sso = 0
     devices_dict[CAMERA_NAME].contrast = 0
     devices_dict[CAMERA_NAME].brightness = 0
     devices_dict[CAMERA_NAME].brightness_bias = 0
@@ -196,3 +196,4 @@ set_buttons_by_devices_status(root.nametowidget(FRAME_BUTTONS), devices_dict)
 root.mainloop()
 
 # todo: sometimes when starting the experiment the mask doesn't come out right
+# todo: check that the exit of ThreadedIO works

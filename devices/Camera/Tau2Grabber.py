@@ -1,3 +1,4 @@
+import multiprocessing as mp
 import binascii
 import logging
 import math
@@ -7,12 +8,9 @@ from time import sleep
 import numpy as np
 import serial
 import tqdm
-import usb.core
-import usb.util
-from pyftdi.ftdi import Ftdi
 
 import devices.Camera.tau2_config as ptc
-from devices.Camera.ThreadedFtdi import FtdiIO
+from devices.Camera.FtdiProcess import FtdiIO
 from gui.utils import SyncFlag
 from utils.constants import *
 from utils.logger import make_logger, make_logging_handlers, make_device_logging_handler
@@ -167,7 +165,7 @@ class Tau:
             raise TypeError(f'{temperature_type} was not implemented as an inner temperature of TAU2.')
         command = ptc.READ_SENSOR_TEMPERATURE
         argument = struct.pack(">h", arg_hex)
-        res = self._send_and_recv_threaded(command, argument)
+        res = self._send_and_recv_threaded(command, argument, 1)
         if res:
             res = struct.unpack(">H", res)[0]
             res /= 10.0 if arg_hex == ARGUMENT_FPA else 100.0
@@ -578,7 +576,7 @@ class Tau:
 
     @property
     def agc(self):
-        res = self._send_and_recv_threaded(ptc.GET_AGC_ALGORITHM, None)   # todo: does this function even works????
+        res = self._send_and_recv_threaded(ptc.GET_AGC_ALGORITHM, None)  # todo: does this function even works????
         return struct.unpack('>h', res)[0] if res else 0xffff
 
     @agc.setter
@@ -668,61 +666,36 @@ class TeaxGrabber(Tau):
         super().__init__(logging_handlers=logging_handlers, logging_level=logging_level)
         logging_handlers = make_device_logging_handler('TeaxGrabber', logging_handlers)
         self._log = make_logger('TeaxGrabber', logging_handlers, logging_level)
-        self._dev = usb.core.find(idVendor=vid, idProduct=pid)
 
         self._flag_run = SyncFlag(True)
-        self._ftdi = None
-        self.frame_size = 2 * height * width + 10 + 4 * height  # 10 byte header, 4 bytes pad per row
+        self._lock_cmd_send = mp.Lock()
+        self._frame_size = 2 * height * width + 10 + 4 * height  # 10 byte header, 4 bytes pad per row
         self._width = width
         self._height = height
 
-        if self._dev:
-            self._connect()
-            # Check for UART and TEAX magic strings, but
-            # it's OK if we timeout here
-            # using threads for FtdiIO
-            self.io = FtdiIO(self._ftdi, self.frame_size, self._flag_run, logging_handlers, logging_level)
-            self.io.start()
-        else:
-            raise RuntimeError('Could not connect to the Tau2 camera.')
+        cmd_ftdi_recv, self._cmd_send = mp.Pipe(duplex=False)
+        self._cmd_recv, cmd_teax_send = mp.Pipe(duplex=False)
+        image_ftdi_recv, self._image_send = mp.Pipe(duplex=False)
+        self._image_recv, image_teax_send = mp.Pipe(duplex=False)
 
-    def __del__(self)->None:
+        self.io = FtdiIO(vid, pid, cmd_ftdi_recv, cmd_teax_send, image_ftdi_recv, image_teax_send,
+                         self._frame_size, self._flag_run, logging_handlers, logging_level)
+        self.io.daemon = False
+        self.io.start()
+        self.ffc()
+
+    def __del__(self) -> None:
         self._flag_run.set(False)
+        self.io.join()
 
-    def _connect(self) -> None:
-        if self._dev.is_kernel_driver_active(0):
-            self._dev.detach_kernel_driver(0)
-
-        self._claim_dev()
-
-        self._ftdi = Ftdi()
-        self._ftdi.open_from_device(self._dev)
-
-        self._ftdi.set_bitmode(0xFF, Ftdi.BitMode.RESET)
-        self._ftdi.set_bitmode(0xFF, Ftdi.BitMode.SYNCFF)
-
-    def _claim_dev(self):
-        self._dev.reset()
-        self._release()
-
-        self._dev.set_configuration(1)
-
-        usb.util.claim_interface(self._dev, 0)
-        usb.util.claim_interface(self._dev, 1)
-
-    def _release(self):
-        for cfg in self._dev:
-            for intf in cfg:
-                if self._dev.is_kernel_driver_active(intf.bInterfaceNumber):
-                    try:
-                        self._dev.detach_kernel_driver(intf.bInterfaceNumber)
-                    except usb.core.USBError as e:
-                        print("Could not detach kernel driver from interface({0}): {1}".format(intf.bInterfaceNumber,
-                                                                                               str(e)))
-
-    def _send_and_recv_threaded(self, command: ptc.Code, argument: (bytes, None)) -> list:
-        data = self._make_packet(command, argument)
-        return self.io.parse(data, command)
+    def _send_and_recv_threaded(self, command: ptc.Code, argument: (bytes, None), n_retries: int=3):
+        data, res = self._make_packet(command, argument), None
+        with self._lock_cmd_send:
+            self._cmd_send.send((data, command, n_retries))
+            while self._flag_run and self._cmd_recv.poll(timeout=1):
+                res = self._cmd_recv.recv()
+                break
+            return res
 
     def grab(self, to_temperature: bool = False, width: int = 336):
         # Note that in TeAx's official driver, they use a threaded loop
@@ -738,9 +711,13 @@ class TeaxGrabber(Tau):
         # if this is moved to a threaded function that continually services the
         # serial stream and we have some kind of helper function which responds
         # to commands and waits to see the answer from the camera.
-        # data = idx = None
+        data = None
         while self._flag_run:
-            data = self.io.get_image()
+            self._image_send.send(True)
+            while self._flag_run:
+                if self._image_recv.poll(timeout=1):
+                    data = self._image_recv.recv()
+                    break
             if data:
                 if struct.unpack('H', data[10:12])[0] != 0x4000:  # a magic word
                     continue

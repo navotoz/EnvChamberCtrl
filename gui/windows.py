@@ -67,7 +67,7 @@ def func_thread_viewer(device, canvas: tk.Canvas):
         image = ImageTk.PhotoImage(image=func_thread_grabber(device))
         canvas.create_image((0, 0), anchor=tk.NW, image=image) if canvas.winfo_exists() else None
         canvas.update_idletasks() if canvas.winfo_exists() else None
-        sleep(0.5)
+        sleep(0.05)
 
 
 viewer_window = None

@@ -51,6 +51,8 @@ def normalize_image(image: np.ndarray) -> Image.Image:
     if image.dtype == np.bool:
         return Image.fromarray(image.astype('uint8') * 255)
     image = image.astype('float32')
+    if (0 == image).all():
+        return Image.fromarray(image.astype('uint8'))
     mask = image > 0
     image[mask] -= image[mask].min()
     image[mask] = image[mask] / image[mask].max()
