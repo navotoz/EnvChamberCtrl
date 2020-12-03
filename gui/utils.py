@@ -81,7 +81,7 @@ def apply_and_return_filename_str(val: float, device_name: str, devices_dict: di
 
 
 def func_thread_grabber(device) -> Image.Image:
-    return normalize_image(device.grab()[0].astype('float32'))
+    return normalize_image(device.grab().astype('float32'))
 
 
 def change_state_radiobuttons(root: tk.Tk, state: (tk.DISABLED, tk.NORMAL)):

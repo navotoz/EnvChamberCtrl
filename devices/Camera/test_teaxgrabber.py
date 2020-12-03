@@ -18,12 +18,12 @@ class TestTeaxGrabber(TestCase):
 
     def test_3_grab(self):
         with TeaxGrabber() as camera:
-            image = camera.grab()[0]
+            image = camera.grab()
             self.assertEqual(image.dtype, np.float64)
 
     def test_4_grab_raw(self):
         with TeaxGrabber() as camera:
-            image = camera.grab(to_temperature=False)[0]
+            image = camera.grab(to_temperature=False)
             self.assertEqual(image.dtype, np.uint16)
 
     def test_5_image_and_uart(self):
@@ -31,5 +31,5 @@ class TestTeaxGrabber(TestCase):
             temp = camera.get_fpa_temperature()
             self.assertLess(0, temp, msg=f'Sensor temperature {temp} is false.')
 
-            image = camera.grab()[0]
+            image = camera.grab()
             self.assertEqual(image.dtype, np.float64)

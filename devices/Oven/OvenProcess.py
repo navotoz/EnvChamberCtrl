@@ -182,7 +182,7 @@ class OvenCtrl(mp.Process):
                     msg = f'Setting the oven to {next_temperature:.2f}C'
                     if offset != 0:
                         msg += f' with {offset:.2f}C offset.'
-                    self._oven.log.info(msg) if verbose else None
+                    self._oven.log.info(msg) if verbose else self._oven.log.debug(msg)
                 else:
                     self._oven.log.debug(f'next temperature {next_temperature:.2f}C '
                                          f'is already set in the oven.') if verbose else None

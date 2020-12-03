@@ -81,7 +81,7 @@ class CR1000(object):
         if not self.connected:
             raise NoDeviceException()
         self.set_value('Public', SETPOINT, 0.0)
-        self._log.info('Connected.')
+        self._log.info('Connected and set the temperature to 0.')
 
     @property
     def log(self):

@@ -101,9 +101,10 @@ def thread_run_experiment(semaphore_mask: Semaphore, output_path: Path):
                 if not flag_run:
                     logger.warning('Stopped the experiment.')
                     break
-                f_name = apply_value_and_make_filename(blackbody_temperature, scanner_angle, focus, devices_dict, logger)
+                f_name = apply_value_and_make_filename(blackbody_temperature, scanner_angle, focus, devices_dict,
+                                                       logger)
                 logger.info(f"Blackbody temperature {blackbody_temperature}C is set.")
-                grab = wait_for_time(devices_dict[CAMERA_NAME].grab, wait_time_in_sec=0.2)
+                grab = wait_for_time(devices_dict[CAMERA_NAME].grab, wait_time_in_sec=0.5)
                 devices_dict[CAMERA_NAME].ffc()  # calibrate
                 for i in range(1, n_images_per_iteration + 1):
                     if not flag_run:
@@ -112,10 +113,10 @@ def thread_run_experiment(semaphore_mask: Semaphore, output_path: Path):
                     t_housing = get_inner_temperatures(frames_dict[FRAME_TEMPERATURES], T_HOUSING)
                     # the precision of the housing temperature is 0.01C and the precision for the fpa is 0.1C
                     f_name_to_save = f_name + f"fpa_{t_fpa:.2f}_housing_{t_housing:.2f}_"
-                    img, data = grab()
+                    img = grab()
                     f_name_to_save = str(output_path / f"{f_name_to_save}{i}|{n_images_per_iteration}")
                     np.save(f_name_to_save, img)
-                    normalize_image(img).save(f_name_to_save+'.jpeg', format='jpeg')
+                    normalize_image(img).save(f_name_to_save + '.jpeg', format='jpeg')
                     with open(f_name_to_save + '.pkl', 'wb') as fp:
                         pickle.dump(data, fp)
                     logger.debug(f"Taken {i} image")
@@ -153,7 +154,7 @@ def func_start_run_loop() -> None:
     # init oven
     oven_status = frames_dict[FRAME_PARAMS].getvar(f"device_status_{OVEN_NAME}")
     if oven_status != DEVICE_OFF:
-        oven_process = OvenCtrl(logging_handlers = handlers,
+        oven_process = OvenCtrl(logging_handlers=handlers,
                                 log_path=output_path, recv_temperature=recv_temperature,
                                 send_temperature_is_set=send_is_temperature_set,
                                 flag_run=flag_run, is_dummy=oven_status == DEVICE_DUMMY, **getter_safe_variables())
@@ -189,4 +190,3 @@ update_spinbox_parameters_devices_states(root.nametowidget(FRAME_PARAMS), device
 set_buttons_by_devices_status(root.nametowidget(FRAME_BUTTONS), devices_dict)
 
 root.mainloop()
-

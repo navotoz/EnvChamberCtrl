@@ -8,13 +8,21 @@ from utils.tools import check_and_make_path
 def make_device_logging_handler(name, logging_handlers):
     handler = [handler for handler in logging_handlers if isinstance(handler, logging.FileHandler)]
     if handler:
-        handler = handler[0]
-        path = Path(handler.baseFilename).parent / ('log_'+name.lower()+'.txt')
-        fmt = handler.formatter
-        handler = logging.FileHandler(str(path), mode='w')
-        handler.setLevel(logging.DEBUG)
-        handler.setFormatter(fmt)
-        return logging_handlers + (handler, )
+        path = Path(handler[0].baseFilename).parent
+        path = path / 'log' if 'log' not in path.name.lower() else path
+        path /= name.lower()
+        if not path.is_dir():
+            path.mkdir(parents=True)
+        path_to_debug = path / 'debug.txt'
+        path_to_info = path / 'info.txt'
+        fmt = handler[0].formatter
+        handler_debug = logging.FileHandler(str(path_to_debug), mode='w')
+        handler_debug.setLevel(logging.DEBUG)
+        handler_debug.setFormatter(fmt)
+        handler_info = logging.FileHandler(str(path_to_info), mode='w')
+        handler_info.setLevel(logging.INFO)
+        handler_info.setFormatter(fmt)
+        return logging_handlers + (handler_debug, handler_info, )
     return logging_handlers
 
 
@@ -36,8 +44,8 @@ def make_logger(name: str, handlers: (list, tuple), level: int = logging.INFO) -
     for idx in range(len(handlers)):
         if not isinstance(handlers[idx], logging.FileHandler):
             handlers[idx].setLevel(level)
-        else:
-            handlers[idx].setLevel(logging.DEBUG)
+        # else:
+        #     handlers[idx].setLevel(logging.DEBUG)
     for handler in handlers:
         logger.addHandler(handler)
     logger.setLevel(logging.DEBUG)

@@ -23,7 +23,7 @@ class TeaxGrabber:
 
     def grab(self):
         sleep(random.uniform(0.1, 0.2))
-        return np.random.rand(HEIGHT_IMAGE, WIDTH_IMAGE), bytes(1)
+        return np.random.rand(HEIGHT_IMAGE, WIDTH_IMAGE)
 
     @property
     def is_dummy(self):

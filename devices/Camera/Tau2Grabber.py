@@ -231,17 +231,18 @@ class Tau:
     @property
     def gain(self):
         res = self._send_and_recv_threaded(ptc.GET_GAIN_MODE, None)
-        return struct.unpack('H', res)[0] if res else 0xffff
+        return struct.unpack('>h', res)[0] if res else 0xffff
 
     @gain.setter
     def gain(self, mode: str):
         if not (mode := ptc.GAIN_CODE_DICT[mode.lower()]):
             raise NotImplementedError(f"Gain mode {mode} is not implemented.")
         if mode == self.gain:
+            self._log.info(f'Set Gain mode to {mode}')
             return
         for _ in range(9):
-            res = self._send_and_recv_threaded(ptc.SET_GAIN_MODE, struct.pack('>H', mode))
-            if res and struct.unpack('H', res)[0] == mode:
+            res = self._send_and_recv_threaded(ptc.SET_GAIN_MODE, struct.pack('>h', mode))
+            if res and struct.unpack('>h', res)[0] == mode:
                 self._log.info(f'Set Gain mode to {mode}')
                 return
         self._log.warning(f'Setting Gain mode to {mode} failed.')
@@ -573,6 +574,24 @@ class Tau:
     def _receive_data(self, n_bytes):
         return self.conn.read(n_bytes)
 
+    @property
+    def agc(self):
+        res = self._send_and_recv_threaded(ptc.GET_AGC_ALGORITHM, None)
+        return struct.unpack('>h', res)[0] if res else 0xffff
+
+    @agc.setter
+    def agc(self, mode: str):
+        if not (mode := ptc.GAIN_CODE_DICT[mode.lower()]):
+            raise NotImplementedError(f"Gain mode {mode} is not implemented.")
+        if mode == self.gain:
+            self._log.info(f'Set Gain mode to {mode}')
+            return
+        for _ in range(9):
+            res = self._send_and_recv_threaded(ptc.SET_GAIN_MODE, struct.pack('>h', mode))
+            if res and struct.unpack('>h', res)[0] == mode:
+                self._log.info(f'Set Gain mode to {mode}')
+                return
+        self._log.warning(f'Setting Gain mode to {mode} failed.')
 
 class TeaxGrabber(Tau):
     """
@@ -670,7 +689,7 @@ class TeaxGrabber(Tau):
                     continue
                 if to_temperature:
                     raw_image_16bit = 0.04 * raw_image_16bit - 273
-                return raw_image_16bit, data
+                return raw_image_16bit
 
     def __exit__(self, type, value, traceback):
         self._log.info("Disconnecting from camera.")
