@@ -6,10 +6,8 @@ from devices.Camera.Tau2Grabber import TeaxGrabber
 
 
 class TestTeaxGrabber(TestCase):
-    def test_1_open_close(self):
-        camera = TeaxGrabber()
-        self.assertIsNotNone(camera.__dev, msg="ThermalGrabber not connected, skipping tests")
-        camera.close()
+    def test_1_connect(self):
+        self.camera = TeaxGrabber()
 
     def test_2_ping(self):
         with TeaxGrabber() as camera:

@@ -144,6 +144,11 @@ def func_start_run_loop() -> None:
     while not devices_dict[CAMERA_NAME].ffc_mode_select('ext'):
         pass
     devices_dict[CAMERA_NAME].gain = 'high'
+    devices_dict[CAMERA_NAME].agc = 'manual'
+    devices_dict[CAMERA_NAME].sso = 0.0
+    devices_dict[CAMERA_NAME].contrast = 0
+    devices_dict[CAMERA_NAME].brightness = 0
+    devices_dict[CAMERA_NAME].brightness_bais = 0
 
     # make output path
     name = frames_dict[FRAME_HEAD].getvar(EXPERIMENT_NAME)

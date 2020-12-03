@@ -228,25 +228,6 @@ class Tau:
         else:
             return False
 
-    @property
-    def gain(self):
-        res = self._send_and_recv_threaded(ptc.GET_GAIN_MODE, None)
-        return struct.unpack('>h', res)[0] if res else 0xffff
-
-    @gain.setter
-    def gain(self, mode: str):
-        if not (mode := ptc.GAIN_CODE_DICT[mode.lower()]):
-            raise NotImplementedError(f"Gain mode {mode} is not implemented.")
-        if mode == self.gain:
-            self._log.info(f'Set Gain mode to {mode}')
-            return
-        for _ in range(9):
-            res = self._send_and_recv_threaded(ptc.SET_GAIN_MODE, struct.pack('>h', mode))
-            if res and struct.unpack('>h', res)[0] == mode:
-                self._log.info(f'Set Gain mode to {mode}')
-                return
-        self._log.warning(f'Setting Gain mode to {mode} failed.')
-
     def get_xp_mode(self):
         function = ptc.GET_DIGITAL_OUTPUT_MODE
         argument = struct.pack(">h", 0x0200)
@@ -575,12 +556,12 @@ class Tau:
         return self.conn.read(n_bytes)
 
     @property
-    def agc(self):
-        res = self._send_and_recv_threaded(ptc.GET_AGC_ALGORITHM, None)
+    def gain(self):
+        res = self._send_and_recv_threaded(ptc.GET_GAIN_MODE, None)
         return struct.unpack('>h', res)[0] if res else 0xffff
 
-    @agc.setter
-    def agc(self, mode: str):
+    @gain.setter
+    def gain(self, mode: str):
         if not (mode := ptc.GAIN_CODE_DICT[mode.lower()]):
             raise NotImplementedError(f"Gain mode {mode} is not implemented.")
         if mode == self.gain:
@@ -592,6 +573,86 @@ class Tau:
                 self._log.info(f'Set Gain mode to {mode}')
                 return
         self._log.warning(f'Setting Gain mode to {mode} failed.')
+
+    @property
+    def agc(self):
+        res = self._send_and_recv_threaded(ptc.GET_AGC_ALGORITHM, None)   # todo: does this function even works????
+        return struct.unpack('>h', res)[0] if res else 0xffff
+
+    @agc.setter
+    def agc(self, mode: str):
+        if not (mode := ptc.AGC_CODE_DICT[mode.lower()]):
+            raise NotImplementedError(f"AGC mode {mode} is not implemented.")
+        if mode == self.agc:
+            self._log.info(f'Set AGC mode to {mode}')
+            return
+        for _ in range(9):
+            res = self._send_and_recv_threaded(ptc.SET_AGC_ALGORITHM, struct.pack('>h', mode))
+            if res and struct.unpack('>h', res)[0] == mode:
+                self._log.info(f'Set AGC mode to {mode}')
+                return
+        self._log.warning(f'Setting AGC mode to {mode} failed.')
+
+    @property
+    def sso(self) -> float:
+        res = self._send_and_recv_threaded(ptc.GET_AGC_THRESHOLD, struct.pack('>h', 0x0400))
+        return struct.unpack('>e', res)[0] if res else 0xffff
+
+    @sso.setter
+    def sso(self, percentage: float):
+        if percentage == self.sso:
+            self._log.info(f'Set SSO to {percentage:.2f}')
+            return
+        for _ in range(9):
+            res = self._send_and_recv_threaded(ptc.SET_AGC_THRESHOLD, struct.pack('>he', 0x0400, percentage))
+            if res:  # todo: there should be no response.. check this issue and maybe compare to the self.sso
+                break
+        self._log.warning(f'Setting SSO to {percentage:.2f} failed.')
+
+    def _get_agc_values(self, command):
+        res = self._send_and_recv_threaded(command, None)
+        return struct.unpack('>h', res)[0] if res else 0xffff
+
+    def _set_agc_values(self, value: int, current_value: int, command: ptc.Code) -> bool:
+        if value == current_value:
+            return True
+        for _ in range(9):
+            res = self._send_and_recv_threaded(command, struct.pack('>h', value))
+            if res and struct.unpack('>h', res)[0] == value:
+                return True
+        return False
+
+    def _log_agc_value_set(self, value: int, result: bool, agc_value_name: str) -> None:
+        if result:
+            self._log.info(f'Set AGC {agc_value_name} to {value}.')
+        else:
+            self._log.warning(f'Setting AGC {agc_value_name} to {value} failed.')
+
+    @property
+    def contrast(self) -> int:
+        return self._get_agc_values(ptc.GET_CONTRAST)
+
+    @contrast.setter
+    def contrast(self, value: int):
+        self._log_agc_value_set(value, self._set_agc_values(value, self.contrast, ptc.SET_CONTRAST), 'contrast')
+
+    @property
+    def brightness(self) -> int:
+        return self._get_agc_values(ptc.GET_BRIGHTNESS)
+
+    @brightness.setter
+    def brightness(self, value: int):
+        self._log_agc_value_set(value, self._set_agc_values(value, self.brightness, ptc.SET_BRIGHTNESS), 'brightness')
+
+    @property
+    def brightness_bias(self) -> int:
+        return self._get_agc_values(ptc.GET_BRIGHTNESS_BIAS)
+
+    @brightness_bias.setter
+    def brightness_bias(self, value: int):
+        result = self._set_agc_values(value, self.brightness_bias, ptc.SET_BRIGHTNESS_BIAS)
+        self._log_agc_value_set(value, result, 'brightness_bias')
+
 
 class TeaxGrabber(Tau):
     """

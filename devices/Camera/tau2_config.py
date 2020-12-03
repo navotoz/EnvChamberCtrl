@@ -78,7 +78,8 @@ SET_AGC_ACE_CORRECT = Code(0x1C, 0, 2)
 GET_AGC_ACE_CORRECT = Code(0x1C, 2, 2)
 
 # AGC
-
+AGC_CODE_DICT = dict(plateau=0x0000, once_bright=0x0001, auto_bright=0x0002, manual=0x0003, linear=0x0005,
+                     information_based=0x0009,information_based_eq=0x000A)
 GET_AGC_ALGORITHM = Code(0x13, 0, 2)
 SET_AGC_ALGORITHM = Code(0x13, 2, 2)
 
