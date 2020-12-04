@@ -58,8 +58,8 @@ class FtdiIO(mp.Process):
 
     def __del__(self) -> None:
         self._flag_run.set(False)
-        self._cmd_pipe.send(True)
-        self._image_pipe.send(True)
+        self._cmd_pipe.send(None)
+        self._image_pipe.send(None)
         self._event_allow_ftdi_access.set()
         self._thread_read.join()
         self._thread_image.join()
@@ -138,20 +138,25 @@ class FtdiIO(mp.Process):
                     self._write(data)
                     idx += 1
                     sleep(0.1)
+                self._cmd_pipe.send(res)
                 self._event_read.clear()
                 self._log.debug(f"Recv {res}") if res else None
                 self._buffer.clear_buffer()
-                self._cmd_pipe.send(res)
 
     def _th_image_func(self) -> None:
         while self._flag_run:
             self._image_pipe.recv()  # waits for signal from TeaxGrabber
             self._event_allow_ftdi_access.clear()  # only allows this thread to operate
             with self._semaphore_access_ftdi:
-                self._event_read.set()
-                self._buffer.sync_teax()
-                buffer_len = self._buffer.wait_for_size()
-                res = self._buffer[:min(self._frame_size, buffer_len)]
-                self._event_allow_ftdi_access.set()
-                self._log.debug('Grabbed Image')
-                self._image_pipe.send(res)
+                while self._flag_run:
+                    self._event_read.set()
+                    self._buffer.sync_teax()
+                    buffer_len = self._buffer.wait_for_size()
+                    res = self._buffer[:min(self._frame_size, buffer_len)]
+                    # if struct.unpack('H', res[10:12])[0] != 0x4000:  # a magic word
+                    if res[10:12] != b'\x00@':  # a magic word
+                        continue
+                    self._event_allow_ftdi_access.set()
+                    self._image_pipe.send(res)
+                    self._log.debug('Grabbed Image')
+                    break

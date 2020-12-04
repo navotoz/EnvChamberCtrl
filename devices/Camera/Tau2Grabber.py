@@ -513,24 +513,6 @@ class Tau:
         else:
             return remaining_bytes
 
-    def ffc_mode_select(self, mode: str = 'ext') -> bool:
-        command = ptc.SET_FFC_MODE
-        if 'auto' in mode.lower():
-            argument = struct.pack('>H', 0)
-        elif 'man' in mode.lower():
-            argument = struct.pack('>H', 1)
-        elif 'ext' in mode.lower():
-            argument = struct.pack('>H', 2)
-        else:
-            raise NotImplementedError(f"FFC mode {mode} is not implemented.")
-
-        res = self._send_and_recv_threaded(command, argument)
-        if res:
-            self._log.info(f'Set FFC mode to {mode.capitalize()}.')
-            return True
-        self._log.warning(f'Setting FFC mode to {mode.capitalize()} failed.')
-        return False
-
     def ffc(self, length: bytes = ptc.FFC_LONG) -> None:
         res = self._send_and_recv_threaded(ptc.DO_FFC, length)
         if res and struct.unpack('H', res)[0] == 0xffff:
@@ -554,43 +536,56 @@ class Tau:
     def _receive_data(self, n_bytes):
         return self.conn.read(n_bytes)
 
+    def _get_values_without_arguments(self, command):
+        res = self._send_and_recv_threaded(command, None)
+        return struct.unpack('>h', res)[0] if res else 0xffff
+
+    def _set_values_with_2bytes_send_recv(self, value: int, current_value: int, command: ptc.Code) -> bool:
+        if value == current_value:
+            return True
+        for _ in range(9):
+            res = self._send_and_recv_threaded(command, struct.pack('>h', value))
+            if res and struct.unpack('>h', res)[0] == value:
+                return True
+        return False
+
+    def _log_set_values(self, value: int, result: bool, agc_value_name: str) -> None:
+        if result:
+            self._log.info(f'Set {agc_value_name} to {value}.')
+        else:
+            self._log.warning(f'Setting {agc_value_name} to {value} failed.')
+
+    def _mode_setter(self, mode, setter_code: ptc.Code, code_dict: dict, name: str):
+        if not mode.lower() in code_dict:
+            raise NotImplementedError(f"{name} mode {mode} is not implemented.")
+        else:
+            mode = code_dict[mode.lower()]
+        res = self._set_values_with_2bytes_send_recv(mode, self.gain, setter_code)
+        self._log_set_values(mode, res, f'{name} mode')
+
+    @property
+    def ffc_mode(self):
+        return self._get_values_without_arguments(ptc.GET_FFC_MODE)
+
+    @ffc_mode.setter
+    def ffc_mode(self, mode: str):
+        self._mode_setter(mode, ptc.SET_FFC_MODE, ptc.FCC_MODE_CODE_DICT, 'FCC')
+
     @property
     def gain(self):
-        res = self._send_and_recv_threaded(ptc.GET_GAIN_MODE, None)
-        return struct.unpack('>h', res)[0] if res else 0xffff
+        return self._get_values_without_arguments(ptc.GET_GAIN_MODE)
 
     @gain.setter
     def gain(self, mode: str):
-        if not (mode := ptc.GAIN_CODE_DICT[mode.lower()]):
-            raise NotImplementedError(f"Gain mode {mode} is not implemented.")
-        if mode == self.gain:
-            self._log.info(f'Set Gain mode to {mode}')
-            return
-        for _ in range(9):
-            res = self._send_and_recv_threaded(ptc.SET_GAIN_MODE, struct.pack('>h', mode))
-            if res and struct.unpack('>h', res)[0] == mode:
-                self._log.info(f'Set Gain mode to {mode}')
-                return
-        self._log.warning(f'Setting Gain mode to {mode} failed.')
+        self._mode_setter(mode, ptc.SET_GAIN_MODE, ptc.GAIN_CODE_DICT, 'Gain')
 
     @property
     def agc(self):
-        res = self._send_and_recv_threaded(ptc.GET_AGC_ALGORITHM, None)  # todo: does this function even works????
-        return struct.unpack('>h', res)[0] if res else 0xffff
+        return self._get_values_without_arguments(ptc.GET_AGC_ALGORITHM)  # todo: does this function even works????
 
     @agc.setter
     def agc(self, mode: str):
-        if not (mode := ptc.AGC_CODE_DICT[mode.lower()]):
-            raise NotImplementedError(f"AGC mode {mode} is not implemented.")
-        if mode == self.agc:
-            self._log.info(f'Set AGC mode to {mode}')
-            return
-        for _ in range(9):
-            res = self._send_and_recv_threaded(ptc.SET_AGC_ALGORITHM, struct.pack('>h', mode))
-            if res and struct.unpack('>h', res)[0] == mode:
-                self._log.info(f'Set AGC mode to {mode}')
-                return
-        self._log.warning(f'Setting AGC mode to {mode} failed.')
+        self._mode_setter(mode, ptc.SET_AGC_ALGORITHM, ptc.AGC_CODE_DICT, 'AGC')
 
     @property
     def sso(self) -> int:
@@ -609,49 +604,32 @@ class Tau:
                 return
         self._log.warning(f'Setting SSO to {percentage:.2f} failed.')
 
-    def _get_agc_values(self, command):
-        res = self._send_and_recv_threaded(command, None)
-        return struct.unpack('>h', res)[0] if res else 0xffff
-
-    def _set_agc_values(self, value: int, current_value: int, command: ptc.Code) -> bool:
-        if value == current_value:
-            return True
-        for _ in range(9):
-            res = self._send_and_recv_threaded(command, struct.pack('>h', value))
-            if res and struct.unpack('>h', res)[0] == value:
-                return True
-        return False
-
-    def _log_agc_value_set(self, value: int, result: bool, agc_value_name: str) -> None:
-        if result:
-            self._log.info(f'Set AGC {agc_value_name} to {value}.')
-        else:
-            self._log.warning(f'Setting AGC {agc_value_name} to {value} failed.')
-
     @property
     def contrast(self) -> int:
-        return self._get_agc_values(ptc.GET_CONTRAST)
+        return self._get_values_without_arguments(ptc.GET_CONTRAST)
 
     @contrast.setter
     def contrast(self, value: int):
-        self._log_agc_value_set(value, self._set_agc_values(value, self.contrast, ptc.SET_CONTRAST), 'contrast')
+        self._log_set_values(value, self._set_values_with_2bytes_send_recv(value, self.contrast, ptc.SET_CONTRAST),
+                             'AGC contrast')
 
     @property
     def brightness(self) -> int:
-        return self._get_agc_values(ptc.GET_BRIGHTNESS)
+        return self._get_values_without_arguments(ptc.GET_BRIGHTNESS)
 
     @brightness.setter
     def brightness(self, value: int):
-        self._log_agc_value_set(value, self._set_agc_values(value, self.brightness, ptc.SET_BRIGHTNESS), 'brightness')
+        self._log_set_values(value, self._set_values_with_2bytes_send_recv(value, self.brightness, ptc.SET_BRIGHTNESS),
+                             'AGC brightness')
 
     @property
     def brightness_bias(self) -> int:
-        return self._get_agc_values(ptc.GET_BRIGHTNESS_BIAS)
+        return self._get_values_without_arguments(ptc.GET_BRIGHTNESS_BIAS)
 
     @brightness_bias.setter
     def brightness_bias(self, value: int):
-        result = self._set_agc_values(value, self.brightness_bias, ptc.SET_BRIGHTNESS_BIAS)
-        self._log_agc_value_set(value, result, 'brightness_bias')
+        result = self._set_values_with_2bytes_send_recv(value, self.brightness_bias, ptc.SET_BRIGHTNESS_BIAS)
+        self._log_set_values(value, result, 'AGC brightness_bias')
 
 
 class TeaxGrabber(Tau):
@@ -677,17 +655,17 @@ class TeaxGrabber(Tau):
         image_ftdi_recv, self._image_send = mp.Pipe(duplex=False)
         self._image_recv, image_teax_send = mp.Pipe(duplex=False)
 
-        self.io = FtdiIO(vid, pid, cmd_ftdi_recv, cmd_teax_send, image_ftdi_recv, image_teax_send,
-                         self._frame_size, self._flag_run, logging_handlers, logging_level)
-        self.io.daemon = False
-        self.io.start()
+        self._io = FtdiIO(vid, pid, cmd_ftdi_recv, cmd_teax_send, image_ftdi_recv, image_teax_send,
+                          self._frame_size, self._flag_run, logging_handlers, logging_level)
+        self._io.daemon = False
+        self._io.start()
         self.ffc()
 
     def __del__(self) -> None:
         self._flag_run.set(False)
-        self.io.join()
+        self._io.join()
 
-    def _send_and_recv_threaded(self, command: ptc.Code, argument: (bytes, None), n_retries: int=3):
+    def _send_and_recv_threaded(self, command: ptc.Code, argument: (bytes, None), n_retries: int = 3):
         data, res = self._make_packet(command, argument), None
         with self._lock_cmd_send:
             self._cmd_send.send((data, command, n_retries))
@@ -718,8 +696,8 @@ class TeaxGrabber(Tau):
                     data = self._image_recv.recv()
                     break
             if data:
-                if struct.unpack('H', data[10:12])[0] != 0x4000:  # a magic word
-                    continue
+                # if struct.unpack('H', data[10:12])[0] != 0x4000:  # a magic word
+                #     continue  # already checked in the ThreadedFTDI
                 frame_width = np.frombuffer(data[5:7], dtype='uint16')[0] - 2
                 if frame_width != width:
                     self._log.debug(f"Received frame has width of {frame_width} - different than expected {width}.")

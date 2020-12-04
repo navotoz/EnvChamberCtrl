@@ -34,16 +34,61 @@ class TeaxGrabber:
         self.__inner_temperatures_idx %= self.__resolution
         return float(self.__inner_temperatures_list[self.__inner_temperatures_idx])
 
-    def ffc_mode_select(self, mode=None)->bool:
-        return True
-
     def ffc(self, length=None):
         pass
 
     @property
+    def ffc_mode(self):
+        return 0x0000
+
+    @ffc_mode.setter
+    def ffc_mode(self, mode: str):
+        pass
+
+    @property
     def gain(self):
-        return 0x0002
+        return 0x0000
 
     @gain.setter
-    def gain(self, mode: int):
+    def gain(self, mode: str):
+        pass
+
+    @property
+    def agc(self):
+        return 0x0000
+
+    @agc.setter
+    def agc(self, mode: str):
+        pass
+
+    @property
+    def sso(self) -> int:
+        return 0
+
+    @sso.setter
+    def sso(self, percentage: int):
+        pass
+
+    @property
+    def contrast(self) -> int:
+        return 0
+
+    @contrast.setter
+    def contrast(self, value: int):
+        pass
+
+    @property
+    def brightness(self) -> int:
+        return 0
+
+    @brightness.setter
+    def brightness(self, value: int):
+        pass
+
+    @property
+    def brightness_bias(self) -> int:
+        return 0
+
+    @brightness_bias.setter
+    def brightness_bias(self, value: int):
         pass

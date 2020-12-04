@@ -195,8 +195,9 @@ set_buttons_by_devices_status(root.nametowidget(FRAME_BUTTONS), devices_dict)
 
 root.mainloop()
 
+
+# todo: run the teaxgrabber test
 # todo: check the new mechanizems in the ThreadedFtdi (does the wait for the image work, send/recv...)
-# todo: add corrisponding functions to dummy camera
-# todo: change the ffc to property
+# todo: check that the FTDI exits correctly
 # todo: sometimes when starting the experiment the mask doesn't come out right
 # todo: check that the exit of ThreadedIO works
