@@ -1,18 +1,21 @@
+import multiprocessing as mp
 import struct
 import threading as th
-import multiprocessing as mp
 from multiprocessing.connection import Connection
 from time import sleep
 from typing import List
+
+import numpy as np
 from pyftdi.ftdi import Ftdi
 from pyftdi.ftdi import FtdiError
 
 from devices.Camera.tau2_config import Code
 from devices.Camera.utils import BytesBuffer, generate_subsets_indices_in_string, generate_overlapping_list_chunks, \
     DuplexPipe, get_crc, connect_ftdi
-from utils.tools import SyncFlag
 from utils.logger import make_logger
+from utils.tools import SyncFlag
 
+BORDER_VALUE = 64
 FTDI_PACKET_SIZE = 512 * 8
 SYNC_MSG = b'SYNC' + struct.pack(4 * 'B', *[0, 0, 0, 0])
 
@@ -21,8 +24,8 @@ class FtdiIO(mp.Process):
     _thread_read = _thread_parse = _thread_image = None
 
     def __init__(self, vid, pid, cmd_recv: Connection, cmd_send: Connection,
-                 image_recv: Connection, image_send: Connection, frame_size: int,
-                 flag_run: SyncFlag, logging_handlers: (list, tuple), logging_level: int):
+                 image_recv: Connection, image_send: Connection, frame_size: int, width: int,
+                 height: int, flag_run: SyncFlag, logging_handlers: (list, tuple), logging_level: int):
         super().__init__()
         self._log = make_logger('FtdiIO', logging_handlers, logging_level)
         try:
@@ -32,6 +35,8 @@ class FtdiIO(mp.Process):
 
         self._flag_run = flag_run
         self._frame_size = frame_size
+        self._width = width
+        self._height = height
         self._lock_access = th.Lock()
         self._semaphore_access_ftdi = th.Semaphore(value=1)
         self._event_allow_ftdi_access = th.Event()
@@ -43,13 +48,13 @@ class FtdiIO(mp.Process):
         self._image_pipe = DuplexPipe(image_send, image_recv, self._flag_run)
 
     def run(self) -> None:
-        self._log.info('Ready.')
         self._thread_read = th.Thread(target=self._th_reader_func, name='th_tau2grabber_reader', daemon=False)
         self._thread_read.start()
         self._thread_parse = th.Thread(target=self._th_parse_func, name='th_tau2grabber_parser', daemon=False)
         self._thread_parse.start()
         self._thread_image = th.Thread(target=self._th_image_func, name='th_tau2grabber_image', daemon=False)
         self._thread_image.start()
+        self._log.info('Ready.')
 
         self._thread_read.join()
         self._thread_image.join()
@@ -57,6 +62,8 @@ class FtdiIO(mp.Process):
         self._ftdi.close()
 
     def __del__(self) -> None:
+        if not hasattr(self, '_flag_run'):
+            return
         self._flag_run.set(False)
         self._cmd_pipe.send(None)
         self._image_pipe.send(None)
@@ -153,10 +160,27 @@ class FtdiIO(mp.Process):
                     self._buffer.sync_teax()
                     buffer_len = self._buffer.wait_for_size()
                     res = self._buffer[:min(self._frame_size, buffer_len)]
-                    # if struct.unpack('H', res[10:12])[0] != 0x4000:  # a magic word
                     if res[10:12] != b'\x00@':  # a magic word
                         continue
+                    frame_width = struct.unpack('>h', res[5:7])[0] - 2
+                    if frame_width != self._width:
+                        self._log.debug(f"Received frame has incorrect width of {frame_width}.")
+                        continue
+                    raw_image_8bit = np.frombuffer(res[10:], dtype='uint8').reshape((-1, 2 * (self._width + 2)))
+                    if not self._is_8bit_image_borders_valid(raw_image_8bit):
+                        continue
                     self._event_allow_ftdi_access.set()
-                    self._image_pipe.send(res)
+                    self._image_pipe.send(raw_image_8bit)
                     self._log.debug('Grabbed Image')
                     break
+
+    def _is_8bit_image_borders_valid(self, raw_image_8bit: np.ndarray) -> bool:
+        if np.nonzero(raw_image_8bit[:, 0] != 0)[0]:
+            return False
+        valid_idx = np.nonzero(raw_image_8bit[:, -1] != BORDER_VALUE)
+        if len(valid_idx) != 1:
+            return False
+        valid_idx = int(valid_idx[0])
+        if valid_idx != self._height - 1:  # the different value should be in the bottom of the border
+            return False
+        return True

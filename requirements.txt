@@ -9,3 +9,4 @@ tqdm
 matplotlib
 pillow
 pandas
+pyyaml

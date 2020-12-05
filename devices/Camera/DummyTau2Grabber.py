@@ -92,3 +92,58 @@ class TeaxGrabber:
     @brightness_bias.setter
     def brightness_bias(self, value: int):
         pass
+
+    @property
+    def isotherm(self) -> int:
+        return 0
+
+    @isotherm.setter
+    def isotherm(self, value: int):
+        pass
+
+    @property
+    def dde(self) -> int:
+        return 0
+
+    @dde.setter
+    def dde(self, value: int):
+        pass
+    @property
+    def tlinear(self):
+        return 0
+
+    @tlinear.setter
+    def tlinear(self, value: int):
+        pass
+
+    @property
+    def lvds(self):
+        return 0
+
+    @lvds.setter
+    def lvds(self, mode: int):
+        pass
+
+    @property
+    def lvds_depth(self):
+        return 0
+
+    @lvds_depth.setter
+    def lvds_depth(self, mode: int):
+        pass
+
+    @property
+    def xp(self):
+        return 0
+
+    @xp.setter
+    def xp(self, mode: int):
+        pass
+
+    @property
+    def cmos_depth(self):
+        return 0
+
+    @cmos_depth.setter
+    def cmos_depth(self, mode: int):
+        pass
