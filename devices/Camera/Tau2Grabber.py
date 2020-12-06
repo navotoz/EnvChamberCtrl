@@ -219,7 +219,7 @@ class Tau:
                 return None
         return res
 
-    def _send_and_recv_threaded(self, data, command, n_retry: int = 3):
+    def _send_and_recv_threaded(self,command: ptc.Code, argument: (bytes, None), n_retry: int = 3):
         pass
     #
     # def close_shutter(self):
@@ -467,10 +467,12 @@ class Tau:
             self._log.warning(f'Setting {value_name} to {value} failed.')
 
     def _mode_setter(self, mode: str, current_value: int, setter_code: ptc.Code, code_dict: dict, name: str):
-        if not mode.lower() in code_dict:
-            raise NotImplementedError(f"{name} mode {mode} is not implemented.")
-        else:
+        if isinstance(mode, str):
+            if not mode.lower() in code_dict:
+                raise NotImplementedError(f"{name} mode {mode} is not implemented.")
             mode = code_dict[mode.lower()]
+        elif isinstance(mode, int) and mode not in code_dict.values():
+            raise NotImplementedError(f"{name} mode {mode} is not implemented.")
         res = self._set_values_with_2bytes_send_recv(mode, current_value, setter_code)
         self._log_set_values(mode, res, f'{name} mode')
 
@@ -510,9 +512,9 @@ class Tau:
             return
         self._send_and_recv_threaded(ptc.SET_AGC_THRESHOLD, struct.pack('>hh', 0x0400, percentage))
         if self.sso == percentage:
-            self._log.info(f'Set SSO to {percentage}')
+            self._log.info(f'Set SSO to {percentage}%')
             return
-        self._log.warning(f'Setting SSO to {percentage:.2f} failed.')
+        self._log.warning(f'Setting SSO to {percentage}% failed.')
 
     @property
     def contrast(self) -> int:
@@ -582,7 +584,7 @@ class Tau:
         if mode == current_mode:
             return True
         res = self._send_and_recv_threaded(command, struct.pack('>bb', argument, mode))
-        if res and struct.unpack('>h', res)[0] == mode:
+        if res and struct.unpack('>bb', res)[-1] == mode:
             return True
         return False
 
@@ -620,7 +622,7 @@ class Tau:
     @cmos_depth.setter
     def cmos_depth(self, mode: int):
         res = self._digital_output_setter(mode, self.cmos_depth, ptc.SET_CMOS_DEPTH, 0x06)
-        self._log_set_values(mode, res, 'cmos_depth')
+        self._log_set_values(mode, res, 'CMOS Depth')
 
 
 class TeaxGrabber(Tau):
@@ -662,9 +664,10 @@ class TeaxGrabber(Tau):
         data, res = _make_packet(command, argument), None
         with self._lock_cmd_send:
             self._cmd_send.send((data, command, n_retry if n_retry != self.n_retry else self.n_retry))
-            while self._flag_run and self._cmd_recv.poll(timeout=1):
-                res = self._cmd_recv.recv()
-                break
+            while self._flag_run:
+                if self._cmd_recv.poll(timeout=1):
+                    res = self._cmd_recv.recv()
+                    break
             return res
 
     def grab(self, to_temperature: bool = False):
@@ -688,7 +691,7 @@ class TeaxGrabber(Tau):
                 if self._image_recv.poll(timeout=1):
                     raw_image_8bit = self._image_recv.recv()
                     break
-            if raw_image_8bit:
+            if raw_image_8bit is not None:
                 # if struct.unpack('H', data[10:12])[0] != 0x4000:  # a magic word
                 #     continue  # already checked in the ThreadedFTDI
                 # frame_width = np.frombuffer(data[5:7], dtype='uint16')[0] - 2

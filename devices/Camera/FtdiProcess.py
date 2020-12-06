@@ -136,15 +136,15 @@ class FtdiIO(mp.Process):
                 self._event_read.set()
                 self._write(data)
                 idx = 0
-                sleep(0.1)
+                sleep(0.2)
                 while idx < max(1, n_retry) and self._flag_run:
-                    if res := self._parse_func(command):
+                    if (res := self._parse_func(command)) is not None:
                         break
                     self._log.debug('Could not parse, retrying..')
                     self._write(SYNC_MSG)
                     self._write(data)
                     idx += 1
-                    sleep(0.1)
+                    sleep(0.2)
                 self._cmd_pipe.send(res)
                 self._event_read.clear()
                 self._log.debug(f"Recv {res}") if res else None
@@ -160,9 +160,9 @@ class FtdiIO(mp.Process):
                     self._buffer.sync_teax()
                     buffer_len = self._buffer.wait_for_size()
                     res = self._buffer[:min(self._frame_size, buffer_len)]
-                    if res[10:12] != b'\x00@':  # a magic word
+                    if struct.unpack('h', res[10:12])[0] != 0x4000:  # a magic word
                         continue
-                    frame_width = struct.unpack('>h', res[5:7])[0] - 2
+                    frame_width = struct.unpack('h', res[5:7])[0] - 2
                     if frame_width != self._width:
                         self._log.debug(f"Received frame has incorrect width of {frame_width}.")
                         continue

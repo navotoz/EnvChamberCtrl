@@ -114,7 +114,7 @@ def thread_run_experiment(semaphore_mask: Semaphore, output_path: Path):
                 for i in range(1, n_images_per_iteration + 1):
                     if not flag_run:
                         break
-                    sleep(1)
+                    sleep(0.2)
                     t_fpa = get_inner_temperatures(frames_dict[const.FRAME_TEMPERATURES], const.T_FPA)
                     t_housing = get_inner_temperatures(frames_dict[const.FRAME_TEMPERATURES], const.T_HOUSING)
                     # the precision of the housing temperature is 0.01C and the precision for the fpa is 0.1C
@@ -157,9 +157,6 @@ def func_start_run_loop() -> None:
     devices_dict[const.CAMERA_NAME].contrast = const.INIT_CAMERA_PARAMETERS.get('contrast', 0)
     devices_dict[const.CAMERA_NAME].brightness = const.INIT_CAMERA_PARAMETERS.get('brightness', 0)
     devices_dict[const.CAMERA_NAME].brightness_bias = const.INIT_CAMERA_PARAMETERS.get('brightness_bias', 0)
-    devices_dict[const.CAMERA_NAME].lvds = const.INIT_CAMERA_PARAMETERS.get('lvds', 0)  # disabled
-    devices_dict[const.CAMERA_NAME].lvds_depth = const.INIT_CAMERA_PARAMETERS.get('lvds_depth', 0)  # 14bit
-    devices_dict[const.CAMERA_NAME].xp = const.INIT_CAMERA_PARAMETERS.get('xp', 2)  # 14bit w/ 1 discrete
     devices_dict[const.CAMERA_NAME].cmos_depth = const.INIT_CAMERA_PARAMETERS.get('cmos_depth', 0)  # 14bit pre AGC
     devices_dict[const.CAMERA_NAME].n_retry = 3
     # todo: CORRECTION MASK command?
