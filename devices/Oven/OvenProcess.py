@@ -213,7 +213,7 @@ class OvenCtrl(mp.Process):
                 pass
 
     def _th_temperature_setter(self)->None:
-        handlers = make_logging_handlers(Path('log/oven/log_oven_temperature_differences.txt'))
+        handlers = make_logging_handlers(Path('log/oven/temperature_differences.txt'))
         logger_waiting = make_logger('OvenTempDiff', handlers, False)
         next_temperature, prev_temperature = 0, 0
         if self._use_camera_inner_temperatures:

@@ -98,6 +98,11 @@ def thread_run_experiment(semaphore_mask: Semaphore, output_path: Path):
             n_images_per_iteration = int(frames_dict[const.FRAME_PARAMS].getvar(const.CAMERA_NAME + const.INC_STRING))
             values_list, total_stops = get_values_list(frames_dict[const.FRAME_PARAMS], devices_dict)
             total_images = total_stops * n_images_per_iteration
+
+            # find closest blackbody temperature
+            bb_list = list(map(lambda x:abs(x - devices_dict[const.BLACKBODY_NAME].temperature), values_list[0]))
+            if bb_list[0] > bb_list[-1]:
+                values_list[0] = np.flip(values_list[0])
             permutations = list(product(*values_list))
 
             logger.info(f"Experiment started. Running {total_images} images in total.")
@@ -211,7 +216,6 @@ set_buttons_by_devices_status(root.nametowidget(const.FRAME_BUTTONS), devices_di
 
 root.mainloop()
 
-# todo: run the teaxgrabber test
-# todo: check the new mechanisms in the ThreadedFtdi (does the wait for the image work, send/recv...)
+# todo: the blackbody should visit temperatures by closest, not start from the lowest temperature.
 # todo: check that the FTDI exits correctly
 # todo: sometimes when starting the experiment the mask doesn't come out right
