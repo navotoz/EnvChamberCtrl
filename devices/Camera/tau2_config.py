@@ -28,7 +28,6 @@ GET_FFC_MODE = Code(0x0B, 0, 2)
 SET_FFC_MODE = Code(0x0B, 2, 2)
 FCC_MODE_CODE_DICT = dict(auto=0x0001, manual=0x0000, external=0x0002)
 
-
 GET_FFC_NFRAMES = Code(0x0B, 4, 2)
 SET_FFC_NFRAMES = Code(0x0B, 4, 2)
 
@@ -61,6 +60,7 @@ SET_VIDEO_PALETTE = Code(0x10, 2, 2)
 GET_VIDEO_ORIENTATION = Code(0x11, 0, 2)
 SET_VIDEO_ORIENTATION = Code(0x11, 2, 2)
 
+# AGC
 SET_CONTRAST = Code(0x14, 2, 2)
 GET_CONTRAST = Code(0x14, 0, 2)
 
@@ -76,7 +76,6 @@ GET_AGC_TAIL_SIZE = Code(0x1B, 2, 2)
 SET_AGC_ACE_CORRECT = Code(0x1C, 0, 2)
 GET_AGC_ACE_CORRECT = Code(0x1C, 2, 2)
 
-# AGC
 AGC_CODE_DICT = dict(plateau=0x0000, once_bright=0x0001, auto_bright=0x0002, manual=0x0003, linear=0x0005,
                      information_based=0x0009,information_based_eq=0x000A)
 GET_AGC_ALGORITHM = Code(0x13, 0, 2)
@@ -87,6 +86,10 @@ SET_AGC_THRESHOLD = Code(0x13, 4, 0)
 
 GET_AGC_OPTIMISATION_PERCENT = Code(0x13, 2, 2)
 SET_AGC_OPTIMISATION_PERCENT = Code(0x13, 4, 0)
+
+GET_CORRECTION_MASK = Code(0xB1, 0, 2)
+SET_CORRECTION_MASK = Code(0xB1, 2, 2)
+CORRECTION_MASK_DICT = dict(off=0)
 
 # Lens
 

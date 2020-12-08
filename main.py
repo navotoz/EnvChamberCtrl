@@ -163,6 +163,7 @@ def func_start_run_loop() -> None:
     devices_dict[const.CAMERA_NAME].brightness = const.INIT_CAMERA_PARAMETERS.get('brightness', 0)
     devices_dict[const.CAMERA_NAME].brightness_bias = const.INIT_CAMERA_PARAMETERS.get('brightness_bias', 0)
     devices_dict[const.CAMERA_NAME].cmos_depth = const.INIT_CAMERA_PARAMETERS.get('cmos_depth', 0)  # 14bit pre AGC
+    devices_dict[const.CAMERA_NAME].correction_map = const.INIT_CAMERA_PARAMETERS.get('corr_mask', 0)  # off
     devices_dict[const.CAMERA_NAME].n_retry = 3
     # todo: CORRECTION MASK command?
 

@@ -476,6 +476,16 @@ class Tau:
         res = self._set_values_with_2bytes_send_recv(mode, current_value, setter_code)
         self._log_set_values(mode, res, f'{name} mode')
 
+
+    @property
+    def correction_mask(self):
+        """ the default value is 2111 (decimal). 0 (decimal) is all off """
+        return self._get_values_without_arguments(ptc.GET_CORRECTION_MASK)
+
+    @correction_mask.setter
+    def correction_mask(self, mode: str):
+        self._mode_setter(mode, self.correction_mask, ptc.SET_CORRECTION_MASK, ptc.FCC_MODE_CODE_DICT, 'FCC')
+
     @property
     def ffc_mode(self):
         return self._get_values_without_arguments(ptc.GET_FFC_MODE)
