@@ -150,22 +150,8 @@ def func_start_run_loop() -> None:
     disable_fields_and_buttons(root, buttons_dict)
     update_status_label(frames_dict[const.FRAME_STATUS], const.WORKING)
 
-    # set ffc and gain here because the mask process is blocking
-    devices_dict[const.CAMERA_NAME].n_retry = 10  # todo: check does changing the n_retry works?
-    devices_dict[const.CAMERA_NAME].ffc_mode = const.INIT_CAMERA_PARAMETERS.get('ffc_mode', 'manual')
-    devices_dict[const.CAMERA_NAME].isotherm = const.INIT_CAMERA_PARAMETERS.get('isotherm', 0)
-    devices_dict[const.CAMERA_NAME].dde = const.INIT_CAMERA_PARAMETERS.get('dde', 0)
-    devices_dict[const.CAMERA_NAME].tlinear = const.INIT_CAMERA_PARAMETERS.get('tlinear', 0)
-    devices_dict[const.CAMERA_NAME].gain = const.INIT_CAMERA_PARAMETERS.get('gain', 'high')
-    devices_dict[const.CAMERA_NAME].agc = const.INIT_CAMERA_PARAMETERS.get('agc', 'manual')
-    devices_dict[const.CAMERA_NAME].sso = const.INIT_CAMERA_PARAMETERS.get('sso', 0)
-    devices_dict[const.CAMERA_NAME].contrast = const.INIT_CAMERA_PARAMETERS.get('contrast', 0)
-    devices_dict[const.CAMERA_NAME].brightness = const.INIT_CAMERA_PARAMETERS.get('brightness', 0)
-    devices_dict[const.CAMERA_NAME].brightness_bias = const.INIT_CAMERA_PARAMETERS.get('brightness_bias', 0)
-    devices_dict[const.CAMERA_NAME].cmos_depth = const.INIT_CAMERA_PARAMETERS.get('cmos_depth', 0)  # 14bit pre AGC
-    devices_dict[const.CAMERA_NAME].correction_map = const.INIT_CAMERA_PARAMETERS.get('corr_mask', 0)  # off
-    devices_dict[const.CAMERA_NAME].n_retry = 3
-    # todo: CORRECTION MASK command?
+    # set the parameters for the experiment
+    devices_dict[const.CAMERA_NAME].set_params_by_dict(const.INIT_CAMERA_PARAMETERS)
 
     # make output path
     name = frames_dict[const.FRAME_HEAD].getvar(const.EXPERIMENT_NAME)
@@ -217,6 +203,5 @@ set_buttons_by_devices_status(root.nametowidget(const.FRAME_BUTTONS), devices_di
 
 root.mainloop()
 
-# todo: the blackbody should visit temperatures by closest, not start from the lowest temperature.
 # todo: check that the FTDI exits correctly
 # todo: sometimes when starting the experiment the mask doesn't come out right

@@ -2,8 +2,10 @@ import binascii
 import logging
 import multiprocessing as mp
 import struct
+from pathlib import Path
 
 import serial
+import yaml
 
 import devices.Camera.tau2_config as ptc
 from devices.Camera.FtdiProcess import FtdiIO
@@ -476,7 +478,6 @@ class Tau:
         res = self._set_values_with_2bytes_send_recv(mode, current_value, setter_code)
         self._log_set_values(mode, res, f'{name} mode')
 
-
     @property
     def correction_mask(self):
         """ the default value is 2111 (decimal). 0 (decimal) is all off """
@@ -716,6 +717,27 @@ class TeaxGrabber(Tau):
                 if to_temperature:
                     raw_image_16bit = 0.04 * raw_image_16bit - 273
                 return raw_image_16bit
+
+    def set_params_by_dict(self, yaml_or_dict:(Path, dict)):
+        if isinstance(yaml_or_dict, Path):
+            params = yaml.safe_load(yaml_or_dict)
+        else:
+            params = yaml_or_dict.copy()
+        default_n_retries = self.n_retry
+        self.n_retry = 10
+        self.ffc_mode = params.get('ffc_mode', 'manual')
+        self.isotherm = params.get('isotherm', 0)
+        self.dde = params.get('dde', 0)
+        self.tlinear = params.get('tlinear', 0)
+        self.gain = params.get('gain', 'high')
+        self.agc = params.get('agc', 'manual')
+        self.sso = params.get('sso', 0)
+        self.contrast = params.get('contrast', 0)
+        self.brightness = params.get('brightness', 0)
+        self.brightness_bias = params.get('brightness_bias', 0)
+        self.cmos_depth = params.get('cmos_depth', 0)  # 14bit pre AGC
+        self.correction_mask = params.get('corr_mask', 0)  # off
+        self.n_retry = default_n_retries
 
     @property
     def is_dummy(self):

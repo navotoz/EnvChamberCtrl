@@ -147,3 +147,6 @@ class TeaxGrabber:
     @cmos_depth.setter
     def cmos_depth(self, mode: int):
         pass
+
+    def set_params_by_dict(self, args):
+        pass
