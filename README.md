@@ -29,6 +29,7 @@ The server is run using python 3.8 with requirements detailed in requirements.tx
     1. If 1-5 doesn't work, check which USB the device is connected to via `lsusb` and write in terminal:
         `sudo chmod 666 #` Where # is the correct device address.
     1. **Reboot**
+1. Install TkInter `sudo apt-get install python3-tk`
 1. The IP of the BlackBody can be found on the controller of the BB in "Menu"->"About".
 It is connected via ethernet to the secondary network card on the PC.
 In order to use the BlackBody, both it and the PC should be on the same network *domain*, meaning that PC address should look like 
