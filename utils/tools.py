@@ -17,7 +17,7 @@ def mean(values: (list, tuple, np.ndarray, float)) -> float:
     return np.mean(ret_values) if ret_values else -float('inf')
 
 
-def show_image(image: (Image.Image, np.ndarray), title=None, v_min=None, v_max=None, to_close: bool = True):
+def show_image(image: (Image.Image, np.ndarray), title=None, v_min=None, v_max=None, to_close: bool = True, show_axis:bool=False):
     if isinstance(image, Image.Image):
         image = np.array([image])
     if np.any(np.iscomplex(image)):
@@ -30,7 +30,7 @@ def show_image(image: (Image.Image, np.ndarray), title=None, v_min=None, v_max=N
     plt.imshow(image.squeeze(), cmap='gray', vmin=v_min, vmax=v_max)
     if title is not None:
         plt.title(title)
-    plt.axis('off')
+    plt.axis('off' if not show_axis else 'on')
     plt.show()
     plt.close() if to_close else None
 

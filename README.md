@@ -26,6 +26,8 @@ The server is run using python 3.8 with requirements detailed in requirements.tx
     `sudo usermod -a -G dialout $USER`
     1. Write:
     `echo "SUBSYSTEM==\"usb\", ACTION==\"add\", ATTRS{idVendor}==\"067B\", ATTRS{idProduct}==\"2303\",  MODE=\"0666\"">/etc/udev/rules.d/99-nanomotionstage.rules`
+    1. Write:
+    `echo "SUBSYSTEM==\"usb\", ACTION==\"add\", ATTRS{idVendor}==\"1772\", ATTRS{idProduct}==\"0002\",  MODE=\"0666\"">/etc/udev/rules.d/99-thermapp.rules`
     1. If 1-5 doesn't work, check which USB the device is connected to via `lsusb` and write in terminal:
         `sudo chmod 666 #` Where # is the correct device address.
     1. **Reboot**
