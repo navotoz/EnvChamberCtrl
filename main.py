@@ -133,10 +133,6 @@ def thread_run_experiment(semaphore_mask: Semaphore, output_path: Path):
                     frames_dict[const.FRAME_PROGRESSBAR].nametowidget(const.PROGRESSBAR).update_idletasks()
             idx += 1
             logger.info(f"Experiment ended.")
-            blackbody_temperature = permutations[0][0]
-            if blackbody_temperature and blackbody_temperature != -float('inf'):
-                Thread(None, devices_dict[const.BLACKBODY_NAME], 'th_bb_reset',
-                       (blackbody_temperature,), daemon=True).start()
             semaphore_plot_proc.release()
     send_temperature.send(0)
     semaphore_plot_proc.release()

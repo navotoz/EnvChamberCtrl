@@ -54,7 +54,7 @@ SP_PREFIX = 'sp '
 ITERATIONS_IN_TEMPERATURE = 'iterations_in_each_temperature'
 ITERATIONS_IN_TEMPERATURE_INIT_VAL = 3
 SETTLING_TIME_MINUTES = 'settling_time_minutes'
-SETTLING_TIME_MINUTES_INIT_VAL = 3
+SETTLING_TIME_MINUTES_INIT_VAL = 2
 DELTA_TEMPERATURE = 'delta_temperature'
 # large delta means that the system is only relevant for INCREASING temperatures,
 # because only the max temperature condition can be true
@@ -142,5 +142,5 @@ INIT_CAMERA_PARAMETERS = dict(
     lvds_depth=0x0000,  # 14bit
     xp=0x0002,  # 14bit w/ 1 discrete
     cmos_depth=0x0000,  # 14bit pre AGC
-    corr_mask=0  # off
+    # corr_mask=0  # off
 )

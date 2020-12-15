@@ -736,7 +736,7 @@ class TeaxGrabber(Tau):
         self.brightness = params.get('brightness', 0)
         self.brightness_bias = params.get('brightness_bias', 0)
         self.cmos_depth = params.get('cmos_depth', 0)  # 14bit pre AGC
-        self.correction_mask = params.get('corr_mask', 0)  # off
+        # self.correction_mask = params.get('corr_mask', 0)  # off
         self.n_retry = default_n_retries
 
     @property
