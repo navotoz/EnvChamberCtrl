@@ -1,6 +1,13 @@
-from devices.Camera.Thermapp import Thermapp
+from time import sleep
 
-t = Thermapp()
+from devices.Camera.Thermapp.ThermappCtrl import ThermappGrabber
+from utils.tools import show_image
+
+t = ThermappGrabber()
+for idx in range(200000):
+    t.grab(nightvision=False)
+    # sleep(0.5)
+    print(idx)
 
 
 # import logging

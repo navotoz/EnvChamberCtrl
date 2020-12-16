@@ -160,7 +160,7 @@ def _make_device_from_vid_pid(vid:int, pid:int)->usb.core.Device:
     if device.is_kernel_driver_active(0):
         device.detach_kernel_driver(0)
 
-    device._reset()
+    device.reset()
     for cfg in device:
         for intf in cfg:
             if device.is_kernel_driver_active(intf.bInterfaceNumber):
