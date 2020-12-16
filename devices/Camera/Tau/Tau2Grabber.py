@@ -1,3 +1,4 @@
+import numpy as np
 import binascii
 import logging
 import multiprocessing as mp
@@ -7,8 +8,10 @@ from pathlib import Path
 import serial
 import yaml
 
-import devices.Camera.tau2_config as ptc
-from devices.Camera.FtdiProcess import FtdiIO
+import devices.Camera.Tau.tau2_config as ptc
+from devices.Camera.Tau.FtdiProcess import FtdiIO
+
+from devices.Camera import CameraAbstract
 from utils.constants import *
 from utils.logger import make_logger, make_logging_handlers, make_device_logging_handler
 from utils.tools import SyncFlag
@@ -77,12 +80,23 @@ def _make_packet(command: ptc.Code, argument: (bytes, None) = None) -> bytes:
     return data
 
 
-class Tau:
+class Tau(CameraAbstract):
+    def set_params_by_dict(self, yaml_or_dict: (Path, dict)):
+        pass
+
+    @property
+    def is_dummy(self) -> bool:
+        return False
+
+    def grab(self) -> np.ndarray:
+        pass
+
     def __init__(self, port=None, baud=921600, logging_handlers: tuple = make_logging_handlers(None, True),
-                 logging_level: int = logging.INFO):
-        super().__init__()
-        logging_handlers = make_device_logging_handler('Tau2', logging_handlers)
-        self._log = make_logger('Tau2', logging_handlers, logging_level)
+                 logging_level: int = logging.INFO, logger:(logging.Logger, None) = None):
+        if not logger:
+            logging_handlers = make_device_logging_handler('Tau2', logging_handlers)
+            logger = make_logger('Tau2', logging_handlers, logging_level)
+        super().__init__(logger)
         self._log.info("Connecting to camera.")
 
         if port:
@@ -102,16 +116,12 @@ class Tau:
         else:
             self.conn = None
 
-    def __enter__(self):
-        return self
-
-    def __exit__(self, type, value, traceback):
+    def __del__(self):
         if self.conn:
             self.conn.close()
-        self._log.info("Disconnecting from camera.")
 
-    def reset(self):
-        self._send_and_recv_threaded(_make_packet(ptc.CAMERA_RESET, None), ptc.CAMERA_RESET)
+    def _reset(self):
+        self._send_and_recv_threaded(ptc.CAMERA_RESET, None)
 
     # def ping(self):
     #     function = ptc.NO_OP
@@ -221,7 +231,7 @@ class Tau:
                 return None
         return res
 
-    def _send_and_recv_threaded(self,command: ptc.Code, argument: (bytes, None), n_retry: int = 3):
+    def _send_and_recv_threaded(self, command: ptc.Code, argument: (bytes, None), n_retry: int = 3):
         pass
     #
     # def close_shutter(self):
@@ -443,13 +453,6 @@ class Tau:
     # def _receive_data(self, n_bytes):
     #     return self.conn.read(n_bytes)
 
-    def ffc(self, length: bytes = ptc.FFC_LONG) -> None:
-        res = self._send_and_recv_threaded(ptc.DO_FFC, length)
-        if res and struct.unpack('H', res)[0] == 0xffff:
-            self._log.debug('FFC')
-        else:
-            self._log.debug('FFC Failed')
-
     def _get_values_without_arguments(self, command):
         res = self._send_and_recv_threaded(command, None)
         return struct.unpack('>h', res)[0] if res else 0xffff
@@ -477,6 +480,13 @@ class Tau:
             raise NotImplementedError(f"{name} mode {mode} is not implemented.")
         res = self._set_values_with_2bytes_send_recv(mode, current_value, setter_code)
         self._log_set_values(mode, res, f'{name} mode')
+
+    def ffc(self, length: bytes = ptc.FFC_LONG) -> None:
+        res = self._send_and_recv_threaded(ptc.DO_FFC, length)
+        if res and struct.unpack('H', res)[0] == 0xffff:
+            self._log.debug('FFC')
+        else:
+            self._log.debug('FFC Failed')
 
     @property
     def correction_mask(self):
@@ -639,9 +649,9 @@ class Tau:
 class TeaxGrabber(Tau):
     def __init__(self, vid=0x0403, pid=0x6010, width=WIDTH_IMAGE, height=HEIGHT_IMAGE,
                  logging_handlers: tuple = make_logging_handlers(None, True), logging_level: int = logging.INFO):
-        super().__init__(logging_handlers=logging_handlers, logging_level=logging_level)
         logging_handlers = make_device_logging_handler('TeaxGrabber', logging_handlers)
-        self._log = make_logger('TeaxGrabber', logging_handlers, logging_level)
+        logger = make_logger('TeaxGrabber', logging_handlers, logging_level)
+        super().__init__(logger=logger)
         self._n_retry = 3
 
         self._flag_run = SyncFlag(True)
@@ -718,7 +728,7 @@ class TeaxGrabber(Tau):
                     raw_image_16bit = 0.04 * raw_image_16bit - 273
                 return raw_image_16bit
 
-    def set_params_by_dict(self, yaml_or_dict:(Path, dict)):
+    def set_params_by_dict(self, yaml_or_dict: (Path, dict)):
         if isinstance(yaml_or_dict, Path):
             params = yaml.safe_load(yaml_or_dict)
         else:
@@ -738,10 +748,6 @@ class TeaxGrabber(Tau):
         self.cmos_depth = params.get('cmos_depth', 0)  # 14bit pre AGC
         # self.correction_mask = params.get('corr_mask', 0)  # off
         self.n_retry = default_n_retries
-
-    @property
-    def is_dummy(self):
-        return False
 
     @property
     def n_retry(self) -> int:

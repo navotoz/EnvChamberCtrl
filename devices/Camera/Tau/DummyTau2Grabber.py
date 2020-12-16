@@ -4,16 +4,20 @@ from time import sleep
 
 import numpy as np
 
+from devices.Camera import CameraAbstract
 from utils.constants import WIDTH_IMAGE, HEIGHT_IMAGE
 from utils.logger import make_logger
 
 
-class TeaxGrabber:
+class TeaxGrabber(CameraAbstract):
+    def __del__(self):
+        pass
+
     def __init__(self, logging_handlers: tuple = (logging.StreamHandler(),),
                  logging_level: int = logging.INFO):
-        # raise RuntimeError
-        self.__log = make_logger('DummyCamera', logging_handlers, logging_level)
-        self.__log.info('Ready.')
+        logger = make_logger('DummyCamera', logging_handlers, logging_level)
+        super().__init__(logger)
+        self._log.info('Ready.')
         self.__resolution = 500
         self.__inner_temperatures_list = np.linspace(25, 60, num=self.__resolution, dtype='float')
         self.__inner_temperatures_idx = -1
@@ -29,7 +33,7 @@ class TeaxGrabber:
     def is_dummy(self):
         return True
 
-    def get_inner_temperature(self, temperature_type: str):
+    def get_inner_temperature(self):
         self.__inner_temperatures_idx += 1
         self.__inner_temperatures_idx %= self.__resolution
         return float(self.__inner_temperatures_list[self.__inner_temperatures_idx])
@@ -108,6 +112,7 @@ class TeaxGrabber:
     @dde.setter
     def dde(self, value: int):
         pass
+
     @property
     def tlinear(self):
         return 0

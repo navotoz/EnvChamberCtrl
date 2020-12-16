@@ -6,12 +6,15 @@ from time import sleep
 from typing import List
 
 import numpy as np
+import usb.core
+import usb.util
 from pyftdi.ftdi import Ftdi
 from pyftdi.ftdi import FtdiError
 
-from devices.Camera.tau2_config import Code
+from devices.Camera import _make_device_from_vid_pid
+from devices.Camera.Tau.tau2_config import Code
 from devices.Camera.utils import BytesBuffer, generate_subsets_indices_in_string, generate_overlapping_list_chunks, \
-    DuplexPipe, get_crc, connect_ftdi
+    DuplexPipe, get_crc
 from utils.logger import make_logger
 from utils.tools import SyncFlag
 
@@ -184,3 +187,17 @@ class FtdiIO(mp.Process):
         if valid_idx != self._height - 1:  # the different value should be in the bottom of the border
             return False
         return True
+
+
+def connect_ftdi(vid, pid) -> Ftdi:
+    device = _make_device_from_vid_pid(vid, pid)
+
+    usb.util.claim_interface(device, 0)
+    usb.util.claim_interface(device, 1)
+
+    ftdi = Ftdi()
+    ftdi.open_from_device(device)
+
+    ftdi.set_bitmode(0xFF, Ftdi.BitMode.RESET)
+    ftdi.set_bitmode(0xFF, Ftdi.BitMode.SYNCFF)
+    return ftdi

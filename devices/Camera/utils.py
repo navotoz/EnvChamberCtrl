@@ -1,6 +1,3 @@
-import usb.core
-import usb.util
-from pyftdi.ftdi import Ftdi
 import binascii
 import multiprocessing as mp
 import re
@@ -132,32 +129,3 @@ def get_crc(data) -> List[int]:
     crc = binascii.crc_hqx(crc, 0)
     crc = [((crc & 0xFF00) >> 8).to_bytes(1, 'big'), (crc & 0x00FF).to_bytes(1, 'big')]
     return list(map(lambda x: int.from_bytes(x, 'big'), crc))
-
-
-def connect_ftdi(vid, pid) -> Ftdi:
-    device = usb.core.find(idVendor=vid, idProduct=pid)
-    if not device:
-        raise RuntimeError
-
-    if device.is_kernel_driver_active(0):
-        device.detach_kernel_driver(0)
-
-    device.reset()
-    for cfg in device:
-        for intf in cfg:
-            if device.is_kernel_driver_active(intf.bInterfaceNumber):
-                try:
-                    device.detach_kernel_driver(intf.bInterfaceNumber)
-                except usb.core.USBError as e:
-                    print(f"Could not detach kernel driver from interface({intf.bInterfaceNumber}): {e}")
-    device.set_configuration(1)
-
-    usb.util.claim_interface(device, 0)
-    usb.util.claim_interface(device, 1)
-
-    ftdi = Ftdi()
-    ftdi.open_from_device(device)
-
-    ftdi.set_bitmode(0xFF, Ftdi.BitMode.RESET)
-    ftdi.set_bitmode(0xFF, Ftdi.BitMode.SYNCFF)
-    return ftdi
