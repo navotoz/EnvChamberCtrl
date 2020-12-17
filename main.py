@@ -3,13 +3,15 @@ from time import sleep
 from devices.Camera.Thermapp.ThermappCtrl import ThermappGrabber
 from utils.tools import show_image
 
+idx = 0
 t = ThermappGrabber()
-for idx in range(200000):
+while True:
     t.grab(nightvision=False)
-    # sleep(0.5)
+    sleep(1)
+    idx += 1
     print(idx)
-
-
+# #
+# #
 # import logging
 # import multiprocessing as mp
 # import signal
@@ -210,6 +212,3 @@ for idx in range(200000):
 # set_buttons_by_devices_status(root.nametowidget(const.FRAME_BUTTONS), devices_dict)
 #
 # root.mainloop()
-#
-# # todo: check that the FTDI exits correctly
-# # todo: sometimes when starting the experiment the mask doesn't come out right

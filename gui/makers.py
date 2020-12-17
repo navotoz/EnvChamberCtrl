@@ -8,7 +8,7 @@ from pathlib import Path
 from tkinter import ttk
 from typing import Tuple, Dict, Any
 
-from devices import initialize_device
+from devices import initialize_device, initialize_cameras
 from gui.utils import spinbox_validation, dict_variables, update_spinbox_parameters_devices_states, \
     validate_spinbox_range, get_device_status, set_buttons_by_devices_status
 from utils.constants import *
@@ -42,7 +42,7 @@ class SafeIntVar(tk.IntVar):
 
 class SafeDoubleVar(tk.DoubleVar):
     def __init__(self, *kwargs):
-        super().__init__( *kwargs)
+        super().__init__(*kwargs)
         self._mp_value = Value(c_double, lock=RLock())
 
     @property
@@ -93,17 +93,13 @@ def make_label(frame: tk.Frame, row: int, col: int, text: str = "", pad_y: int =
     return label
 
 
-def make_range_params(frame: tk.Frame, init_row: int, func_device_maker, devices_dict):
+def make_range_params(frame: tk.Frame, init_row: int, func_device_maker, devices_dict)->int:
     row = init_row
     for row, name in enumerate([OVEN_NAME, BLACKBODY_NAME, SCANNER_NAME, FOCUS_NAME], start=row):
         make_label(frame, row=row, col=0, text=f"{name.capitalize()} [{METRICS_DICT[name]}]:", pad_y=10)
         make_spinboxes_with_range(frame, row=row, col=1, name=name)
         make_devices_status_radiobox(frame, row=row, col=9, name=name, cmd=func_device_maker, devices_dict=devices_dict)
     row += 1
-    make_label(frame, row=row, col=0, text="# images per configuration", pad_y=10)
-    make_spinbox(frame, row=row, col=1, name=CAMERA_NAME + INC_STRING, from_=LIMIT_DICT[CAMERA_NAME][MIN_STRING],
-                 to=LIMIT_DICT[CAMERA_NAME][MAX_STRING], res=LIMIT_DICT[CAMERA_NAME][RESOLUTION_STRING])
-    make_devices_status_radiobox(frame, row=row, col=2, name=CAMERA_NAME, cmd=func_device_maker, devices_dict=devices_dict)
 
     # set some initial values
     for key in dict_variables.keys():
@@ -113,6 +109,8 @@ def make_range_params(frame: tk.Frame, init_row: int, func_device_maker, devices
             gen = filter(lambda x: name[-1] in x, gen)
             for init in gen:
                 dict_variables[key].set(value=LIMIT_DICT[name[0]][init])
+
+    return row
 
 
 def make_frame(parent: tk.Tk, row: int, bd: int = 0, name: str = "") -> tk.Frame:
@@ -127,9 +125,6 @@ def make_devices_status_radiobox(frame: tk.Frame, row: int, col: int, name: str,
         curr_device_status = get_device_status(devices_dict[name_func])
         if curr_device_status != next_device_status:
             devices_dict[name_func] = func(name=name_func, frame=frame_func, status=next_device_status)
-        if 'camera' in name_func.lower():
-            if get_device_status(devices_dict[name_func]) == DEVICE_OFF and next_device_status != DEVICE_OFF:
-                devices_dict[name_func] = func(name=name_func, frame=frame_func, status=DEVICE_DUMMY)
         try:
             set_buttons_by_devices_status(frame_func.master.nametowidget(FRAME_BUTTONS), devices_dict)
         except KeyError:
@@ -138,21 +133,44 @@ def make_devices_status_radiobox(frame: tk.Frame, row: int, col: int, name: str,
     var_dev_stat = tk.IntVar(value=DEVICE_REAL, name=f'device_status_{name}')
     make = partial(tk.Radiobutton, master=frame, variable=var_dev_stat, width=5, indicatoron=True)
     run = partial(run_func, frame_func=frame, func=cmd, next_device_status=var_dev_stat, devices_dict=devices_dict)
-    off_button = None
-    if 'camera' not in name:
-        off_button = make(text="Off", name=f'off_{name}', value=DEVICE_OFF)
-        off_button.grid(row=row, column=col)
-        off_button.config(command=partial(run, name_func=name))
+    off_button = make(text="Off", name=f'off_{name}', value=DEVICE_OFF)
+    off_button.grid(row=row, column=col)
+    off_button.config(command=partial(run, name_func=name))
     dummy_button = make(text="Dummy", name=f'dummy_{name}', value=DEVICE_DUMMY)
     dummy_button.grid(row=row, column=col + 1)
     dummy_button.config(command=partial(run, name_func=name))
     real_button = make(text="Real", name=f'real_{name}', value=DEVICE_REAL)
     real_button.grid(row=row, column=col + 2)
     real_button.config(command=partial(run, name_func=name))
-    if 'oven' in name and off_button:
-        off_button.invoke()
-    else:
-        real_button.invoke()
+    off_button.invoke() if 'oven' in name else real_button.invoke()
+
+
+def make_camera_status_radiobox(frame: tk.Frame, row: int, devices_dict: dict, logger, handlers):
+    def button_maker(name: str, value: (int, str), col_: int):
+        b = tk.Radiobutton(text=name.capitalize(), name=f'camera_{name}', value=value,
+                           master=frame, variable=var_cam_stat, width=5, indicatoron=True)
+        b.grid(row=row, column=col_)
+        run = partial(run_func, next_device_status=var_cam_stat, devices_dict=devices_dict)
+        b.config(command=run)
+        return b
+
+    def run_func(next_device_status: tk.IntVar, devices_dict: dict):
+        camera_to_set = next_device_status.get()
+        curr_device_status = DEVICE_OFF if not devices_dict[CAMERA_NAME] else devices_dict[CAMERA_NAME].type
+        if curr_device_status != camera_to_set:
+            devices_dict[CAMERA_NAME] = initialize_cameras(camera_to_set, logger, handlers)
+
+    make_label(frame, row=row, col=0, text="# images per configuration", pad_y=10)
+    make_spinbox(frame, row=row, col=1, name=CAMERA_NAME + INC_STRING, from_=LIMIT_DICT[CAMERA_NAME][MIN_STRING],
+                 to=LIMIT_DICT[CAMERA_NAME][MAX_STRING], res=LIMIT_DICT[CAMERA_NAME][RESOLUTION_STRING])
+    var_cam_stat = tk.IntVar(value=DEVICE_DUMMY, name=f'camera_status')
+    dummy_button = button_maker('dummy', DEVICE_DUMMY, 2)
+    tau_button = button_maker('tau2', CAMERA_TAU, 3)
+    thermapp_button = button_maker('thermapp', CAMERA_THERMAPP, 4)
+    tau_button.invoke()
+    thermapp_button.invoke()
+    if not devices_dict[CAMERA_NAME]:
+        dummy_button.invoke()
 
 
 def make_button(frame: tk.Frame, col: int, text: str, name: str, command, state=tk.NORMAL) -> tk.Button:
@@ -221,14 +239,13 @@ def make_frames(logger, handler, devices_dict) -> Tuple[tk.Tk, Dict[Any, tk.Fram
     frame_terminal = make_frame(parent=root, row=7, name=FRAME_TERMINAL)
     make_terminal(frame_terminal, logger)
 
-    func_device_maker = partial(make_device_and_handle_parameters, logger=logger, handlers=handler)
-
     make_label(frame=frame_head, row=0, col=0, text="Experiment name: ", pad_y=10)
     dict_variables[EXPERIMENT_NAME] = tk.StringVar(frame_head, value='', name=EXPERIMENT_NAME)
     experiment_name = tk.Entry(frame_head, name=EXPERIMENT_NAME, textvariable=dict_variables[EXPERIMENT_NAME])
     experiment_name.grid(row=0, column=1, padx=10)
     make_label(frame=frame_head, row=0, col=2, text="Use camera inner Temperatures")
-    dict_variables[USE_CAM_INNER_TEMPS] = tk.StringVar(frame_temperatures, USE_CAM_INNER_TEMPS_INIT_VAL, USE_CAM_INNER_TEMPS)
+    dict_variables[USE_CAM_INNER_TEMPS] = tk.StringVar(frame_temperatures, USE_CAM_INNER_TEMPS_INIT_VAL,
+                                                       USE_CAM_INNER_TEMPS)
     rb = tk.Checkbutton(frame_head, variable=dict_variables[USE_CAM_INNER_TEMPS])
     rb.grid(row=0, column=3)
     make_label(frame=frame_head, row=1, col=0, text="Max Temperature Delta [Deg]:", pad_y=10)
@@ -249,7 +266,9 @@ def make_frames(logger, handler, devices_dict) -> Tuple[tk.Tk, Dict[Any, tk.Fram
     dict_variables[T_FPA] = SafeDoubleVar(frame_temperatures, 0.0, T_FPA)
     dict_variables[T_HOUSING] = SafeDoubleVar(frame_temperatures, 0.0, T_HOUSING)
 
-    make_range_params(frame_params, 1, func_device_maker, devices_dict)
+    func_device_maker = partial(make_device_and_handle_parameters, logger=logger, handlers=handler)
+    row_for_camera = make_range_params(frame_params, 1, func_device_maker, devices_dict)
+    make_camera_status_radiobox(frame_params, row_for_camera, devices_dict, logger, handler)
     dict_variables[EXPERIMENT_SAVE_PATH] = tk.StringVar(master=frame_buttons, name=EXPERIMENT_SAVE_PATH,
                                                         value=Path.cwd().parent / 'experiments')
     make_label(frame_path, 0, 1, f"Experiment folder path: {dict_variables[EXPERIMENT_SAVE_PATH].get()}",
@@ -263,4 +282,3 @@ def make_frames(logger, handler, devices_dict) -> Tuple[tk.Tk, Dict[Any, tk.Fram
     return root, {FRAME_HEAD: frame_head, FRAME_PARAMS: frame_params, FRAME_TEMPERATURES: frame_temperatures,
                   FRAME_BUTTONS: frame_buttons, FRAME_PATH: frame_path, FRAME_STATUS: frame_status,
                   FRAME_PROGRESSBAR: frame_progressbar, FRAME_TERMINAL: frame_terminal}
-

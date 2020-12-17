@@ -91,10 +91,10 @@ class UsbIO(mp.Process):
         res = res[res.find(self._preamble_bytes):]
         res = res[:len(res) - len(res) % 2]
         res = struct.unpack(len(res) // 2 * 'H', res)
-        # image_id = np.array(res[26]).astype('uint32') | np.array(res[27] << 16).astype('uint32')
         self._serial_number = np.array(res[5]).astype('uint32') | np.array(res[6] << 16).astype('uint32')
         self._height = res[9]
         self._width = res[10]
+        self._image_pipe.send((self._width, self._height))
         self._frame_size = 2 * self._width * self._height
 
         self._lock_access = th.Lock()
@@ -110,19 +110,18 @@ class UsbIO(mp.Process):
         self._thread_image.join()
 
     def __del__(self) -> None:
-        if not hasattr(self, '_flag_run'):
-            return
-        self._flag_run.set(False)
+        if hasattr(self, '_flag_run'):
+            self._flag_run.set(False)
         try:
             self._image_pipe.send(None)
-        except BrokenPipeError:
+        except (BrokenPipeError, AttributeError):
             pass
-        try:
+        if hasattr(self, '_thread_image') and self._thread_image:
             self._thread_image.join()
-        except AttributeError:
-            pass
 
     def _reset(self) -> None:
+        if not self._flag_run:
+            return
         self._device.reset()
         self._buffer.clear_buffer()
         self._event_read.clear()
@@ -133,7 +132,7 @@ class UsbIO(mp.Process):
             with self._lock_access:
                 self._device.write(endpoint=ENDPOINT_OUT | 2, data=initial_header())
             self._log.debug(f"Send {data}")
-        except (usb.core.USBError, usb.core.USBTimeoutError) as err:
+        except (usb.core.USBError, usb.core.NoBackendError) as err:
             self._log.debug(f'Write error {err}.')
             # self._reset()
 
@@ -156,11 +155,21 @@ class UsbIO(mp.Process):
                     val += self._device.read(ENDPOINT_IN | 1, PACKET_SIZE_BYTES)
                 #### todo: what about the temperature????
                 # todo: the temperature is in the header somewhere in 14 and 15
+                # image_id = np.array(res[26]).astype('uint32') | np.array(res[27] << 16).astype('uint32')
 
                 h_  = struct.unpack(len(header)//2 * 'H', val[:HEADER_SIZE_BYTES])
                 with open('thermapp_header_dump.csv', 'a') as fp:
                     w = csv.writer(fp)
-                    w.writerow(h_)
+                    w.writerow(h_[14:16])
+                with open('thermapp_header_dump_14.csv', 'a') as fp:
+                    w = csv.writer(fp)
+                    w.writerow(f'{h_[14]:b}')
+                with open('thermapp_header_dump_15.csv', 'a') as fp:
+                    w = csv.writer(fp)
+                    w.writerow(f'{h_[15]:b}')
+                with open('thermapp_header_dump_both.csv', 'a') as fp:
+                    w = csv.writer(fp)
+                    w.writerow(f'{h_[14]:b}{h_[15]:b}')
 
 
                 val = val[HEADER_SIZE_BYTES:]

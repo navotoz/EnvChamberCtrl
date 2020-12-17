@@ -58,25 +58,38 @@ class FtdiIO(mp.Process):
         self._thread_image = th.Thread(target=self._th_image_func, name='th_tau2grabber_image', daemon=False)
         self._thread_image.start()
         self._log.info('Ready.')
+        self._finish_run()
 
-        self._thread_read.join()
-        self._thread_image.join()
-        self._thread_parse.join()
-        self._ftdi.close()
+    def _finish_run(self):
+        try:
+            self._cmd_pipe.send(None)
+        except (BrokenPipeError, AttributeError):
+            pass
+        try:
+            self._image_pipe.send(None)
+        except (BrokenPipeError, AttributeError):
+            pass
+        if hasattr(self, '_thread_read') and self._thread_read:
+            self._thread_read.join()
+        if hasattr(self, '_thread_image') and self._thread_image:
+            self._thread_image.join()
+        if hasattr(self, '_thread_parse')  and self._thread_parse:
+            self._thread_parse.join()
+        try:
+            self._ftdi.close()
+        except:
+            pass
 
     def __del__(self) -> None:
-        if not hasattr(self, '_flag_run'):
-            return
-        self._flag_run.set(False)
-        self._cmd_pipe.send(None)
-        self._image_pipe.send(None)
-        self._event_allow_ftdi_access.set()
-        self._thread_read.join()
-        self._thread_image.join()
-        self._thread_parse.join()
-        self._ftdi.close()
+        if hasattr(self, '_flag_run'):
+            self._flag_run.set(False)
+        if hasattr(self, '_event_allow_ftdi_access') and self._event_allow_ftdi_access:
+            self._event_allow_ftdi_access.set()
+        self._finish_run()
 
     def _reset(self) -> None:
+        if not self._flag_run:
+            return
         with self._lock_access:
             self._ftdi.set_bitmode(0xFF, Ftdi.BitMode.RESET)
             self._ftdi.set_bitmode(0xFF, Ftdi.BitMode.SYNCFF)
@@ -136,6 +149,8 @@ class FtdiIO(mp.Process):
             data, command, n_retry = self._cmd_pipe.recv()
             self._event_allow_ftdi_access.wait()
             with self._semaphore_access_ftdi:
+                if not self._flag_run:
+                    break
                 self._event_read.set()
                 self._write(data)
                 idx = 0

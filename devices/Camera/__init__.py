@@ -6,12 +6,32 @@ from abc import abstractmethod
 import usb.core
 import usb.util
 
+
 class CameraAbstract:
     def __init__(self, logger: Logger):
         self._log: Logger = logger
+        self._width = None
+        self._height = None
 
     @abstractmethod
     def __del__(self):
+        pass
+
+    @property
+    def width(self) -> int:
+        return self._width
+
+    @property
+    def height(self) -> int:
+        return self._height
+
+    @abstractmethod
+    def get_inner_temperature(self, temperature_type: str) -> float:
+        pass
+
+    @property
+    @abstractmethod
+    def type(self) -> int:
         pass
 
     @abstractmethod
@@ -152,7 +172,7 @@ class CameraAbstract:
         pass
 
 
-def _make_device_from_vid_pid(vid:int, pid:int)->usb.core.Device:
+def _make_device_from_vid_pid(vid: int, pid: int) -> usb.core.Device:
     device = usb.core.find(idVendor=vid, idProduct=pid)
     if not device:
         raise RuntimeError

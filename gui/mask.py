@@ -8,12 +8,14 @@ from PIL import ImageTk
 from matplotlib.path import Path as matplotlib_Path
 
 from gui.utils import func_thread_grabber
-from utils.constants import HEIGHT_VIEWER, WIDTH_VIEWER, WIDTH_IMAGE, HEIGHT_IMAGE
+from utils.constants import HEIGHT_VIEWER, WIDTH_VIEWER, WIDTH_IMAGE_TAU2, HEIGHT_IMAGE_TAU2
 
 
 # noinspection PyTypeChecker
 def _func_thread_mask(device, canvas: tk.Canvas, semaphore: Semaphore, output_path: (str, Path)):
     global top_left, top_right, bottom_left, bottom_right
+    top_left, top_right = _Point(0, 0), _Point(device.width, 0)
+    bottom_left, bottom_right = _Point(0, device.height), _Point(device.width, device.height)
     while canvas.winfo_exists():
         image = ImageTk.PhotoImage(image=func_thread_grabber(device))
         canvas.create_image((0, 0), anchor=tk.NW, image=image) if canvas.winfo_exists() else None
@@ -23,12 +25,12 @@ def _func_thread_mask(device, canvas: tk.Canvas, semaphore: Semaphore, output_pa
         canvas.update_idletasks() if canvas.winfo_exists() else None
         sleep(0.5)
     semaphore.release()
-    x, y = np.mgrid[:HEIGHT_IMAGE, :WIDTH_IMAGE]
+    x, y = np.mgrid[:device.height, :device.width]
     coors = np.hstack((y.reshape(-1, 1), x.reshape(-1, 1)))  # coors.shape is (4000000,2)
     top_right_, top_left_, bottom_left_, bottom_right_ = top_right(), top_left(), bottom_left(), bottom_right()
     pts = (top_right_[0] + 1, top_right_[1] - 1), (top_left_[0] - 1, top_left_[1] - 1), bottom_left_, bottom_right_
     path = matplotlib_Path(pts)
-    mask = path.contains_points(coors).reshape(HEIGHT_IMAGE, WIDTH_IMAGE)
+    mask = path.contains_points(coors).reshape(device.height, device.width)
     np.save(output_path / 'mask', mask)
 
 
@@ -83,7 +85,7 @@ def make_mask_win_and_save(device, semaphore: Semaphore, output_path):
 
     def handle_mouseclick(event):
         click_x, click_y = canvas.canvasx(event.x), canvas.canvasx(event.y)
-        _make_new_rect(min(click_x, WIDTH_IMAGE), min(click_y, HEIGHT_IMAGE))
+        _make_new_rect(min(click_x, device.width), min(click_y, device.height))
 
     # mouseclick event
     canvas.bind("<ButtonPress-1>", handle_mouseclick)
@@ -91,5 +93,5 @@ def make_mask_win_and_save(device, semaphore: Semaphore, output_path):
     thread_camera.start()
 
 
-top_left, top_right = _Point(0, 0), _Point(WIDTH_IMAGE, 0)
-bottom_left, bottom_right = _Point(0, HEIGHT_IMAGE), _Point(WIDTH_IMAGE, HEIGHT_IMAGE)
+top_left, top_right = _Point(0, 0), _Point(WIDTH_IMAGE_TAU2, 0)
+bottom_left, bottom_right = _Point(0, HEIGHT_IMAGE_TAU2), _Point(WIDTH_IMAGE_TAU2, HEIGHT_IMAGE_TAU2)

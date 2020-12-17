@@ -1,3 +1,4 @@
+import numpy as np
 import binascii
 import multiprocessing as mp
 import re
@@ -110,18 +111,20 @@ def generate_overlapping_list_chunks(generator: (map, filter), n: int):
 
 
 class DuplexPipe:
-    def __init__(self, conn_send, conn_recv, flag_run):
+    def __init__(self, conn_send: mp.connection.Connection, conn_recv: mp.connection.Connection,
+                 flag_run: SyncFlag) -> None:
         self.__recv = conn_recv
         self.__send = conn_send
         self.__flag_run = flag_run
 
-    def send(self, data):
+    def send(self, data: (None, bytes)) -> None:
         self.__send.send(data)
 
-    def recv(self):
+    def recv(self) -> (bytes, None):
         while self.__flag_run:
             if self.__recv.poll(timeout=1):
                 return self.__recv.recv()
+        return None
 
 
 def get_crc(data) -> List[int]:

@@ -12,6 +12,7 @@ import devices.Camera.Tau.tau2_config as ptc
 from devices.Camera.Tau.FtdiProcess import FtdiIO
 
 from devices.Camera import CameraAbstract
+from devices.Camera.utils import DuplexPipe
 from utils.constants import *
 from utils.logger import make_logger, make_logging_handlers, make_device_logging_handler
 from utils.tools import SyncFlag
@@ -81,18 +82,8 @@ def _make_packet(command: ptc.Code, argument: (bytes, None) = None) -> bytes:
 
 
 class Tau(CameraAbstract):
-    def set_params_by_dict(self, yaml_or_dict: (Path, dict)):
-        pass
-
-    @property
-    def is_dummy(self) -> bool:
-        return False
-
-    def grab(self) -> np.ndarray:
-        pass
-
     def __init__(self, port=None, baud=921600, logging_handlers: tuple = make_logging_handlers(None, True),
-                 logging_level: int = logging.INFO, logger:(logging.Logger, None) = None):
+                 logging_level: int = logging.INFO, logger: (logging.Logger, None) = None):
         if not logger:
             logging_handlers = make_device_logging_handler('Tau2', logging_handlers)
             logger = make_logger('Tau2', logging_handlers, logging_level)
@@ -115,6 +106,8 @@ class Tau(CameraAbstract):
                 raise IOError
         else:
             self.conn = None
+        self._width = WIDTH_IMAGE_TAU2
+        self._height = HEIGHT_IMAGE_TAU2
 
     def __del__(self):
         if self.conn:
@@ -122,6 +115,10 @@ class Tau(CameraAbstract):
 
     def _reset(self):
         self._send_and_recv_threaded(ptc.CAMERA_RESET, None)
+
+    @property
+    def type(self) -> int:
+        return CAMERA_TAU
 
     # def ping(self):
     #     function = ptc.NO_OP
@@ -183,7 +180,7 @@ class Tau(CameraAbstract):
     #     ffc = status & (1 << 6)
     #
     #     if overtemp != 0:
-    #         self._log.critical("Core overtemperature warning! Remove power immediately!")
+    #         self._log.critical("Core over temperature warning! Remove power immediately!")
     #
     #     if need_ffc != 0:
     #         self._log.warning("Core desires a new flat field correction (FFC).")
@@ -233,6 +230,7 @@ class Tau(CameraAbstract):
 
     def _send_and_recv_threaded(self, command: ptc.Code, argument: (bytes, None), n_retry: int = 3):
         pass
+
     #
     # def close_shutter(self):
     #     function = ptc.SET_SHUTTER_POSITION
@@ -481,6 +479,16 @@ class Tau(CameraAbstract):
         res = self._set_values_with_2bytes_send_recv(mode, current_value, setter_code)
         self._log_set_values(mode, res, f'{name} mode')
 
+    def set_params_by_dict(self, yaml_or_dict: (Path, dict)):
+        pass
+
+    @property
+    def is_dummy(self) -> bool:
+        return False
+
+    def grab(self) -> np.ndarray:
+        pass
+
     def ffc(self, length: bytes = ptc.FFC_LONG) -> None:
         res = self._send_and_recv_threaded(ptc.DO_FFC, length)
         if res and struct.unpack('H', res)[0] == 0xffff:
@@ -647,8 +655,8 @@ class Tau(CameraAbstract):
 
 
 class TeaxGrabber(Tau):
-    def __init__(self, vid=0x0403, pid=0x6010, width=WIDTH_IMAGE, height=HEIGHT_IMAGE,
-                 logging_handlers: tuple = make_logging_handlers(None, True), logging_level: int = logging.INFO):
+    def __init__(self, vid=0x0403, pid=0x6010, logging_handlers: tuple = make_logging_handlers(None, True),
+                 logging_level: int = logging.INFO):
         logging_handlers = make_device_logging_handler('TeaxGrabber', logging_handlers)
         logger = make_logger('TeaxGrabber', logging_handlers, logging_level)
         super().__init__(logger=logger)
@@ -656,14 +664,16 @@ class TeaxGrabber(Tau):
 
         self._flag_run = SyncFlag(True)
         self._lock_cmd_send = mp.Lock()
-        self._frame_size = 2 * height * width + 10 + 4 * height  # 10 byte header, 4 bytes pad per row
-        self._width = width
-        self._height = height
+        self._frame_size = 2 * self.height * self.width + 10 + 4 * self.height  # 10 byte header, 4 bytes pad per row
+        self._width = self.width
+        self._height = self.height
 
-        cmd_ftdi_recv, self._cmd_send = mp.Pipe(duplex=False)
-        self._cmd_recv, cmd_teax_send = mp.Pipe(duplex=False)
-        image_ftdi_recv, self._image_send = mp.Pipe(duplex=False)
-        self._image_recv, image_teax_send = mp.Pipe(duplex=False)
+        cmd_ftdi_recv, _cmd_send = mp.Pipe(duplex=False)
+        _cmd_recv, cmd_teax_send = mp.Pipe(duplex=False)
+        image_ftdi_recv, _image_send = mp.Pipe(duplex=False)
+        _image_recv, image_teax_send = mp.Pipe(duplex=False)
+        self._cmd_pipe = DuplexPipe(_cmd_send, _cmd_recv, self._flag_run)
+        self._image_pipe = DuplexPipe(_image_send, _image_recv, self._flag_run)
 
         try:
             self._io = FtdiIO(vid, pid, cmd_ftdi_recv, cmd_teax_send, image_ftdi_recv, image_teax_send,
@@ -672,24 +682,29 @@ class TeaxGrabber(Tau):
         except RuntimeError:
             self._log.info('Could not connect to TeaxGrabber.')
             raise RuntimeError
-        self._io.daemon = False
+        self._io.daemon = True
         self._io.start()
         self.ffc()
 
     def __del__(self) -> None:
-        self._flag_run.set(False)
-        if hasattr(self, '_io'):
+        if hasattr(self, '_flag_run'):
+            self._flag_run.set(False)
+        try:
+            self._cmd_pipe.send(None)
+        except (BrokenPipeError, AttributeError):
+            pass
+        try:
+            self._image_pipe.send(None)
+        except (BrokenPipeError, AttributeError):
+            pass
+        if hasattr(self, '_io') and self._io:
             self._io.join()
 
     def _send_and_recv_threaded(self, command: ptc.Code, argument: (bytes, None), n_retry: int = 3):
         data, res = _make_packet(command, argument), None
         with self._lock_cmd_send:
-            self._cmd_send.send((data, command, n_retry if n_retry != self.n_retry else self.n_retry))
-            while self._flag_run:
-                if self._cmd_recv.poll(timeout=1):
-                    res = self._cmd_recv.recv()
-                    break
-            return res
+            self._cmd_pipe.send((data, command, n_retry if n_retry != self.n_retry else self.n_retry))
+            return self._cmd_pipe.recv()
 
     def grab(self, to_temperature: bool = False):
         # Note that in TeAx's official driver, they use a threaded loop
@@ -705,24 +720,11 @@ class TeaxGrabber(Tau):
         # if this is moved to a threaded function that continually services the
         # serial stream and we have some kind of helper function which responds
         # to commands and waits to see the answer from the camera.
-        raw_image_8bit = None
         while self._flag_run:
-            self._image_send.send(True)
-            while self._flag_run:
-                if self._image_recv.poll(timeout=1):
-                    raw_image_8bit = self._image_recv.recv()
-                    break
+            self._image_pipe.send(True)
+            raw_image_8bit = self._image_pipe.recv()
             if raw_image_8bit is not None:
-                # if struct.unpack('H', data[10:12])[0] != 0x4000:  # a magic word
-                #     continue  # already checked in the ThreadedFTDI
-                # frame_width = np.frombuffer(data[5:7], dtype='uint16')[0] - 2
-                # if frame_width != width:
-                #     self._log.debug(f"Received frame has width of {frame_width} - different than expected {width}.")
-                #     continue
-                # raw_image_8bit = np.frombuffer(data[10:], dtype='uint8').reshape((-1, 2 * (width + 2)))
-                # if not self._is_8bit_image_borders_valid(raw_image_8bit):
-                #     continue
-                raw_image_16bit = 0x3FFF & raw_image_8bit.view('uint16')[:, 1:-1]
+                raw_image_16bit = 0x3FFF & np.array(raw_image_8bit).view('uint16')[:, 1:-1]
 
                 if to_temperature:
                     raw_image_16bit = 0.04 * raw_image_16bit - 273

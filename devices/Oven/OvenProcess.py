@@ -28,7 +28,8 @@ class PlotterProc(mp.Process):
         self._path_to_records = path_to_records
 
     def run(self) -> None:
-        th.Thread(target=self._timer, name='th_proc_plotter_timer', daemon=True).start()
+        th_timer = th.Thread(target=self._timer, name='th_proc_plotter_timer', daemon=False)
+        th_timer.start()
         while self._flag_run:
             self._event_timer.wait()
             try:
@@ -37,11 +38,17 @@ class PlotterProc(mp.Process):
                 print(f'Records collection failed - {err}')
                 pass
             self._event_timer.clear()
+        try:
+            th_timer.join()
+        except (RuntimeError, AssertionError, AttributeError):
+            pass
 
     def __del__(self):
-        self._event_timer.set()
+        self.terminate()
 
     def terminate(self) -> None:
+        if hasattr(self, '_flag_run'):
+            self._flag_run.set(False)
         self._event_timer.set()
 
     def _timer(self):
@@ -56,7 +63,7 @@ class OvenCtrl(mp.Process):
     _oven = None
     _workers_dict = dict()
 
-    def __init__(self, log_path: Path, logging_handlers:(tuple,list),
+    def __init__(self, log_path: Path, logging_handlers: (tuple, list),
                  recv_temperature: Connection, send_temperature_is_set: Connection,
                  delta_temperature: mp.Value, fpa_temperature: mp.Value, housing_temperature: mp.Value,
                  flag_run: SyncFlag, settling_time_minutes: mp.Value, is_dummy: bool):
@@ -84,8 +91,7 @@ class OvenCtrl(mp.Process):
             self._oven = make_oven_dummy()
 
         # temperature collector
-        self._workers_dict['t_collector'] = th.Thread(target=self._th_get_oven_temperatures, name='t_collector',
-                                                      daemon=True)
+        self._workers_dict['t_collector'] = th.Thread(target=self._th_get_oven_temperatures, name='t_collector')
         self._workers_dict['t_collector'].start()
 
         # wait for first temperature to be collected
@@ -94,7 +100,7 @@ class OvenCtrl(mp.Process):
 
         if not self._oven.is_dummy:
             # records collector
-            self._workers_dict['records'] = th.Thread(target=self._th_collect_records, name='records', daemon=True)
+            self._workers_dict['records'] = th.Thread(target=self._th_collect_records, name='records')
             self._workers_dict['records'].start()
             self._oven.log.debug('Started record collection thread.')
 
@@ -117,12 +123,14 @@ class OvenCtrl(mp.Process):
                 continue
             try:
                 t.join()
-            except (RuntimeError, AssertionError):
+            except (RuntimeError, AssertionError, AttributeError):
                 pass
 
     def terminate(self) -> None:
-        self._flag_run.set(False)
+        if hasattr(self, '_flag_set'):
+            self._flag_run.set(False)
         self._event_plotter_plot.set()
+        self._wait_for_threads_to_exit()
 
     def __del__(self):
         self.terminate()
@@ -141,7 +149,7 @@ class OvenCtrl(mp.Process):
             return min(self._fpa_temperature.value, self._housing_temperature.value)
         raise NotImplementedError(f"{type_to_get} was not implemented for inner temperatures.")
 
-    def _th_get_oven_temperatures(self)->None:
+    def _th_get_oven_temperatures(self) -> None:
         def get() -> None:
             try:
                 for t in [T_FLOOR, T_INSULATION, T_CAMERA, SIGNALERROR]:
@@ -212,7 +220,7 @@ class OvenCtrl(mp.Process):
             except (ValueError, RuntimeError, ModuleNotFoundError, NameError, ReferenceError, IOError, SystemError):
                 pass
 
-    def _th_temperature_setter(self)->None:
+    def _th_temperature_setter(self) -> None:
         handlers = make_logging_handlers(Path('log/oven/temperature_differences.txt'))
         logger_waiting = make_logger('OvenTempDiff', handlers, False)
         next_temperature, prev_temperature = 0, 0
@@ -236,7 +244,7 @@ class OvenCtrl(mp.Process):
             if next_temperature + offset >= MAX_TEMPERATURE_LINEAR_RISE:
                 offset = MAX_TEMPERATURE_LINEAR_RISE - next_temperature
             self._set_oven_temperature(next_temperature, offset=offset, verbose=True)
-            tqdm_waiting(PID_FREQ_SEC+OVEN_LOG_TIME_SECONDS, 'Waiting for PID to settle', self._flag_run)
+            tqdm_waiting(PID_FREQ_SEC + OVEN_LOG_TIME_SECONDS, 'Waiting for PID to settle', self._flag_run)
             while self._flag_run and get_error() >= 1.5:  # wait until signal error reaches within 1.5deg of setPoint
                 pass
             self._set_oven_temperature(next_temperature, offset=0, verbose=True)

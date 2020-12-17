@@ -3,22 +3,36 @@ from logging import Logger
 
 from serial.serialutil import SerialException, SerialTimeoutException
 
-from utils.constants import CAMERA_NAME, SCANNER_NAME, BLACKBODY_NAME, FOCUS_NAME
+from utils.constants import CAMERA_NAME, SCANNER_NAME, BLACKBODY_NAME, FOCUS_NAME, DEVICE_DUMMY, CAMERA_TAU, \
+    CAMERA_THERMAPP
 from utils.logger import make_logging_handlers
 
 
+def initialize_cameras(camera_name: str, logger: Logger, handlers: tuple):
+    if camera_name == DEVICE_DUMMY:
+        from devices.Camera.Tau.DummyTau2Grabber import TeaxGrabber as m
+    elif CAMERA_TAU == camera_name:
+        from devices.Camera.Tau.Tau2Grabber import TeaxGrabber as m
+    elif CAMERA_THERMAPP == camera_name:
+        from devices.Camera.Thermapp.ThermappCtrl import ThermappGrabber as m
+    else:
+        raise TypeError(f"Camera type {camera_name} was not implemented as a module.")
+    try:
+        element = m(logging_handlers=handlers)
+        log_string = 'Tau2' if CAMERA_TAU == camera_name else 'Thermapp'
+        logger.info(f'Camera {log_string} connected.')
+    except RuntimeError:
+        element = None
+    return element
+
 def initialize_device(element_name: str, logger: Logger, handlers: tuple, use_dummies: bool) -> object:
     use_dummies = 'Dummy' if use_dummies else ''
-    if CAMERA_NAME.lower() in element_name.lower():
-        m = import_module(f"devices.Camera.{use_dummies}Tau2Grabber", f"TeaxGrabber").TeaxGrabber
-    elif SCANNER_NAME.lower() in element_name.lower():
+    if SCANNER_NAME.lower() in element_name.lower():
         m = import_module(f"devices.Scanner.{use_dummies}ScannerCtrl", f"Scanner").Scanner
     elif BLACKBODY_NAME.lower() in element_name.lower():
         m = import_module(f"devices.Blackbody.{use_dummies}BlackBodyCtrl", f"BlackBody").BlackBody
     elif FOCUS_NAME.lower() in element_name.lower():
         m = import_module(f"devices.Focus.{use_dummies}FocusStageCtrl", f"FocusStage").FocusStage
-    # elif OVEN_NAME.lower() in element_name.lower():
-    #     m = make_oven if not use_dummies else make_oven_dummy
     else:
         raise TypeError(f"{element_name} was not implemented as a module.")
     try:

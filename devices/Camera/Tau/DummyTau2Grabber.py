@@ -5,11 +5,15 @@ from time import sleep
 import numpy as np
 
 from devices.Camera import CameraAbstract
-from utils.constants import WIDTH_IMAGE, HEIGHT_IMAGE
+from utils.constants import WIDTH_IMAGE, HEIGHT_IMAGE, CAMERA_TAU
 from utils.logger import make_logger
 
 
 class TeaxGrabber(CameraAbstract):
+    @property
+    def type(self) -> int:
+        return CAMERA_TAU
+
     def __del__(self):
         pass
 

@@ -32,8 +32,8 @@ T_CAMERA = 'T_camera'  # thermo-caple attached to the camera inside the oven
 # dimensions
 HEIGHT_VIEWER = 400
 WIDTH_VIEWER = 400
-HEIGHT_IMAGE = 256
-WIDTH_IMAGE = 336
+HEIGHT_IMAGE_TAU2 = 256
+WIDTH_IMAGE_TAU2 = 336
 
 # devices dict entries
 CAMERA_NAME = "camera"
@@ -123,6 +123,10 @@ FRAME_TERMINAL = 'frame_text'
 DEVICE_OFF = 0
 DEVICE_DUMMY = 1
 DEVICE_REAL = 2
+
+# camera status
+CAMERA_TAU = 20
+CAMERA_THERMAPP = 30
 
 # plots
 TEMPERATURE_LABEL = 'Temperature [$C^\circ$]'
