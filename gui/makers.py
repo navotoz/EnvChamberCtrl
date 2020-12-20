@@ -164,6 +164,7 @@ def make_camera_status_radiobox(frame: tk.Frame, row: int, devices_dict: dict, l
     make_spinbox(frame, row=row, col=1, name=CAMERA_NAME + INC_STRING, from_=LIMIT_DICT[CAMERA_NAME][MIN_STRING],
                  to=LIMIT_DICT[CAMERA_NAME][MAX_STRING], res=LIMIT_DICT[CAMERA_NAME][RESOLUTION_STRING])
     var_cam_stat = tk.IntVar(value=DEVICE_DUMMY, name=f'camera_status')
+    dict_variables[CAMERA_NAME+INC_STRING].set(LIMIT_DICT[CAMERA_NAME][INIT_INC])
     dummy_button = button_maker('dummy', DEVICE_DUMMY, 2)
     tau_button = button_maker('tau2', CAMERA_TAU, 3)
     thermapp_button = button_maker('thermapp', CAMERA_THERMAPP, 4)

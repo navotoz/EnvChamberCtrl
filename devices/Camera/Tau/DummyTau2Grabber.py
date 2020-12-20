@@ -5,7 +5,7 @@ from time import sleep
 import numpy as np
 
 from devices.Camera import CameraAbstract
-from utils.constants import WIDTH_IMAGE, HEIGHT_IMAGE, CAMERA_TAU
+from utils.constants import WIDTH_IMAGE_TAU2, HEIGHT_IMAGE_TAU2, CAMERA_TAU
 from utils.logger import make_logger
 
 
@@ -31,13 +31,13 @@ class TeaxGrabber(CameraAbstract):
 
     def grab(self):
         sleep(random.uniform(0.1, 0.2))
-        return np.random.rand(HEIGHT_IMAGE, WIDTH_IMAGE)
+        return np.random.rand(HEIGHT_IMAGE_TAU2, WIDTH_IMAGE_TAU2)
 
     @property
     def is_dummy(self):
         return True
 
-    def get_inner_temperature(self):
+    def get_inner_temperature(self, **kwargs):
         self.__inner_temperatures_idx += 1
         self.__inner_temperatures_idx %= self.__resolution
         return float(self.__inner_temperatures_list[self.__inner_temperatures_idx])

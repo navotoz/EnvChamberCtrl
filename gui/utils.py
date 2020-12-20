@@ -148,7 +148,7 @@ def get_device_status(device):
 def thread_get_fpa_housing_temperatures(devices_dict, frame: tk.Frame, flag):
     def getter():
         for t_type in [T_FPA, T_HOUSING]:
-            t = devices_dict[CAMERA_NAME].get_inner_temperature(t_type)
+            t = devices_dict[CAMERA_NAME].get_inner_temperature()
             if t and t != -float('inf'):
                 dict_variables[t_type].set(t)
                 try:

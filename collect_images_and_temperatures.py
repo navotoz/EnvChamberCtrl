@@ -9,7 +9,7 @@ from utils.tools import get_time, normalize_image
 def thread_camera_temperatures(camera):
     def getter():
         for t_type in [const.T_FPA, const.T_HOUSING]:
-            t = camera.get_inner_temperature(t_type)
+            t = camera.get_inner_temperature()
             if t and t != -float('inf'):
                 dict_variables[t_type] = int(t*100)
 

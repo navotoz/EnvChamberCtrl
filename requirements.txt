@@ -1,11 +1,11 @@
 numpy~=1.19
-psutil~=5.7.0
+psutil~=5.7
 pyftdi~=0.51
-pyudev~=0.22.0
-pyusb~=1.0.2
+pyudev~=0.22
+pyusb~=1.0
 scipy~=1.5
 pyserial~=3.4
-tqdm~=4.49
+tqdm>=4.49
 matplotlib~=3.3
 pillow~=7.2
 pandas~=1.1
