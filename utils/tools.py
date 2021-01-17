@@ -17,7 +17,8 @@ def mean(values: (list, tuple, np.ndarray, float)) -> float:
     return np.mean(ret_values) if ret_values else -float('inf')
 
 
-def show_image(image: (Image.Image, np.ndarray), title=None, v_min=None, v_max=None, to_close: bool = True, show_axis:bool=False):
+def show_image(image: (Image.Image, np.ndarray), title=None, v_min=None, v_max=None, to_close: bool = True,
+               show_axis: bool = False):
     if isinstance(image, Image.Image):
         image = np.array([image])
     if np.any(np.iscomplex(image)):
@@ -83,3 +84,15 @@ class SyncFlag:
 
     def __bool__(self) -> bool:
         return self._event.is_set()
+
+
+def save_average_from_images(path: (Path, str), suffix: str = 'npy'):
+    for dir_path in [f for f in Path(path).iterdir() if f.is_dir()]:
+        if dir_path.is_dir():
+            save_average_from_images(dir_path, suffix)
+            continue
+        if any(filter(lambda x: 'average' in x, dir_path.glob(f'*.{suffix}'))):
+            continue
+        avg = np.mean(np.stack([np.load(str(x)) for x in dir_path.glob(f'*.{suffix}')]), 0).astype('uint16')
+        np.save(str(dir_path / 'average.npy'), avg)
+        normalize_image(avg).save('average.jpeg', format='jpeg')

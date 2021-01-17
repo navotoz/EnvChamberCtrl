@@ -40,7 +40,7 @@ from gui.windows import open_upload_window, open_viewer_window
 from utils.analyze import process_plot_images_comparison
 import utils.constants as const
 from utils.logger import make_logger, make_logging_handlers
-from utils.tools import normalize_image, get_time, check_and_make_path, SyncFlag
+from utils.tools import normalize_image, get_time, check_and_make_path, SyncFlag, save_average_from_images
 
 handlers = make_logging_handlers(logfile_path=Path('log/log.txt'), verbose=True)
 logger = make_logger('GUI', handlers=handlers, level=logging.INFO)
@@ -134,12 +134,15 @@ def thread_run_experiment(semaphore_mask: Semaphore, output_path: Path):
                     if not flag_run:
                         break
                     sleep(0.2)
-                    t_fpa = get_inner_temperatures(frames_dict[const.FRAME_TEMPERATURES], const.T_FPA)
-                    t_housing = get_inner_temperatures(frames_dict[const.FRAME_TEMPERATURES], const.T_HOUSING)
+                    t_fpa = round(get_inner_temperatures(frames_dict[const.FRAME_TEMPERATURES], const.T_FPA), 2)
+                    t_housing = round(get_inner_temperatures(frames_dict[const.FRAME_TEMPERATURES], const.T_HOUSING), 2)
                     # the precision of the housing temperature is 0.01C and the precision for the fpa is 0.1C
-                    f_name_to_save = f_name + f"fpa_{t_fpa:.2f}_housing_{t_housing:.2f}_"
+                    path = output_path / f'{const.T_FPA}_{t_fpa}' / f'{const.BLACKBODY_NAME}-{blackbody_temperature}'
+                    f_name_to_save = f_name + f"fpa_{t_fpa}_housing_{t_housing}_"
                     image = devices_dict[const.CAMERA_NAME].grab()
-                    f_name_to_save = str(output_path / f"{f_name_to_save}{i}|{n_images_per_iteration}")
+                    f_name_to_save = str(path / f"{f_name_to_save}{i}|{n_images_per_iteration}")
+                    if not path.is_dir():
+                        path.mkdir(parents=True)
                     np.save(f_name_to_save, image)
                     normalize_image(image).save(f_name_to_save + '.jpeg', format='jpeg')
                     logger.debug(f"Taken {i} image")
@@ -148,6 +151,7 @@ def thread_run_experiment(semaphore_mask: Semaphore, output_path: Path):
             idx += 1
             logger.info(f"Experiment ended.")
             semaphore_plot_proc.release()
+            save_average_from_images(output_path)
     send_temperature.send(0)
     semaphore_plot_proc.release()
     proc_plot.kill()
