@@ -140,7 +140,7 @@ def thread_run_experiment(semaphore_mask: Semaphore, output_path: Path):
                     path = output_path / f'{const.T_FPA}_{t_fpa}' / f'{const.BLACKBODY_NAME}-{blackbody_temperature}'
                     f_name_to_save = f_name + f"fpa_{t_fpa}_housing_{t_housing}_"
                     image = devices_dict[const.CAMERA_NAME].grab()
-                    f_name_to_save = str(path / f"{f_name_to_save}{i}|{n_images_per_iteration}")
+                    f_name_to_save = str(path / f"{f_name_to_save}{i}of{n_images_per_iteration}")
                     if not path.is_dir():
                         path.mkdir(parents=True)
                     np.save(f_name_to_save, image)

@@ -86,6 +86,6 @@ Each device in the GUI window has a radiobox with "Real", "Dummy" and "Off" labe
 #### Photo name parse ####
 The FPA and Housing temperatures are acquired from the internal camera sensors.
 ```
-YYYYMMDD_hHHmMMsSS_<device name>_<device value>_..._fpa_<FPA temperature>_housing_<Housing temperature>_<number of image>|<total number of images for this combination>.npy
+YYYYMMDD_hHHmMMsSS_<device name>_<device value>_..._fpa_<FPA temperature>_housing_<Housing temperature>_<number of image>of<total number of images for this combination>.npy
 mask.npy
 ```

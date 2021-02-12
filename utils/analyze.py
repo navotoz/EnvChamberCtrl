@@ -89,7 +89,7 @@ def crop_images(files_list: List[Tuple[Path, np.ndarray]], mask: np.ndarray) -> 
 
 
 def average_iterated_images(list_of_images: list, mask: np.ndarray) -> List[Tuple[Path, float]]:
-    n_images_iterations = int(list_of_images[0][0].split('|')[-1])
+    n_images_iterations = int(list_of_images[0][0].split('of')[-1])
     list_of_images.sort(key=lambda x: x[0])
     new_list = [list_of_images[i:i + n_images_iterations] for i in range(0, len(list_of_images), n_images_iterations)]
     for idx, chunk in enumerate(new_list):
