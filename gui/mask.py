@@ -7,7 +7,7 @@ import numpy as np
 from PIL import ImageTk
 from matplotlib.path import Path as matplotlib_Path
 
-from gui.utils import func_thread_grabber
+from gui.tools import func_thread_grabber
 from utils.constants import HEIGHT_VIEWER, WIDTH_VIEWER, WIDTH_IMAGE_TAU2, HEIGHT_IMAGE_TAU2
 
 

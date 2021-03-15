@@ -9,7 +9,7 @@ from tkinter import ttk
 from typing import Tuple, Dict, Any
 
 from devices import initialize_device, initialize_cameras
-from gui.utils import spinbox_validation, dict_variables, update_spinbox_parameters_devices_states, \
+from gui.tools import spinbox_validation, dict_variables, update_spinbox_parameters_devices_states, \
     validate_spinbox_range, get_device_status, set_buttons_by_devices_status
 from utils.constants import *
 from utils.logger import GuiMsgHandler
@@ -167,9 +167,9 @@ def make_camera_status_radiobox(frame: tk.Frame, row: int, devices_dict: dict, l
     dict_variables[CAMERA_NAME+INC_STRING].set(LIMIT_DICT[CAMERA_NAME][INIT_INC])
     dummy_button = button_maker('dummy', DEVICE_DUMMY, 2)
     tau_button = button_maker('tau2', CAMERA_TAU, 3)
-    thermapp_button = button_maker('thermapp', CAMERA_THERMAPP, 4)
+    # thermapp_button = button_maker('thermapp', CAMERA_THERMAPP, 4)
     tau_button.invoke()
-    thermapp_button.invoke()
+    # thermapp_button.invoke()
     if not devices_dict[CAMERA_NAME]:
         dummy_button.invoke()
 

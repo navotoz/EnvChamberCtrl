@@ -16,7 +16,7 @@ from devices.Camera.utils import DuplexPipe
 from utils.constants import *
 from utils.logger import make_logger, make_logging_handlers, make_device_logging_handler
 from utils.tools import SyncFlag
-
+from datetime import datetime
 # Tau Status codes
 CAM_OK = 0x00
 CAM_NOT_READY = 0x02
@@ -223,8 +223,9 @@ class Tau(CameraAbstract):
         res = self._send_and_recv_threaded(command, argument, n_retry=1)
         if res:
             res = struct.unpack(">H", res)[0]
-            res /= 10.0 if arg_hex == ARGUMENT_FPA else 100.0
+            res /= 10.0 if temperature_type == T_FPA else 100.0
             if not 8.0 <= res <= 99.0:  # camera temperature cannot be > 99C or < 8C, returns None.
+                self._log.debug(f'Error when recv {temperature_type} - got {res}C')
                 return None
         return res
 
@@ -489,12 +490,15 @@ class Tau(CameraAbstract):
     def grab(self) -> np.ndarray:
         pass
 
-    def ffc(self, length: bytes = ptc.FFC_LONG) -> None:
+    def ffc(self, length: bytes = ptc.FFC_LONG) -> bool:
         res = self._send_and_recv_threaded(ptc.DO_FFC, length)
         if res and struct.unpack('H', res)[0] == 0xffff:
             self._log.debug('FFC')
+            return True
         else:
             self._log.debug('FFC Failed')
+            return False
+
 
     @property
     def correction_mask(self):
@@ -684,7 +688,10 @@ class TeaxGrabber(Tau):
             raise RuntimeError
         self._io.daemon = True
         self._io.start()
-        self.ffc()
+        for _ in range(3):
+            if self.ffc():
+                break
+        self._io.purge()
 
     def __del__(self) -> None:
         if hasattr(self, '_flag_run'):
@@ -704,7 +711,8 @@ class TeaxGrabber(Tau):
         data, res = _make_packet(command, argument), None
         with self._lock_cmd_send:
             self._cmd_pipe.send((data, command, n_retry if n_retry != self.n_retry else self.n_retry))
-            return self._cmd_pipe.recv()
+            res = self._cmd_pipe.recv()
+            return res
 
     def grab(self, to_temperature: bool = False):
         # Note that in TeAx's official driver, they use a threaded loop

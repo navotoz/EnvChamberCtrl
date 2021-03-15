@@ -155,9 +155,10 @@ class UsbIO(mp.Process):
                     val += self._device.read(ENDPOINT_IN | 1, PACKET_SIZE_BYTES)
                 #### todo: what about the temperature????
                 # todo: the temperature is in the header somewhere in 14 and 15
-                # image_id = np.array(res[26]).astype('uint32') | np.array(res[27] << 16).astype('uint32')
 
                 h_  = struct.unpack(len(header)//2 * 'H', val[:HEADER_SIZE_BYTES])
+                image_id = np.array(h_[26]).astype('uint32') | np.array(h_[27] << 16).astype('uint32')
+                tempereture = np.array(h_[14]).astype('uint32') | np.array(h_[15] << 16).astype('uint32')
                 with open('thermapp_header_dump.csv', 'a') as fp:
                     w = csv.writer(fp)
                     w.writerow(h_[14:16])
@@ -170,6 +171,9 @@ class UsbIO(mp.Process):
                 with open('thermapp_header_dump_both.csv', 'a') as fp:
                     w = csv.writer(fp)
                     w.writerow(f'{h_[14]:b}{h_[15]:b}')
+                with open('thermapp_dump.csv', 'a') as fp:
+                    w = csv.writer(fp)
+                    w.writerow(h_)
 
 
                 val = val[HEADER_SIZE_BYTES:]

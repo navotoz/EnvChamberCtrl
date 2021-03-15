@@ -1,17 +1,3 @@
-# from time import sleep
-#
-# from devices.Camera.Thermapp.ThermappCtrl import ThermappGrabber
-# from utils.tools import show_image
-#
-# idx = 0
-# t = ThermappGrabber()
-# while True:
-#     t.grab(nightvision=False)
-#     sleep(1)
-#     idx += 1
-#     print(idx)
-#
-#
 import logging
 import multiprocessing as mp
 import signal
@@ -32,9 +18,9 @@ from devices.Oven.plots import plot_btn_func
 from devices.Oven.utils import get_n_experiments, make_oven_temperatures_list
 from gui.makers import make_frames, make_buttons
 from gui.mask import make_mask_win_and_save
-from gui.utils import apply_value_and_make_filename, disable_fields_and_buttons, \
+from gui.tools import apply_value_and_make_filename, disable_fields_and_buttons, \
     update_status_label, get_values_list, reset_all_fields, set_buttons_by_devices_status, \
-    browse_btn_func, thread_get_fpa_housing_temperatures, getter_safe_variables, get_inner_temperatures, \
+    browse_btn_func, thread_log_fpa_housing_temperatures, getter_safe_variables, get_inner_temperatures, \
     update_spinbox_parameters_devices_states
 from gui.windows import open_upload_window, open_viewer_window
 from utils.analyze import process_plot_images_comparison
@@ -53,7 +39,7 @@ semaphore_mask_sync = Semaphore(0)
 flag_run = SyncFlag()
 
 
-def _stop():
+def _stop() -> None:
     flag_run.set(False)
     [semaphore_plot_proc.release() for x in range(3)]
     [semaphore_mask_sync.release() for x in range(3)]
@@ -114,7 +100,7 @@ def thread_run_experiment(semaphore_mask: Semaphore, output_path: Path):
             total_images = total_stops * n_images_per_iteration
 
             # find closest blackbody temperature
-            bb_list = list(map(lambda x:abs(x - devices_dict[const.BLACKBODY_NAME].temperature), values_list[0]))
+            bb_list = list(map(lambda x: abs(x - devices_dict[const.BLACKBODY_NAME].temperature), values_list[0]))
             if bb_list[0] > bb_list[-1]:
                 values_list[0] = np.flip(values_list[0])
             permutations = list(product(*values_list))
@@ -134,8 +120,8 @@ def thread_run_experiment(semaphore_mask: Semaphore, output_path: Path):
                     if not flag_run:
                         break
                     sleep(0.2)
-                    t_fpa = round(get_inner_temperatures(frames_dict[const.FRAME_TEMPERATURES], const.T_FPA), 2)
-                    t_housing = round(get_inner_temperatures(frames_dict[const.FRAME_TEMPERATURES], const.T_HOUSING), 2)
+                    t_fpa = get_inner_temperatures(frames_dict[const.FRAME_TEMPERATURES], const.T_FPA)
+                    t_housing = get_inner_temperatures(frames_dict[const.FRAME_TEMPERATURES], const.T_HOUSING)
                     # the precision of the housing temperature is 0.01C and the precision for the fpa is 0.1C
                     path = output_path / f'{const.T_FPA}_{t_fpa}' / f'{const.BLACKBODY_NAME}-{blackbody_temperature}'
                     f_name_to_save = f_name + f"fpa_{t_fpa}_housing_{t_housing}_"
@@ -208,7 +194,7 @@ func_dict = {const.BUTTON_BROWSE: partial(browse_btn_func, f_btn=frames_dict[con
              const.BUTTON_PLOT: partial(plot_btn_func, frame_button=frames_dict[const.FRAME_BUTTONS])}
 buttons_dict = make_buttons(frames_dict[const.FRAME_BUTTONS], func_dict)
 
-Thread(target=thread_get_fpa_housing_temperatures, name='th_get_fpa_housing_temperatures',
+Thread(target=thread_log_fpa_housing_temperatures, name='th_get_fpa_housing_temperatures',
        args=(devices_dict, frames_dict[const.FRAME_TEMPERATURES], flag_run,), daemon=True).start()
 
 update_status_label(frames_dict[const.FRAME_STATUS], const.READY)

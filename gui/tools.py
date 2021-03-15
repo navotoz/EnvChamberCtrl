@@ -5,6 +5,7 @@ from math import prod
 from pathlib import Path
 from time import sleep
 from tkinter import filedialog as fd, Frame
+from typing import Any
 
 import numpy as np
 from PIL import Image
@@ -28,7 +29,8 @@ def set_spinbox_value(sp_widget_name: str, value: (float, int)) -> None:
         dict_variables[sp_widget_name].set(int(value))
 
 
-def validate_spinbox_range(var, from_, to_):
+def validate_spinbox_range(var: (tk.IntVar, tk.DoubleVar, tk.StringVar, float),
+                           from_: (int, float), to_: (int, float)) -> None:
     num_type = int if isinstance(var, tk.IntVar) else float
     try:
         value = var.get()
@@ -137,7 +139,7 @@ def update_spinbox_parameters_devices_states(frame: tk.Frame, devices_dict: dict
             change_spinbox_state(frame, sp_name, tk.NORMAL if state_device != DEVICE_OFF else tk.DISABLED)
 
 
-def get_device_status(device):
+def get_device_status(device: Any) -> int:
     if not device:
         return DEVICE_OFF
     if device.is_dummy:
@@ -145,10 +147,10 @@ def get_device_status(device):
     return DEVICE_REAL
 
 
-def thread_get_fpa_housing_temperatures(devices_dict, frame: tk.Frame, flag):
-    def getter():
+def thread_log_fpa_housing_temperatures(devices_dict, frame: tk.Frame, flag):
+    def getter() -> None:
         for t_type in [T_FPA, T_HOUSING]:
-            t = devices_dict[CAMERA_NAME].get_inner_temperature()
+            t = devices_dict[CAMERA_NAME].get_inner_temperature(t_type)
             if t and t != -float('inf'):
                 dict_variables[t_type].set(t)
                 try:
@@ -161,7 +163,7 @@ def thread_get_fpa_housing_temperatures(devices_dict, frame: tk.Frame, flag):
         sleep(FREQ_INNER_TEMPERATURE_SECONDS)
 
 
-def getter_safe_variables():
+def getter_safe_variables() -> dict:
     return dict(delta_temperature=dict_variables[DELTA_TEMPERATURE].value, fpa_temperature=dict_variables[T_FPA].value,
                 housing_temperature=dict_variables[T_HOUSING].value,
                 settling_time_minutes=dict_variables[SETTLING_TIME_MINUTES].value)
@@ -211,23 +213,21 @@ def tqdm_waiting(time_to_wait_seconds: int, postfix: str, flag: (SyncFlag, None)
             return
 
 
-def get_inner_temperatures(frame: Frame, type_to_get: str = T_HOUSING) -> float:
-    type_to_get = type_to_get.lower()
+def get_inner_temperatures(frame: Frame, type_to_get: str = T_HOUSING, as_int: bool = True) -> (float, int):
+    type_to_get, res = type_to_get.lower(), None
     if T_HOUSING.lower() in type_to_get:
-        return frame.getvar(T_HOUSING)
+        res = frame.getvar(T_HOUSING)
     elif T_FPA.lower() in type_to_get:
-        return frame.getvar(T_FPA)
+        res = frame.getvar(T_FPA)
     if 'max' in type_to_get:
-        return max(frame.getvar(T_FPA), frame.getvar(T_HOUSING))
+        res = max(frame.getvar(T_FPA), frame.getvar(T_HOUSING))
     if 'avg' in type_to_get or 'mean' in type_to_get or 'average' in type_to_get:
-        return (frame.getvar(T_FPA) + frame.getvar(T_HOUSING)) / 2.0
+        res = (frame.getvar(T_FPA) + frame.getvar(T_HOUSING)) / 2.0
     if 'min' in type_to_get:
-        return min(frame.getvar(T_FPA), frame.getvar(T_HOUSING))
-    raise NotImplementedError(f"{type_to_get} was not implemented for inner temperatures.")
-
-
-
+        res = min(frame.getvar(T_FPA), frame.getvar(T_HOUSING))
+    if not None:
+        raise NotImplementedError(f"{type_to_get} was not implemented for inner temperatures.")
+    return int(100 * res) if as_int else res
 
 
 dict_variables = {}
-

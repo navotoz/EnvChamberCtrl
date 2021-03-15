@@ -12,7 +12,7 @@ from pyftdi.ftdi import Ftdi
 from pyftdi.ftdi import FtdiError
 
 from devices.Camera import _make_device_from_vid_pid
-from devices.Camera.Tau.tau2_config import Code
+from devices.Camera.Tau.tau2_config import Code, READ_SENSOR_TEMPERATURE
 from devices.Camera.utils import BytesBuffer, generate_subsets_indices_in_string, generate_overlapping_list_chunks, \
     DuplexPipe, get_crc
 from utils.logger import make_logger
@@ -36,7 +36,7 @@ class FtdiIO(mp.Process):
         except RuntimeError:
             raise RuntimeError('Could not connect to the Tau2 camera.')
 
-        self._flag_run = flag_run
+        self._flag_run: SyncFlag = flag_run
         self._frame_size = frame_size
         self._width = width
         self._height = height
@@ -59,6 +59,12 @@ class FtdiIO(mp.Process):
         self._thread_image.start()
         self._log.info('Ready.')
         self._finish_run()
+
+    def purge(self) -> None:
+        self._cmd_pipe.send(None)
+        self._cmd_pipe.purge()
+        self._image_pipe.send(None)
+        self._image_pipe.purge()
 
     def _finish_run(self):
         try:

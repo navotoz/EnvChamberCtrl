@@ -7,7 +7,7 @@ from tkinter import Frame
 import numpy as np
 
 from devices.Oven.PyCampbellCR1000.device import CR1000
-from gui.utils import get_spinbox_value
+from gui.tools import get_spinbox_value
 from utils.constants import *
 from utils.tools import get_time
 
@@ -124,3 +124,12 @@ class MaxTemperatureTimer:
         if new_max_temperature > self._max_temperature:
             self._time_of_setting = time_ns()
             self._max_temperature = new_max_temperature
+
+
+def _make_temperature_offset(t_next: float, t_oven: float, t_cam: float) -> float:
+    offset = t_next - max(t_oven, t_cam)
+    offset = round(max(0, DELAY_FLOOR2CAMERA_CONST * offset), 1)
+    # empirically, MAX_TEMPERATURE_LINEAR_RISE is very slow to get to - around 75C
+    if t_next + offset >= MAX_TEMPERATURE_LINEAR_RISE:
+        offset = MAX_TEMPERATURE_LINEAR_RISE - t_next
+    return offset
