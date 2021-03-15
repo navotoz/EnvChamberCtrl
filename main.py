@@ -123,7 +123,8 @@ def thread_run_experiment(semaphore_mask: Semaphore, output_path: Path):
                     t_fpa = get_inner_temperatures(frames_dict[const.FRAME_TEMPERATURES], const.T_FPA)
                     t_housing = get_inner_temperatures(frames_dict[const.FRAME_TEMPERATURES], const.T_HOUSING)
                     # the precision of the housing temperature is 0.01C and the precision for the fpa is 0.1C
-                    path = output_path / f'{const.T_FPA}_{t_fpa}' / f'{const.BLACKBODY_NAME}-{blackbody_temperature}'
+                    path = output_path / f'{const.T_FPA}_{t_fpa}' / \
+                           f'{const.BLACKBODY_NAME}_{int(blackbody_temperature * 100)}'
                     f_name_to_save = f_name + f"fpa_{t_fpa}_housing_{t_housing}_"
                     image = devices_dict[const.CAMERA_NAME].grab()
                     f_name_to_save = str(path / f"{f_name_to_save}{i}of{n_images_per_iteration}")

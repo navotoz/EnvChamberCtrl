@@ -37,7 +37,7 @@ class TeaxGrabber(CameraAbstract):
     def is_dummy(self):
         return True
 
-    def get_inner_temperature(self, **kwargs):
+    def get_inner_temperature(self, *kwargs):
         self.__inner_temperatures_idx += 1
         self.__inner_temperatures_idx %= self.__resolution
         return float(self.__inner_temperatures_list[self.__inner_temperatures_idx])

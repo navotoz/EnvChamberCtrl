@@ -52,7 +52,7 @@ INIT_MAX = "init max"
 INIT_INC = "init increment"
 SP_PREFIX = 'sp '
 ITERATIONS_IN_TEMPERATURE = 'iterations_in_each_temperature'
-ITERATIONS_IN_TEMPERATURE_INIT_VAL = 3
+ITERATIONS_IN_TEMPERATURE_INIT_VAL = 1
 SETTLING_TIME_MINUTES = 'settling_time_minutes'
 SETTLING_TIME_MINUTES_INIT_VAL = 2
 DELTA_TEMPERATURE = 'delta_temperature'
@@ -79,7 +79,7 @@ LIMIT_DICT = {OVEN_NAME: {MIN_STRING: 20, MAX_STRING: 90, RESOLUTION_STRING: 1,
               BLACKBODY_NAME: {MIN_STRING: 10., MAX_STRING: 70., RESOLUTION_STRING: .01,
                                INIT_MIN: 20.0, INIT_MAX: 50.0, INIT_INC: 5.0},  # [Celsius]
               CAMERA_NAME: {MIN_STRING: 1, MAX_STRING: 5000, RESOLUTION_STRING: 1,
-                            INIT_INC: 200},  # [number of images]
+                            INIT_INC: 100},  # [number of images]
               SCANNER_NAME: {MIN_STRING: 0., MAX_STRING: 180., RESOLUTION_STRING: 0.01},  # [Degrees]
               FOCUS_NAME: {MIN_STRING: 0., MAX_STRING: 12., RESOLUTION_STRING: 0.01}}  # [mm]
 METRICS_DICT = {OVEN_NAME: 'C',

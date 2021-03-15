@@ -134,7 +134,7 @@ class OvenCtrl(mp.Process):
     def __del__(self):
         self.terminate()
 
-    def _inner_temperatures(self, type_to_get: str = T_HOUSING) -> float:
+    def _inner_temperatures(self, type_to_get: str = T_FPA) -> float:
         type_to_get = type_to_get.lower()
         if T_HOUSING.lower() in type_to_get:
             return self._housing_temperature.value
@@ -263,9 +263,10 @@ class OvenCtrl(mp.Process):
                 diff = abs(current_temperature - prev_temperature)
                 difference_lifo.append(diff)
                 logger_waiting.info(f"{diff:.4f} "
-                                    f"prev{prev_temperature:.4f} "
-                                    f"curr{current_temperature:.4f} "
-                                    f"max{max_temperature.max:.4f}")
+                                    f"prev{prev_temperature:.3f} "
+                                    f"curr{current_temperature:.3f} "
+                                    f"max{max_temperature.max:.3f} "
+                                    f"SettleTime {int(self._settling_time_minutes.value):3d}Min")
                 prev_temperature = current_temperature
                 if current_temperature >= next_temperature:
                     break

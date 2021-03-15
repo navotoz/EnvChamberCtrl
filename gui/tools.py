@@ -76,6 +76,8 @@ def apply_value_and_make_filename(blackbody_temperature, scanner_angle, focus, d
 def apply_and_return_filename_str(val: float, device_name: str, devices_dict: dict, logger: Logger) -> str:
     if val != -float('inf') and devices_dict[device_name]:
         devices_dict[device_name](val)
+        if isinstance(val, float):
+            val = int(val * 100)
         logger.debug(f"{device_name.capitalize()} set to {val}.")
         return f"{device_name}_{val}_"
     return ''
@@ -213,7 +215,7 @@ def tqdm_waiting(time_to_wait_seconds: int, postfix: str, flag: (SyncFlag, None)
             return
 
 
-def get_inner_temperatures(frame: Frame, type_to_get: str = T_HOUSING, as_int: bool = True) -> (float, int):
+def get_inner_temperatures(frame: Frame, type_to_get: str = T_FPA, as_int: bool = True) -> (float, int):
     type_to_get, res = type_to_get.lower(), None
     if T_HOUSING.lower() in type_to_get:
         res = frame.getvar(T_HOUSING)
@@ -225,7 +227,7 @@ def get_inner_temperatures(frame: Frame, type_to_get: str = T_HOUSING, as_int: b
         res = (frame.getvar(T_FPA) + frame.getvar(T_HOUSING)) / 2.0
     if 'min' in type_to_get:
         res = min(frame.getvar(T_FPA), frame.getvar(T_HOUSING))
-    if not None:
+    if res is None:
         raise NotImplementedError(f"{type_to_get} was not implemented for inner temperatures.")
     return int(100 * res) if as_int else res
 

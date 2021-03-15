@@ -10,8 +10,8 @@ import usb.util
 class CameraAbstract:
     def __init__(self, logger: Logger):
         self._log: Logger = logger
-        self._width = None
-        self._height = None
+        self._width = 1
+        self._height = 1
 
     @abstractmethod
     def __del__(self):
