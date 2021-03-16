@@ -64,7 +64,7 @@ def spinbox_validation(event: (tk.Event, None) = None) -> None:
         set_spinbox_value(device_name + INC_STRING, inc_value)
 
 
-def apply_value_and_make_filename(blackbody_temperature, scanner_angle, focus, devices_dict, logger: Logger) -> str:
+def set_value_and_make_filename(blackbody_temperature, scanner_angle, focus, devices_dict, logger: Logger) -> str:
     func = partial(apply_and_return_filename_str, devices_dict=devices_dict, logger=logger)
     f_name = f'{get_time().strftime(FMT_TIME)}_'
     f_name += func(blackbody_temperature, BLACKBODY_NAME)

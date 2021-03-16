@@ -255,11 +255,11 @@ class OvenCtrl(mp.Process):
             # Notice - MaxTemperatureTimer() only checks for a MAXIMAL value.
             # Unwanted behaviour will occur on temperature descent.
             while msg := self._flag_run:
-                if max(difference_lifo) > float(self._delta_temperature.value):
-                    msg = f'{fin_msg} change {max(difference_lifo)} smaller than {float(self._delta_temperature.value)}'
-                    break
-                if max_temperature.time_since_setting_in_minutes < float(self._settling_time_minutes.value):
-                    msg = f'{fin_msg}{float(self._settling_time_minutes.value)}Min without change in temperature.'
+                # if max(difference_lifo) > float(self._delta_temperature.value):
+                #     msg = f'{fin_msg} change {max(difference_lifo)} smaller than {float(self._delta_temperature.value)}'
+                #     break
+                if max_temperature.time_since_setting_in_minutes > float(self._settling_time_minutes.value):
+                    msg = f'{fin_msg}{round(self._settling_time_minutes.value)}Min without change in temperature.'
                     break
                 difference_lifo.maxlength = self._make_maxlength()
                 current_temperature = get_inner_temperature()
@@ -276,7 +276,7 @@ class OvenCtrl(mp.Process):
                     msg = f'{fin_msg} current T {current_temperature} bigger than next T {next_temperature}.'
                     break
             logger_waiting.info(msg) if isinstance(msg, str) else None
-            self._oven.debug(msg) if isinstance(msg, str) else None
+            self._oven.log.info(msg) if isinstance(msg, str) else None
             self._send_temperature_is_set.send(next_temperature)
             self._oven.log.info(f'Camera reached temperature {prev_temperature:.2f}C '
                                 f'and settled for {self._settling_time_minutes.value} minutes '

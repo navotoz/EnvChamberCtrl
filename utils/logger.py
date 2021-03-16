@@ -31,6 +31,7 @@ def make_logging_handlers(logfile_path: (None, Path) = None, verbose: bool = Fal
     handlers_list = []
     handlers_list.append(logging.StreamHandler()) if verbose else None
     if logfile_path:
+        logfile_path = Path(logfile_path)
         logfile_path.parent.mkdir(parents=True) if not logfile_path.parent.is_dir() else None
         check_and_make_path(logfile_path.parent)
     handlers_list.append(logging.FileHandler(str(logfile_path), mode='w')) if logfile_path else None

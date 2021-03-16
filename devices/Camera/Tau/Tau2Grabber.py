@@ -499,7 +499,6 @@ class Tau(CameraAbstract):
             self._log.debug('FFC Failed')
             return False
 
-
     @property
     def correction_mask(self):
         """ the default value is 2111 (decimal). 0 (decimal) is all off """
@@ -688,14 +687,16 @@ class TeaxGrabber(Tau):
             raise RuntimeError
         self._io.daemon = True
         self._io.start()
-        for _ in range(3):
-            if self.ffc():
-                break
+        # self.ffc()
         self._io.purge()
 
     def __del__(self) -> None:
         if hasattr(self, '_flag_run'):
             self._flag_run.set(False)
+        try:
+            self._log.critical('Exit.')
+        except:
+            pass
         try:
             self._cmd_pipe.send(None)
         except (BrokenPipeError, AttributeError):
@@ -710,11 +711,12 @@ class TeaxGrabber(Tau):
     def _send_and_recv_threaded(self, command: ptc.Code, argument: (bytes, None), n_retry: int = 3):
         data, res = _make_packet(command, argument), None
         with self._lock_cmd_send:
+            self._cmd_pipe.purge()
             self._cmd_pipe.send((data, command, n_retry if n_retry != self.n_retry else self.n_retry))
             res = self._cmd_pipe.recv()
             return res
 
-    def grab(self, to_temperature: bool = False):
+    def grab(self, to_temperature: bool = False, n_retries: int = 3) -> (None, np.ndarray):
         # Note that in TeAx's official driver, they use a threaded loop
         # to read data as it streams from the camera and they simply
         # process images/commands as they come back. There isn't the same
@@ -728,7 +730,8 @@ class TeaxGrabber(Tau):
         # if this is moved to a threaded function that continually services the
         # serial stream and we have some kind of helper function which responds
         # to commands and waits to see the answer from the camera.
-        while self._flag_run:
+        idx = 0
+        while self._flag_run and idx < n_retries:
             self._image_pipe.send(True)
             raw_image_8bit = self._image_pipe.recv()
             if raw_image_8bit is not None:
@@ -737,6 +740,8 @@ class TeaxGrabber(Tau):
                 if to_temperature:
                     raw_image_16bit = 0.04 * raw_image_16bit - 273
                 return raw_image_16bit
+            idx += 1
+        return None
 
     def set_params_by_dict(self, yaml_or_dict: (Path, dict)):
         if isinstance(yaml_or_dict, Path):

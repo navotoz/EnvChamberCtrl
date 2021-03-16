@@ -128,7 +128,7 @@ class DuplexPipe:
         return None
 
     def purge(self) -> None:
-        while self._recv.poll(timeout=0.1):
+        while self._recv.poll(timeout=0.01):
             self._recv.recv()
 
 

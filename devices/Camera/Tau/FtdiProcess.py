@@ -15,7 +15,7 @@ from devices.Camera import _make_device_from_vid_pid
 from devices.Camera.Tau.tau2_config import Code, READ_SENSOR_TEMPERATURE
 from devices.Camera.utils import BytesBuffer, generate_subsets_indices_in_string, generate_overlapping_list_chunks, \
     DuplexPipe, get_crc
-from utils.logger import make_logger
+from utils.logger import make_logger, make_device_logging_handler
 from utils.tools import SyncFlag
 
 BORDER_VALUE = 64
@@ -30,6 +30,7 @@ class FtdiIO(mp.Process):
                  image_recv: Connection, image_send: Connection, frame_size: int, width: int,
                  height: int, flag_run: SyncFlag, logging_handlers: (list, tuple), logging_level: int):
         super().__init__()
+        logging_handlers = make_device_logging_handler('FtdiIO', logging_handlers)
         self._log = make_logger('FtdiIO', logging_handlers, logging_level)
         try:
             self._ftdi = connect_ftdi(vid, pid)
@@ -49,6 +50,7 @@ class FtdiIO(mp.Process):
         self._buffer = BytesBuffer(flag_run, self._frame_size)
         self._cmd_pipe = DuplexPipe(cmd_send, cmd_recv, self._flag_run)
         self._image_pipe = DuplexPipe(image_send, image_recv, self._flag_run)
+        self._n_retries_image = 5
 
     def run(self) -> None:
         self._thread_read = th.Thread(target=self._th_reader_func, name='th_tau2grabber_reader', daemon=False)
@@ -83,6 +85,10 @@ class FtdiIO(mp.Process):
             self._thread_parse.join()
         try:
             self._ftdi.close()
+        except:
+            pass
+        try:
+            self._log.critical('Exit.')
         except:
             pass
 
@@ -179,12 +185,15 @@ class FtdiIO(mp.Process):
             self._image_pipe.recv()  # waits for signal from TeaxGrabber
             self._event_allow_ftdi_access.clear()  # only allows this thread to operate
             with self._semaphore_access_ftdi:
-                while self._flag_run:
+                idx = 0
+                while self._flag_run and idx < self._n_retries_image:
                     self._event_read.set()
+                    sleep(0.05)
+                    idx += 1
                     self._buffer.sync_teax()
                     buffer_len = self._buffer.wait_for_size()
                     res = self._buffer[:min(self._frame_size, buffer_len)]
-                    if struct.unpack('h', res[10:12])[0] != 0x4000:  # a magic word
+                    if res and struct.unpack('h', res[10:12])[0] != 0x4000:  # a magic word
                         continue
                     frame_width = struct.unpack('h', res[5:7])[0] - 2
                     if frame_width != self._width:
@@ -199,6 +208,8 @@ class FtdiIO(mp.Process):
                     break
 
     def _is_8bit_image_borders_valid(self, raw_image_8bit: np.ndarray) -> bool:
+        if raw_image_8bit is None:
+            return False
         if np.nonzero(raw_image_8bit[:, 0] != 0)[0]:
             return False
         valid_idx = np.nonzero(raw_image_8bit[:, -1] != BORDER_VALUE)

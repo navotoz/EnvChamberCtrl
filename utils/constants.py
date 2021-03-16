@@ -54,7 +54,7 @@ SP_PREFIX = 'sp '
 ITERATIONS_IN_TEMPERATURE = 'iterations_in_each_temperature'
 ITERATIONS_IN_TEMPERATURE_INIT_VAL = 2
 SETTLING_TIME_MINUTES = 'settling_time_minutes'
-SETTLING_TIME_MINUTES_INIT_VAL = 2
+SETTLING_TIME_MINUTES_INIT_VAL = 3
 DELTA_TEMPERATURE = 'delta_temperature'
 # large delta means that the system is only relevant for INCREASING temperatures,
 # because only the max temperature condition can be true
@@ -64,7 +64,7 @@ USE_CAM_INNER_TEMPS_INIT_VAL = '1'
 RESOLUTION_STRING = " resolution"
 IMAGES_TO_RUN_LABEL = 'images_to_run'
 EXPERIMENT_SAVE_PATH = 'experiment_save_path'
-FREQ_INNER_TEMPERATURE_SECONDS = 1
+FREQ_INNER_TEMPERATURE_SECONDS = 2
 
 # rate of climb for the camera is approx. 1C / 8.5min ~= 0.12C / 1min ~= 8.3min / 1C
 # rate of climb for the floor is approx. 10C / 9min ~= 1C / 1min ~= 1min / 1C
@@ -79,7 +79,7 @@ LIMIT_DICT = {OVEN_NAME: {MIN_STRING: 20, MAX_STRING: 90, RESOLUTION_STRING: 1,
               BLACKBODY_NAME: {MIN_STRING: 10., MAX_STRING: 70., RESOLUTION_STRING: .01,
                                INIT_MIN: 20.0, INIT_MAX: 50.0, INIT_INC: 5.0},  # [Celsius]
               CAMERA_NAME: {MIN_STRING: 1, MAX_STRING: 5000, RESOLUTION_STRING: 1,
-                            INIT_INC: 100},  # [number of images]
+                            INIT_INC: 50},  # [number of images]
               SCANNER_NAME: {MIN_STRING: 0., MAX_STRING: 180., RESOLUTION_STRING: 0.01},  # [Degrees]
               FOCUS_NAME: {MIN_STRING: 0., MAX_STRING: 12., RESOLUTION_STRING: 0.01}}  # [mm]
 METRICS_DICT = {OVEN_NAME: 'C',

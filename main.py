@@ -1,3 +1,31 @@
+# from datetime import datetime
+# from pathlib import Path
+# from threading import Thread
+# from time import sleep
+#
+# from devices.Camera.Tau.Tau2Grabber import TeaxGrabber
+# from gui.tools import thread_log_fpa_housing_temperatures
+# from utils.logger import make_logging_handlers
+# import utils.constants as const
+# import tkinter as tk
+#
+# from utils.tools import SyncFlag
+#
+# flag_run = SyncFlag()
+# devices_dict = {const.CAMERA_NAME:TeaxGrabber(logging_handlers=make_logging_handlers(Path('log/log.txt'), True))}
+# Thread(target=thread_log_fpa_housing_temperatures, name='th_get_fpa_housing_temperatures',
+#        args=(devices_dict, tk.Frame(), flag_run,), daemon=True).start()
+#
+#
+# N_ITERS = 100
+# devices_dict[const.CAMERA_NAME].ffc_mode = 'external'
+# while True:
+#     print(f'{datetime.now()}')
+#     for i in range(N_ITERS):
+#         devices_dict[const.CAMERA_NAME].grab()
+#     devices_dict[const.CAMERA_NAME].ffc()
+
+
 import logging
 import multiprocessing as mp
 import signal
@@ -18,7 +46,7 @@ from devices.Oven.plots import plot_btn_func
 from devices.Oven.utils import get_n_experiments, make_oven_temperatures_list
 from gui.makers import make_frames, make_buttons
 from gui.mask import make_mask_win_and_save
-from gui.tools import apply_value_and_make_filename, disable_fields_and_buttons, \
+from gui.tools import set_value_and_make_filename, disable_fields_and_buttons, \
     update_status_label, get_values_list, reset_all_fields, set_buttons_by_devices_status, \
     browse_btn_func, thread_log_fpa_housing_temperatures, getter_safe_variables, get_inner_temperatures, \
     update_spinbox_parameters_devices_states
@@ -112,8 +140,7 @@ def thread_run_experiment(semaphore_mask: Semaphore, output_path: Path):
                 if not flag_run:
                     logger.warning('Stopped the experiment.')
                     break
-                f_name = apply_value_and_make_filename(blackbody_temperature, scanner_angle, focus, devices_dict,
-                                                       logger)
+                f_name = set_value_and_make_filename(blackbody_temperature, scanner_angle, focus, devices_dict, logger)
                 logger.info(f"Blackbody temperature {blackbody_temperature}C is set.")
                 devices_dict[const.CAMERA_NAME].ffc()  # calibrate
                 for i in range(1, n_images_per_iteration + 1):
@@ -126,7 +153,8 @@ def thread_run_experiment(semaphore_mask: Semaphore, output_path: Path):
                     path = output_path / f'{const.T_FPA}_{t_fpa}' / \
                            f'{const.BLACKBODY_NAME}_{int(blackbody_temperature * 100)}'
                     f_name_to_save = f_name + f"fpa_{t_fpa}_housing_{t_housing}_"
-                    image = devices_dict[const.CAMERA_NAME].grab()
+                    if (image := devices_dict[const.CAMERA_NAME].grab()) is None:
+                        continue
                     f_name_to_save = str(path / f"{f_name_to_save}{i}of{n_images_per_iteration}")
                     if not path.is_dir():
                         path.mkdir(parents=True)
