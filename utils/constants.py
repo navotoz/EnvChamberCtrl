@@ -121,8 +121,8 @@ FRAME_TERMINAL = 'frame_text'
 
 # device status
 DEVICE_OFF = 0
-DEVICE_DUMMY = 1
-DEVICE_REAL = 2
+DEVICE_DUMMY = 10
+DEVICE_REAL = 100
 
 # camera status
 CAMERA_TAU = 20

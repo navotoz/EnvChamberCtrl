@@ -29,6 +29,7 @@
 import logging
 import multiprocessing as mp
 import signal
+from ctypes import c_wchar_p
 from datetime import datetime
 from functools import partial
 from itertools import product
@@ -40,6 +41,8 @@ from tkinter import TclError
 import numpy as np
 import yaml
 
+from devices.Camera.CameraProcess import CameraCtrl
+from devices.Camera.utils import DuplexPipe
 from devices.Oven.OvenProcess import OvenCtrl
 from devices.Oven.make_oven_program import make_oven_basic_prog
 from devices.Oven.plots import plot_btn_func
@@ -48,8 +51,8 @@ from gui.makers import make_frames, make_buttons
 from gui.mask import make_mask_win_and_save
 from gui.tools import set_value_and_make_filename, disable_fields_and_buttons, \
     update_status_label, get_values_list, reset_all_fields, set_buttons_by_devices_status, \
-    browse_btn_func, thread_log_fpa_housing_temperatures, getter_safe_variables, get_inner_temperatures, \
-    update_spinbox_parameters_devices_states
+    browse_btn_func, thread_log_fpa_housing_temperatures, getter_safe_oven_variables, get_inner_temperatures, \
+    update_spinbox_parameters_devices_states, getter_safe_temperature_variables, get_device_status
 from gui.windows import open_upload_window, open_viewer_window
 from utils.analyze import process_plot_images_comparison
 import utils.constants as const
@@ -60,11 +63,22 @@ handlers = make_logging_handlers(logfile_path=Path('log/log.txt'), verbose=True)
 logger = make_logger('GUI', handlers=handlers, level=logging.INFO)
 
 oven_process: mp.Process
+camera_process: mp.Process
 recv_temperature, send_temperature = mp.Pipe(duplex=False)
 recv_is_temperature_set, send_is_temperature_set = mp.Pipe(duplex=False)
 semaphore_plot_proc = mp.Semaphore(0)
 semaphore_mask_sync = Semaphore(0)
 flag_run = SyncFlag()
+
+recv_cam_type_proc, send_cam_type_main = mp.Pipe(duplex=False)
+recv_cam_type_main, send_cam_type_proc = mp.Pipe(duplex=False)
+cam_type_proc = DuplexPipe(send_cam_type_proc, recv_cam_type_proc, flag_run)
+cam_type_main = DuplexPipe(send_cam_type_main, recv_cam_type_main, flag_run)
+
+recv_image_proc, send_image_main = mp.Pipe(duplex=False)
+recv_image_main, send_image_proc = mp.Pipe(duplex=False)
+image_grabber_proc = DuplexPipe(send_image_proc, recv_image_proc, flag_run)
+image_grabber_main = DuplexPipe(send_image_main, recv_image_main, flag_run)
 
 
 def _stop() -> None:
@@ -196,7 +210,7 @@ def func_start_run_loop() -> None:
         oven_process = OvenCtrl(logging_handlers=handlers,
                                 log_path=output_path, recv_temperature=recv_temperature,
                                 send_temperature_is_set=send_is_temperature_set, flag_run=flag_run,
-                                is_dummy=oven_status == const.DEVICE_DUMMY, **getter_safe_variables())
+                                is_dummy=oven_status == const.DEVICE_DUMMY, **getter_safe_oven_variables())
         oven_process.start()
 
     # apply mask to camera output
@@ -206,8 +220,9 @@ def func_start_run_loop() -> None:
     Thread(target=thread_run_experiment, kwargs=kwargs, name='th_run_experiment', daemon=False).start()
 
 
-devices_dict = dict().fromkeys([const.OVEN_NAME, const.CAMERA_NAME,
+devices_dict = dict().fromkeys([const.CAMERA_NAME, const.OVEN_NAME,
                                 const.BLACKBODY_NAME, const.SCANNER_NAME, const.FOCUS_NAME])
+devices_dict[const.CAMERA_NAME] = cam_type_main
 root, frames_dict = make_frames(logger, handlers, devices_dict)
 root.protocol('WM_DELETE_WINDOW', close_gui)
 signal.signal(signal.SIGINT, close_gui)
@@ -217,20 +232,34 @@ func_dict = {const.BUTTON_BROWSE: partial(browse_btn_func, f_btn=frames_dict[con
                                           f_path=frames_dict[const.FRAME_PATH]),
              const.BUTTON_STOP: func_stop_run,
              const.BUTTON_START: func_start_run_loop,
-             const.BUTTON_VIEWER: partial(open_viewer_window, devices_dict=devices_dict, name=const.CAMERA_NAME),
+             const.BUTTON_VIEWER: partial(open_viewer_window, camera_grabber=image_grabber_main,
+                                          name=const.CAMERA_NAME),
              const.BUTTON_UPLOAD: open_upload_window,
              const.BUTTON_OVEN_PROG: make_oven_basic_prog,
              const.BUTTON_PLOT: partial(plot_btn_func, frame_button=frames_dict[const.FRAME_BUTTONS])}
 buttons_dict = make_buttons(frames_dict[const.FRAME_BUTTONS], func_dict)
 
+
+camera_process = CameraCtrl(logging_handlers=handlers,
+                            image_pipe=image_grabber_proc,
+                            flag_run=flag_run,
+                            camera_type_pipe=cam_type_proc,
+                            **getter_safe_temperature_variables())
+camera_process.start()
+
 Thread(target=thread_log_fpa_housing_temperatures, name='th_get_fpa_housing_temperatures',
-       args=(devices_dict, frames_dict[const.FRAME_TEMPERATURES], flag_run,), daemon=True).start()
+       args=(frames_dict[const.FRAME_TEMPERATURES], flag_run,), daemon=True).start()
 
 update_status_label(frames_dict[const.FRAME_STATUS], const.READY)
 update_spinbox_parameters_devices_states(root.nametowidget(const.FRAME_PARAMS), devices_dict)
 set_buttons_by_devices_status(root.nametowidget(const.FRAME_BUTTONS), devices_dict)
+frames_dict[const.FRAME_PARAMS].nametowidget('camera_tau2').invoke()
+if get_device_status(devices_dict[const.CAMERA_NAME]) == const.DEVICE_DUMMY:
+    frames_dict[const.FRAME_PARAMS].nametowidget('camera_thermapp').invoke()
 
 root.mainloop()
 
+# todo: do a proper kill function for the new camera process
+# todo: add commands into camera process
 # todo: make BlackBody into a process. The process will have keep-alive feature
 # todo: why does changing the values of "Minimal Setteling Time" have no effect during runtime

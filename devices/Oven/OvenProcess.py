@@ -126,7 +126,7 @@ class OvenCtrl(mp.Process):
                 pass
 
     def terminate(self) -> None:
-        if hasattr(self, '_flag_set'):
+        if hasattr(self, '_flag_run'):
             self._flag_run.set(False)
         self._event_plotter_plot.set()
         self._wait_for_threads_to_exit()

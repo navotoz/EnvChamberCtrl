@@ -44,7 +44,7 @@ def func_upload(image, canvas):
 
 
 # noinspection PyUnresolvedReferences
-def open_viewer_window(devices_dict, name):
+def open_viewer_window(camera_grabber, name):
     global viewer_window
     if not viewer_window:
         viewer_window = tk.Toplevel()
@@ -52,7 +52,7 @@ def open_viewer_window(devices_dict, name):
         viewer_window.geometry(f"{HEIGHT_VIEWER}x{WIDTH_VIEWER}")
         canvas = tk.Canvas(viewer_window, width=WIDTH_VIEWER, height=HEIGHT_VIEWER)
         canvas.pack()
-        thread_camera = Thread(target=func_thread_viewer, args=(devices_dict[name], canvas,), name='th_viewer', daemon=True)
+        thread_camera = Thread(target=func_thread_viewer, args=(camera_grabber, canvas,), name='th_viewer', daemon=True)
         thread_camera.start()
     elif viewer_window.winfo_exists():
         viewer_window.focus()

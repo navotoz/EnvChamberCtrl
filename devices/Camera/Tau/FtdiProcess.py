@@ -81,7 +81,7 @@ class FtdiIO(mp.Process):
             self._thread_read.join()
         if hasattr(self, '_thread_image') and self._thread_image:
             self._thread_image.join()
-        if hasattr(self, '_thread_parse')  and self._thread_parse:
+        if hasattr(self, '_thread_parse') and self._thread_parse:
             self._thread_parse.join()
         try:
             self._ftdi.close()
@@ -157,8 +157,11 @@ class FtdiIO(mp.Process):
                 self._buffer += data
 
     def _th_parse_func(self) -> None:
+        data = command = n_retry = None
         while self._flag_run:
-            data, command, n_retry = self._cmd_pipe.recv()
+            res = self._cmd_pipe.recv()
+            if isinstance(res, tuple):
+                data, command, n_retry = res
             self._event_allow_ftdi_access.wait()
             with self._semaphore_access_ftdi:
                 if not self._flag_run:

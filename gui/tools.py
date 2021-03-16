@@ -2,15 +2,17 @@ import tkinter as tk
 from functools import partial
 from logging import Logger
 from math import prod
+from multiprocessing.connection import Connection
 from pathlib import Path
 from time import sleep
 from tkinter import filedialog as fd, Frame
-from typing import Any
+from typing import Any, Tuple
 
 import numpy as np
 from PIL import Image
 from tqdm import tqdm
 
+from devices.Camera.utils import DuplexPipe
 from utils.constants import *
 from utils.tools import get_time, normalize_image, check_and_make_path, SyncFlag
 
@@ -83,8 +85,12 @@ def apply_and_return_filename_str(val: float, device_name: str, devices_dict: di
     return ''
 
 
-def func_thread_grabber(device) -> Image.Image:
-    return normalize_image(device.grab().astype('float32'))
+def func_thread_grabber(device_duplex: DuplexPipe) -> (Image.Image, None):
+    device_duplex.send(True)
+    image = device_duplex.recv()
+    if image is not None:
+        return normalize_image(image.astype('float32'))
+    return None
 
 
 def change_state_radiobuttons(root: tk.Tk, state: (tk.DISABLED, tk.NORMAL)):
@@ -142,6 +148,9 @@ def update_spinbox_parameters_devices_states(frame: tk.Frame, devices_dict: dict
 
 
 def get_device_status(device: Any) -> int:
+    if isinstance(device, DuplexPipe):
+        device.send(True)
+        return device.recv()
     if not device:
         return DEVICE_OFF
     if device.is_dummy:
@@ -149,12 +158,11 @@ def get_device_status(device: Any) -> int:
     return DEVICE_REAL
 
 
-def thread_log_fpa_housing_temperatures(devices_dict, frame: tk.Frame, flag):
+def thread_log_fpa_housing_temperatures(frame: tk.Frame, flag):
     def getter() -> None:
         for t_type in [T_FPA, T_HOUSING]:
-            t = devices_dict[CAMERA_NAME].get_inner_temperature(t_type)
+            t = dict_variables[t_type].value.value
             if t and t != -float('inf'):
-                dict_variables[t_type].set(t)
                 try:
                     frame.nametowidget(f"{t_type}_label").config(text=f"{t:.2f} C")
                 except (TypeError, ValueError):
@@ -162,14 +170,18 @@ def thread_log_fpa_housing_temperatures(devices_dict, frame: tk.Frame, flag):
 
     while flag:
         getter()
-        sleep(FREQ_INNER_TEMPERATURE_SECONDS)
+        sleep(1)
 
 
-def getter_safe_variables() -> dict:
+def getter_safe_oven_variables() -> dict:
     return dict(delta_temperature=dict_variables[DELTA_TEMPERATURE].value,
-                fpa_temperature=dict_variables[T_FPA].value,
-                housing_temperature=dict_variables[T_HOUSING].value,
-                settling_time_minutes=dict_variables[SETTLING_TIME_MINUTES].value)
+                settling_time_minutes=dict_variables[SETTLING_TIME_MINUTES].value
+                                      ** getter_safe_temperature_variables())
+
+
+def getter_safe_temperature_variables() -> dict:
+    return dict(fpa_temperature=dict_variables[T_FPA].value,
+                housing_temperature=dict_variables[T_HOUSING].value)
 
 
 def get_values_list(frame: tk.Frame, devices_dict: dict) -> tuple:

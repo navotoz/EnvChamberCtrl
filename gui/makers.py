@@ -1,6 +1,7 @@
 import tkinter as tk
+from time import sleep
 from collections import namedtuple
-from ctypes import c_int64, c_double
+from ctypes import c_int64, c_double, c_char_p, c_wchar_p
 from functools import partial
 from logging import Logger
 from multiprocessing import Value, RLock
@@ -93,7 +94,7 @@ def make_label(frame: tk.Frame, row: int, col: int, text: str = "", pad_y: int =
     return label
 
 
-def make_range_params(frame: tk.Frame, init_row: int, func_device_maker, devices_dict)->int:
+def make_range_params(frame: tk.Frame, init_row: int, func_device_maker, devices_dict) -> int:
     row = init_row
     for row, name in enumerate([OVEN_NAME, BLACKBODY_NAME, SCANNER_NAME, FOCUS_NAME], start=row):
         make_label(frame, row=row, col=0, text=f"{name.capitalize()} [{METRICS_DICT[name]}]:", pad_y=10)
@@ -145,7 +146,7 @@ def make_devices_status_radiobox(frame: tk.Frame, row: int, col: int, name: str,
     off_button.invoke() if 'oven' in name else real_button.invoke()
 
 
-def make_camera_status_radiobox(frame: tk.Frame, row: int, devices_dict: dict, logger, handlers):
+def make_camera_status_radiobox(frame: tk.Frame, row: int, devices_dict: dict):
     def button_maker(name: str, value: (int, str), col_: int):
         b = tk.Radiobutton(text=name.capitalize(), name=f'camera_{name}', value=value,
                            master=frame, variable=var_cam_stat, width=5, indicatoron=True)
@@ -156,22 +157,22 @@ def make_camera_status_radiobox(frame: tk.Frame, row: int, devices_dict: dict, l
 
     def run_func(next_device_status: tk.IntVar, devices_dict: dict):
         camera_to_set = next_device_status.get()
-        curr_device_status = DEVICE_OFF if not devices_dict[CAMERA_NAME] else devices_dict[CAMERA_NAME].type
-        if curr_device_status != camera_to_set:
-            devices_dict[CAMERA_NAME] = initialize_cameras(camera_to_set, logger, handlers)
+        devices_dict[CAMERA_NAME].send(camera_to_set)
+        next_device_status.set(devices_dict[CAMERA_NAME].recv())
 
     make_label(frame, row=row, col=0, text="# images per configuration", pad_y=10)
     make_spinbox(frame, row=row, col=1, name=CAMERA_NAME + INC_STRING, from_=LIMIT_DICT[CAMERA_NAME][MIN_STRING],
                  to=LIMIT_DICT[CAMERA_NAME][MAX_STRING], res=LIMIT_DICT[CAMERA_NAME][RESOLUTION_STRING])
     var_cam_stat = tk.IntVar(value=DEVICE_DUMMY, name=f'camera_status')
-    dict_variables[CAMERA_NAME+INC_STRING].set(LIMIT_DICT[CAMERA_NAME][INIT_INC])
+    dict_variables[CAMERA_NAME + INC_STRING].set(LIMIT_DICT[CAMERA_NAME][INIT_INC])
     dummy_button = button_maker('dummy', DEVICE_DUMMY, 2)
     tau_button = button_maker('tau2', CAMERA_TAU, 3)
-    # thermapp_button = button_maker('thermapp', CAMERA_THERMAPP, 4)
-    tau_button.invoke()
-    # thermapp_button.invoke()
-    if not devices_dict[CAMERA_NAME]:
-        dummy_button.invoke()
+    thermapp_button = button_maker('thermapp', CAMERA_THERMAPP, 4)
+    # tau_button.invoke()
+    # if var_cam_stat.get() == DEVICE_DUMMY:
+    #     thermapp_button.invoke()
+    # if not devices_dict[CAMERA_NAME]:
+    # dummy_button.invoke()
 
 
 def make_button(frame: tk.Frame, col: int, text: str, name: str, command, state=tk.NORMAL) -> tk.Button:
@@ -269,7 +270,7 @@ def make_frames(logger, handler, devices_dict) -> Tuple[tk.Tk, Dict[Any, tk.Fram
 
     func_device_maker = partial(make_device_and_handle_parameters, logger=logger, handlers=handler)
     row_for_camera = make_range_params(frame_params, 1, func_device_maker, devices_dict)
-    make_camera_status_radiobox(frame_params, row_for_camera, devices_dict, logger, handler)
+    make_camera_status_radiobox(frame_params, row_for_camera, devices_dict)
     dict_variables[EXPERIMENT_SAVE_PATH] = tk.StringVar(master=frame_buttons, name=EXPERIMENT_SAVE_PATH,
                                                         value=Path.cwd().parent / 'experiments')
     make_label(frame_path, 0, 1, f"Experiment folder path: {dict_variables[EXPERIMENT_SAVE_PATH].get()}",

@@ -18,6 +18,10 @@ class CameraAbstract:
         pass
 
     @property
+    def log(self):
+        return self._log
+
+    @property
     def width(self) -> int:
         return self._width
 
