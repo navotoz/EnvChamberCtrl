@@ -49,7 +49,7 @@ class SafeDoubleVar(tk.DoubleVar):
     def value(self):
         return self._mp_value
 
-    def set(self, value):
+    def set(self, value: (int, float)):
         """Set the variable to VALUE."""
         self._mp_value.value = float(value)
         return self._tk.globalsetvar(self._name, value)

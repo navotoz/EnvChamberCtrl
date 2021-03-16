@@ -203,3 +203,6 @@ update_spinbox_parameters_devices_states(root.nametowidget(const.FRAME_PARAMS), 
 set_buttons_by_devices_status(root.nametowidget(const.FRAME_BUTTONS), devices_dict)
 
 root.mainloop()
+
+# todo: make BlackBody into a process. The process will have keep-alive feature
+# todo: why does changing the values of "Minimal Setteling Time" have no effect during runtime

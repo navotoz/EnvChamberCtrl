@@ -166,7 +166,8 @@ def thread_log_fpa_housing_temperatures(devices_dict, frame: tk.Frame, flag):
 
 
 def getter_safe_variables() -> dict:
-    return dict(delta_temperature=dict_variables[DELTA_TEMPERATURE].value, fpa_temperature=dict_variables[T_FPA].value,
+    return dict(delta_temperature=dict_variables[DELTA_TEMPERATURE].value,
+                fpa_temperature=dict_variables[T_FPA].value,
                 housing_temperature=dict_variables[T_HOUSING].value,
                 settling_time_minutes=dict_variables[SETTLING_TIME_MINUTES].value)
 
