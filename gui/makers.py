@@ -9,7 +9,7 @@ from pathlib import Path
 from tkinter import ttk
 from typing import Tuple, Dict, Any
 
-from devices import initialize_device, initialize_cameras
+from devices import initialize_device
 from gui.tools import spinbox_validation, dict_variables, update_spinbox_parameters_devices_states, \
     validate_spinbox_range, get_device_status, set_buttons_by_devices_status
 from utils.constants import *
@@ -123,8 +123,11 @@ def make_frame(parent: tk.Tk, row: int, bd: int = 0, name: str = "") -> tk.Frame
 def make_devices_status_radiobox(frame: tk.Frame, row: int, col: int, name: str, cmd, devices_dict: dict):
     def run_func(frame_func: tk.Frame, next_device_status: tk.IntVar, name_func: str, func, devices_dict: dict):
         next_device_status = next_device_status.get()
-        curr_device_status = get_device_status(devices_dict[name_func])
+        curr_device_status = get_device_status(name_func, devices_dict[name_func])
         if curr_device_status != next_device_status:
+            if OVEN_NAME in name:
+                devices_dict[name_func].send((OVEN_NAME, next_device_status))
+                next_device_status = devices_dict[name_func].recv()
             devices_dict[name_func] = func(name=name_func, frame=frame_func, status=next_device_status)
         try:
             set_buttons_by_devices_status(frame_func.master.nametowidget(FRAME_BUTTONS), devices_dict)
@@ -134,16 +137,17 @@ def make_devices_status_radiobox(frame: tk.Frame, row: int, col: int, name: str,
     var_dev_stat = tk.IntVar(value=DEVICE_REAL, name=f'device_status_{name}')
     make = partial(tk.Radiobutton, master=frame, variable=var_dev_stat, width=5, indicatoron=True)
     run = partial(run_func, frame_func=frame, func=cmd, next_device_status=var_dev_stat, devices_dict=devices_dict)
-    off_button = make(text="Off", name=f'off_{name}', value=DEVICE_OFF)
-    off_button.grid(row=row, column=col)
-    off_button.config(command=partial(run, name_func=name))
     dummy_button = make(text="Dummy", name=f'dummy_{name}', value=DEVICE_DUMMY)
     dummy_button.grid(row=row, column=col + 1)
     dummy_button.config(command=partial(run, name_func=name))
     real_button = make(text="Real", name=f'real_{name}', value=DEVICE_REAL)
     real_button.grid(row=row, column=col + 2)
     real_button.config(command=partial(run, name_func=name))
-    off_button.invoke() if 'oven' in name else real_button.invoke()
+    if OVEN_NAME not in name:
+        off_button = make(text="Off", name=f'off_{name}', value=DEVICE_OFF)
+        off_button.grid(row=row, column=col)
+        off_button.config(command=partial(run, name_func=name))
+        off_button.invoke()
 
 
 def make_camera_status_radiobox(frame: tk.Frame, row: int, devices_dict: dict):
@@ -157,7 +161,7 @@ def make_camera_status_radiobox(frame: tk.Frame, row: int, devices_dict: dict):
 
     def run_func(next_device_status: tk.IntVar, devices_dict: dict):
         camera_to_set = next_device_status.get()
-        devices_dict[CAMERA_NAME].send(camera_to_set)
+        devices_dict[CAMERA_NAME].send((CAMERA_NAME, camera_to_set))
         next_device_status.set(devices_dict[CAMERA_NAME].recv())
 
     make_label(frame, row=row, col=0, text="# images per configuration", pad_y=10)
@@ -219,7 +223,7 @@ def make_device_and_handle_parameters(name: str, frame: tk.Frame, logger, handle
     else:
         device = None
         logger.info(f"{name.capitalize()} is off.")
-    frame.setvar(f'device_status_{name}', get_device_status(device))
+    frame.setvar(f'device_status_{name}', get_device_status(name, device))
     update_spinbox_parameters_devices_states(frame, {name: device})
     return device
 

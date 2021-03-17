@@ -7,9 +7,9 @@ from multiprocessing.connection import Connection
 import numpy as np
 
 from devices.Camera import _make_device_from_vid_pid
-from devices.Camera.utils import BytesBuffer, DuplexPipe
+from devices.Camera.utils import BytesBuffer
 from utils.logger import make_logger
-from utils.tools import SyncFlag
+from utils.tools import SyncFlag, DuplexPipe
 import usb.core
 import usb.util
 from usb.util import ENDPOINT_IN, ENDPOINT_OUT
@@ -73,7 +73,7 @@ def connect_usb(vid, pid) -> usb.core.Device:
 class UsbIO(mp.Process):
     _thread_read = _thread_parse = _thread_image = None
 
-    def __init__(self, vid, pid, image_recv: Connection,  image_send: Connection,
+    def __init__(self, vid, pid, image_pipe:DuplexPipe,
                  flag_run: SyncFlag, logging_handlers: (list, tuple), logging_level: int):
         super().__init__()
         self._log = make_logger('UsbIO', logging_handlers, logging_level)
@@ -82,7 +82,7 @@ class UsbIO(mp.Process):
         except RuntimeError:
             raise RuntimeError('Could not connect to the Thermapp camera.')
         self._flag_run = flag_run
-        self._image_pipe = DuplexPipe(image_send, image_recv, self._flag_run)
+        self._image_pipe = image_pipe
         self._preamble_bytes = struct.pack('HHHH', 0xa5a5, 0xa5a5, 0xa5a5, 0xa5d5)
 
         self._device.write(endpoint=ENDPOINT_OUT | 2, data=self._image_pipe.recv())

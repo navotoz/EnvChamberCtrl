@@ -1,29 +1,18 @@
+from abc import abstractmethod
 from importlib import import_module
 from logging import Logger
+from pathlib import Path
 
 from serial.serialutil import SerialException, SerialTimeoutException
 
 from utils.constants import CAMERA_NAME, SCANNER_NAME, BLACKBODY_NAME, FOCUS_NAME, DEVICE_DUMMY, CAMERA_TAU, \
     CAMERA_THERMAPP
 from utils.logger import make_logging_handlers
+import multiprocessing as mp
 
+from utils.tools import SyncFlag
+import threading as th
 
-def initialize_cameras(camera_name: str, logger: Logger, handlers: tuple):
-    if camera_name == DEVICE_DUMMY:
-        from devices.Camera.Tau.DummyTau2Grabber import TeaxGrabber as m
-    elif CAMERA_TAU == camera_name:
-        from devices.Camera.Tau.Tau2Grabber import TeaxGrabber as m
-    elif CAMERA_THERMAPP == camera_name:
-        from devices.Camera.Thermapp.ThermappCtrl import ThermappGrabber as m
-    else:
-        raise TypeError(f"Camera type {camera_name} was not implemented as a module.")
-    try:
-        element = m(logging_handlers=handlers)
-        log_string = 'Tau2' if CAMERA_TAU == camera_name else 'Thermapp'
-        logger.info(f'Camera {log_string} connected.')
-    except RuntimeError:
-        element = None
-    return element
 
 def initialize_device(element_name: str, logger: Logger, handlers: tuple, use_dummies: bool) -> object:
     use_dummies = 'Dummy' if use_dummies else ''
@@ -62,3 +51,68 @@ def make_oven(logging_handlers: tuple = make_logging_handlers(None, True), loggi
 def make_oven_dummy(logging_handlers: tuple = make_logging_handlers(None, True), logging_level: int = 20):
     from devices.Oven.PyCampbellCR1000.DummyOven import CR1000
     return CR1000(None, logging_handlers=logging_handlers, logging_level=logging_level)
+
+
+class DeviceAbstract(mp.Process):
+    _workers_dict = {}
+    _flags_pipes_list = []
+
+    def __init__(self, event_stop: mp.Event,
+                 logging_handlers: (tuple, list),
+                 values_dict: dict,
+                 log_path: (str, Path)):
+        super().__init__()
+        self._event_stop = event_stop
+        self._flag_run = SyncFlag(init_state=True)
+        self._logging_handlers = logging_handlers
+        self._values_dict = values_dict
+        self._log_path = log_path
+
+    def run(self):
+        self._workers_dict['event_stop'] = th.Thread(target=self._th_stopper, name='event_stop')
+        self._workers_dict['event_stop'].start()
+
+        self._workers_dict['cmd_parser'] = th.Thread(target=self._th_cmd_parser, name='cmd_parser')
+        self._workers_dict['cmd_parser'].start()
+
+        self._run()
+
+    @abstractmethod
+    def _run(self):
+        pass
+
+    @abstractmethod
+    def _th_cmd_parser(self):
+        pass
+
+    def _th_stopper(self):
+        self._event_stop.wait()
+        self.terminate()
+
+    def _wait_for_threads_to_exit(self):
+        for key, t in self._workers_dict.items():
+            if t.daemon:
+                continue
+            try:
+                t.join()
+            except (RuntimeError, AssertionError, AttributeError):
+                pass
+
+    def terminate(self) -> None:
+        if hasattr(self, '_flag_run'):
+            self._flag_run.set(False)
+        for p in self._flags_pipes_list:
+            try:
+                p.set(False)
+            except (RuntimeError, AssertionError, AttributeError, TypeError):
+                pass
+        self._terminate_device_specifics()
+        self._wait_for_threads_to_exit()
+
+    @abstractmethod
+    def _terminate_device_specifics(self):
+        pass
+
+    def __del__(self):
+        self._event_stop.set()
+        self.terminate()

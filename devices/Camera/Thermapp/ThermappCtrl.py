@@ -6,10 +6,9 @@ import multiprocessing as mp
 
 from devices.Camera import CameraAbstract
 from devices.Camera.Thermapp.UsbIO import UsbIO
-from devices.Camera.utils import DuplexPipe
 from utils.constants import CAMERA_THERMAPP
 from utils.logger import make_logging_handlers, make_device_logging_handler, make_logger
-from utils.tools import SyncFlag
+from utils.tools import SyncFlag, DuplexPipe, make_duplex_pipe
 
 TIMEOUT_IN_NSEC = 1e9  # 1 seconds
 MAGIC_IMAGE_ENDING = 0x0ff0
@@ -55,14 +54,12 @@ class ThermappGrabber(CameraAbstract):
         self._flag_run = SyncFlag(True)
         self._lock_cmd_send = mp.Lock()
 
-        image_usb_recv, _image_send = mp.Pipe(duplex=False)
-        _image_recv, image_usb_send = mp.Pipe(duplex=False)
-        self._image_pipe = DuplexPipe(_image_send, _image_recv, self._flag_run)
+        image_pipe_proc, self._image_pipe = make_duplex_pipe(self._flag_run)
         self._image_pipe.send(header_thermography())
 
         try:
-            self._io = UsbIO(vid, pid, image_usb_recv, image_usb_send,
-                             self._flag_run, logging_handlers, logging_level)
+            self._io = UsbIO(vid, pid, image_pipe=image_pipe_proc, flag_run=self._flag_run,
+                             logging_handlers=logging_handlers, logging_level=logging_level)
         except RuntimeError:
             self._log.info('Could not connect to Thermapp.')
             raise RuntimeError

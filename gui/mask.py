@@ -8,16 +8,22 @@ from PIL import ImageTk
 from matplotlib.path import Path as matplotlib_Path
 
 from gui.tools import func_thread_grabber
-from utils.constants import HEIGHT_VIEWER, WIDTH_VIEWER, WIDTH_IMAGE_TAU2, HEIGHT_IMAGE_TAU2
+from utils.constants import HEIGHT_VIEWER, WIDTH_VIEWER, WIDTH_IMAGE_TAU2, HEIGHT_IMAGE_TAU2, WIDTH, HEIGHT, DIM
+
+from utils.tools import DuplexPipe
 
 
-# noinspection PyTypeChecker
-def _func_thread_mask(device, canvas: tk.Canvas, semaphore: Semaphore, output_path: (str, Path)):
+def _func_thread_mask(cmd: DuplexPipe, grabber:DuplexPipe,
+                      canvas: tk.Canvas, semaphore: Semaphore, output_path: (str, Path)):
     global top_left, top_right, bottom_left, bottom_right
-    top_left, top_right = _Point(0, 0), _Point(device.width, 0)
-    bottom_left, bottom_right = _Point(0, device.height), _Point(device.width, device.height)
+    cmd.send((DIM, WIDTH))
+    width = cmd.recv()
+    cmd.send((DIM, HEIGHT))
+    height = cmd.recv()
+    top_left, top_right = _Point(0, 0), _Point(width, 0)
+    bottom_left, bottom_right = _Point(0, height), _Point(width, height)
     while canvas.winfo_exists():
-        image = ImageTk.PhotoImage(image=func_thread_grabber(device))
+        image = ImageTk.PhotoImage(image=func_thread_grabber(grabber))
         canvas.create_image((0, 0), anchor=tk.NW, image=image) if canvas.winfo_exists() else None
         canvas.config(scrollregion=canvas.bbox(tk.ALL)) if canvas.winfo_exists() else None
         canvas.create_polygon((*top_right, *top_left, *bottom_left, *bottom_right), width=2,
@@ -25,12 +31,12 @@ def _func_thread_mask(device, canvas: tk.Canvas, semaphore: Semaphore, output_pa
         canvas.update_idletasks() if canvas.winfo_exists() else None
         sleep(0.5)
     semaphore.release()
-    x, y = np.mgrid[:device.height, :device.width]
+    x, y = np.mgrid[:height, :width]
     coors = np.hstack((y.reshape(-1, 1), x.reshape(-1, 1)))  # coors.shape is (4000000,2)
     top_right_, top_left_, bottom_left_, bottom_right_ = top_right(), top_left(), bottom_left(), bottom_right()
     pts = (top_right_[0] + 1, top_right_[1] - 1), (top_left_[0] - 1, top_left_[1] - 1), bottom_left_, bottom_right_
     path = matplotlib_Path(pts)
-    mask = path.contains_points(coors).reshape(device.height, device.width)
+    mask = path.contains_points(coors).reshape(height, width)
     np.save(output_path / 'mask', mask)
 
 
@@ -65,7 +71,7 @@ class _Point:
         return self.coord
 
 
-def make_mask_win_and_save(device, semaphore: Semaphore, output_path):
+def make_mask_win_and_save(cmd:DuplexPipe, image:DuplexPipe, semaphore: Semaphore, output_path):
     window = tk.Toplevel()
     window.title("Camera Mask Creator")
     window.geometry(f"{HEIGHT_VIEWER}x{WIDTH_VIEWER}")
@@ -89,7 +95,7 @@ def make_mask_win_and_save(device, semaphore: Semaphore, output_path):
 
     # mouseclick event
     canvas.bind("<ButtonPress-1>", handle_mouseclick)
-    thread_camera = Thread(target=_func_thread_mask, args=(device, canvas, semaphore, output_path), name='th_mask', daemon=True)
+    thread_camera = Thread(target=_func_thread_mask, args=(cmd, image, canvas, semaphore, output_path), name='th_mask', daemon=True)
     thread_camera.start()
 
 

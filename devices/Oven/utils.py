@@ -69,6 +69,7 @@ def make_oven_temperatures_list() -> list:
     temperatures.append(upper_bound) if temperatures and temperatures[-1] != upper_bound else None
     return temperatures
 
+
 class VariableLengthDeque:
     def __init__(self, maxlen: int):
         self._deque = deque(maxlen=maxlen)

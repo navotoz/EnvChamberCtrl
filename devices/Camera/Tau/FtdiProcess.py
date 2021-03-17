@@ -14,9 +14,9 @@ from pyftdi.ftdi import FtdiError
 from devices.Camera import _make_device_from_vid_pid
 from devices.Camera.Tau.tau2_config import Code, READ_SENSOR_TEMPERATURE
 from devices.Camera.utils import BytesBuffer, generate_subsets_indices_in_string, generate_overlapping_list_chunks, \
-    DuplexPipe, get_crc
+    get_crc
 from utils.logger import make_logger, make_device_logging_handler
-from utils.tools import SyncFlag
+from utils.tools import SyncFlag, DuplexPipe
 
 BORDER_VALUE = 64
 FTDI_PACKET_SIZE = 512 * 8
@@ -26,8 +26,7 @@ SYNC_MSG = b'SYNC' + struct.pack(4 * 'B', *[0, 0, 0, 0])
 class FtdiIO(mp.Process):
     _thread_read = _thread_parse = _thread_image = None
 
-    def __init__(self, vid, pid, cmd_recv: Connection, cmd_send: Connection,
-                 image_recv: Connection, image_send: Connection, frame_size: int, width: int,
+    def __init__(self, vid, pid, cmd_pipe: DuplexPipe, image_pipe:DuplexPipe, frame_size: int, width: int,
                  height: int, flag_run: SyncFlag, logging_handlers: (list, tuple), logging_level: int):
         super().__init__()
         logging_handlers = make_device_logging_handler('FtdiIO', logging_handlers)
@@ -48,8 +47,8 @@ class FtdiIO(mp.Process):
         self._event_read = th.Event()
         self._event_read.clear()
         self._buffer = BytesBuffer(flag_run, self._frame_size)
-        self._cmd_pipe = DuplexPipe(cmd_send, cmd_recv, self._flag_run)
-        self._image_pipe = DuplexPipe(image_send, image_recv, self._flag_run)
+        self._cmd_pipe = cmd_pipe
+        self._image_pipe = image_pipe
         self._n_retries_image = 5
 
     def run(self) -> None:

@@ -1,5 +1,7 @@
+import multiprocessing as mp
 from datetime import datetime
-from multiprocessing import Event
+from multiprocessing import Event, Pipe
+from multiprocessing.connection import Connection
 from pathlib import Path
 from time import time_ns, sleep
 
@@ -80,7 +82,7 @@ class SyncFlag:
         return self._event.is_set()
 
     def set(self, new_state: bool):
-        self._event.set() if new_state else self._event.clear()
+        self._event.set() if new_state is True else self._event.clear()
 
     def __bool__(self) -> bool:
         return self._event.is_set()
@@ -96,3 +98,34 @@ def save_average_from_images(path: (Path, str), suffix: str = 'npy'):
         avg = np.mean(np.stack([np.load(str(x)) for x in dir_path.glob(f'*.{suffix}')]), 0).astype('uint16')
         np.save(str(dir_path / 'average.npy'), avg)
         normalize_image(avg).save('average.jpeg', format='jpeg')
+
+
+class DuplexPipe:
+    def __init__(self, conn_recv: Connection, conn_send: Connection, flag_run: (SyncFlag, None)) -> None:
+        self._recv = conn_recv
+        self._send = conn_send
+        self._flag_run = flag_run if flag_run is not None else SyncFlag(init_state=True)
+
+    def send(self, data: (None, bytes)) -> None:
+        if not self._recv.poll(0.01):
+            self._send.send(data)
+
+    def recv(self) -> (bytes, None):
+        while self._flag_run:
+            if self._recv.poll(timeout=1):
+                return self._recv.recv()
+        return None
+
+    def purge(self) -> None:
+        while self._recv.poll(timeout=0.01):
+            self._recv.recv()
+
+    @property
+    def flag_run(self):
+        return self._flag_run
+
+
+def make_duplex_pipe(flag_run: (SyncFlag, None)):
+    _recv_proc, _send_main = Pipe(duplex=False)
+    _recv_main, _send_proc = Pipe(duplex=False)
+    return DuplexPipe(_recv_proc, _send_proc, flag_run), DuplexPipe(_recv_main, _send_main, flag_run)

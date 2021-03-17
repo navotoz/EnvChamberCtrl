@@ -2,19 +2,17 @@ import tkinter as tk
 from functools import partial
 from logging import Logger
 from math import prod
-from multiprocessing.connection import Connection
 from pathlib import Path
 from time import sleep
 from tkinter import filedialog as fd, Frame
-from typing import Any, Tuple
+from typing import Any
 
 import numpy as np
 from PIL import Image
 from tqdm import tqdm
 
-from devices.Camera.utils import DuplexPipe
 from utils.constants import *
-from utils.tools import get_time, normalize_image, check_and_make_path, SyncFlag
+from utils.tools import get_time, normalize_image, check_and_make_path, SyncFlag, DuplexPipe
 
 
 def get_spinbox_value(sp_widget_name: str) -> float:
@@ -131,25 +129,25 @@ def change_spinbox_state(frame: tk.Frame, sp_name: str, state: int):
 def set_buttons_by_devices_status(frame: tk.Frame, devices_dict):
     frame.nametowidget(BUTTON_START).config(state=tk.NORMAL)
     frame.nametowidget(BUTTON_VIEWER).config(state=tk.NORMAL)
-    if get_device_status(devices_dict[BLACKBODY_NAME]) == DEVICE_OFF:
+    if get_device_status(BLACKBODY_NAME, devices_dict[BLACKBODY_NAME]) == DEVICE_OFF:
         frame.nametowidget(BUTTON_START).config(state=tk.DISABLED)
-    if get_device_status(devices_dict[CAMERA_NAME]) == DEVICE_OFF:
+    if get_device_status(CAMERA_NAME, devices_dict[CAMERA_NAME]) == DEVICE_OFF:
         frame.nametowidget(BUTTON_START).config(state=tk.DISABLED)
         frame.nametowidget(BUTTON_VIEWER).config(state=tk.DISABLED)
 
 
 def update_spinbox_parameters_devices_states(frame: tk.Frame, devices_dict: dict):
     for name, device in devices_dict.items():
-        state_device = get_device_status(device)
+        state_device = get_device_status(name, device)
         device_sp_names = map(lambda x: str(x).split('.')[-1], frame.winfo_children())
         device_sp_names = filter(lambda x: not x.startswith('!') and x.startswith(SP_PREFIX), device_sp_names)
         for sp_name in filter(lambda spinbox_name: name.lower() in spinbox_name.lower(), device_sp_names):
             change_spinbox_state(frame, sp_name, tk.NORMAL if state_device != DEVICE_OFF else tk.DISABLED)
 
 
-def get_device_status(device: Any) -> int:
+def get_device_status(name:str,device: Any) -> int:
     if isinstance(device, DuplexPipe):
-        device.send(True)
+        device.send((name, True))
         return device.recv()
     if not device:
         return DEVICE_OFF
@@ -158,10 +156,13 @@ def get_device_status(device: Any) -> int:
     return DEVICE_REAL
 
 
-def thread_log_fpa_housing_temperatures(frame: tk.Frame, flag):
+def thread_log_fpa_housing_temperatures(frame: tk.Frame, values_dict:dict, flag:SyncFlag):
     def getter() -> None:
         for t_type in [T_FPA, T_HOUSING]:
-            t = dict_variables[t_type].value.value
+            try:
+                t = values_dict[t_type]
+            except BrokenPipeError:
+                t = -float('inf')
             if t and t != -float('inf'):
                 try:
                     frame.nametowidget(f"{t_type}_label").config(text=f"{t:.2f} C")
@@ -187,7 +188,7 @@ def getter_safe_temperature_variables() -> dict:
 def get_values_list(frame: tk.Frame, devices_dict: dict) -> tuple:
     values_list = []
     for device_name in [BLACKBODY_NAME, SCANNER_NAME, FOCUS_NAME]:  # NOT VERY GOOD - CAN LEAD TO PROBLEMS...
-        state_device = get_device_status(devices_dict[device_name])
+        state_device = get_device_status(device_name, devices_dict[device_name])
         # The range is invalid or device is off
         if (inc_value := frame.getvar(device_name + INC_STRING)) == 0 or state_device == DEVICE_OFF:
             values_list.append([OFF])

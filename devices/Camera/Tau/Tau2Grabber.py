@@ -12,10 +12,9 @@ import devices.Camera.Tau.tau2_config as ptc
 from devices.Camera.Tau.FtdiProcess import FtdiIO
 
 from devices.Camera import CameraAbstract
-from devices.Camera.utils import DuplexPipe
 from utils.constants import *
 from utils.logger import make_logger, make_logging_handlers, make_device_logging_handler
-from utils.tools import SyncFlag
+from utils.tools import SyncFlag, DuplexPipe, make_duplex_pipe
 from datetime import datetime
 # Tau Status codes
 CAM_OK = 0x00
@@ -671,17 +670,13 @@ class TeaxGrabber(Tau):
         self._width = self.width
         self._height = self.height
 
-        cmd_ftdi_recv, _cmd_send = mp.Pipe(duplex=False)
-        _cmd_recv, cmd_teax_send = mp.Pipe(duplex=False)
-        image_ftdi_recv, _image_send = mp.Pipe(duplex=False)
-        _image_recv, image_teax_send = mp.Pipe(duplex=False)
-        self._cmd_pipe = DuplexPipe(_cmd_send, _cmd_recv, self._flag_run)
-        self._image_pipe = DuplexPipe(_image_send, _image_recv, self._flag_run)
+        cmd_pipe_proc, self._cmd_pipe = make_duplex_pipe(self._flag_run)
+        image_pipe, self._image_pipe = make_duplex_pipe(self._flag_run)
 
         try:
-            self._io = FtdiIO(vid, pid, cmd_ftdi_recv, cmd_teax_send, image_ftdi_recv, image_teax_send,
-                              self._frame_size, self._width, self._height,
-                              self._flag_run, logging_handlers, logging_level)
+            self._io = FtdiIO(vid=vid, pid=pid, cmd_pipe=cmd_pipe_proc, image_pipe=image_pipe,
+                              frame_size=self._frame_size, width=self._width, height=self._height,
+                              flag_run=self._flag_run, logging_handlers=logging_handlers, logging_level=logging_level)
         except RuntimeError:
             self._log.info('Could not connect to TeaxGrabber.')
             raise RuntimeError

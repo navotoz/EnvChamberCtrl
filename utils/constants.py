@@ -34,6 +34,9 @@ HEIGHT_VIEWER = 400
 WIDTH_VIEWER = 400
 HEIGHT_IMAGE_TAU2 = 256
 WIDTH_IMAGE_TAU2 = 336
+WIDTH = 'width'
+HEIGHT = 'height'
+DIM = 'dim'
 
 # devices dict entries
 CAMERA_NAME = "camera"
@@ -131,6 +134,7 @@ CAMERA_THERMAPP = 30
 # plots
 TEMPERATURE_LABEL = 'Temperature [$C^\circ$]'
 
+CAMERA_PARAMETERS = 'camera_params'
 INIT_CAMERA_PARAMETERS = dict(
     ffc_mode='manual',
     isotherm=0x0000,
