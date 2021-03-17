@@ -90,15 +90,14 @@ class SyncFlag:
 
 def save_average_from_images(path: (Path, str), suffix: str = 'npy'):
     for dir_path in [f for f in Path(path).iterdir() if f.is_dir()]:
-        if dir_path.is_dir():
-            save_average_from_images(dir_path, suffix)
+        save_average_from_images(dir_path, suffix)
+        if any(filter(lambda x: 'average' in str(x), dir_path.glob(f'*.{suffix}'))):
             continue
-        if any(filter(lambda x: 'average' in x, dir_path.glob(f'*.{suffix}'))):
-            continue
-        avg = np.mean(np.stack([np.load(str(x)) for x in dir_path.glob(f'*.{suffix}')]), 0).astype('uint16')
-        np.save(str(dir_path / 'average.npy'), avg)
-        normalize_image(avg).save('average.jpeg', format='jpeg')
-
+        images_list = list(dir_path.glob(f'*.{suffix}'))
+        if images_list:
+            avg = np.mean(np.stack([np.load(str(x)) for x in dir_path.glob(f'*.{suffix}')]), 0).astype('uint16')
+            np.save(str(dir_path / 'average.npy'), avg)
+            normalize_image(avg).save(str(dir_path / 'average.jpeg'), format='jpeg')
 
 class DuplexPipe:
     def __init__(self, conn_recv: Connection, conn_send: Connection, flag_run: (SyncFlag, None)) -> None:

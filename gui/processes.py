@@ -30,7 +30,7 @@ _image_grabber_proc, image_grabber = make_duplex_pipe(flag_run=None)
 
 oven = OvenCtrl(logging_handlers=handlers,
                 event_stop=event_stop,
-                log_path=log_path,
+                output_path=None,
                 temperature_pipe=_oven_temperature_proc,
                 cmd_pipe=_oven_cmd_proc,
                 values_dict=mp_values_dict)
@@ -40,6 +40,5 @@ camera = CameraCtrl(logging_handlers=handlers,
                     image_pipe=_image_grabber_proc,
                     event_stop=event_stop,
                     values_dict=mp_values_dict,
-                    log_path=log_path,
                     cmd_pipe=_cam_cmd_proc)
 camera.start()

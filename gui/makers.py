@@ -1,10 +1,6 @@
 import tkinter as tk
-from time import sleep
-from collections import namedtuple
-from ctypes import c_int64, c_double, c_char_p, c_wchar_p
 from functools import partial
 from logging import Logger
-from multiprocessing import Value, RLock
 from pathlib import Path
 from tkinter import ttk
 from typing import Tuple, Dict, Any
@@ -14,21 +10,37 @@ from gui.tools import spinbox_validation, dict_variables, update_spinbox_paramet
     validate_spinbox_range, get_device_status, set_buttons_by_devices_status
 from utils.constants import *
 from utils.logger import GuiMsgHandler
+from utils.tools import DuplexPipe
 
 
-class SafeIntVar(tk.IntVar):
+class SaveVar(tk.IntVar):
+    _pipe: (DuplexPipe, None) = None
+    _var_type = None
+
     def __init__(self, *kwargs):
         super().__init__(*kwargs)
-        self._mp_value = Value(c_int64, lock=RLock())
-
-    @property
-    def value(self):
-        return self._mp_value
 
     def set(self, value):
         """Set the variable to VALUE."""
-        self._mp_value.value = int(value)
+        value = self._var_type(value)
+        if self._pipe is not None:
+            self._pipe.send((self._name, self._var_type(value)))
+            assert value == self._pipe.recv(), f'Could not set {self._name} for oven.'
         return self._tk.globalsetvar(self._name, value)
+
+    @property
+    def pipe(self):
+        return self._pipe
+
+    @pipe.setter
+    def pipe(self, pipe: (DuplexPipe, None)):
+        self._pipe = pipe
+
+
+class SafeIntVar(SaveVar):
+    def __init__(self, *kwargs) -> None:
+        super(SafeIntVar, self).__init__(*kwargs)
+        self._var_type = int
 
     def get(self):
         value = self._tk.globalgetvar(self._name)
@@ -37,37 +49,32 @@ class SafeIntVar(tk.IntVar):
         except (TypeError, tk.TclError):
             value = self._tk.getdouble(value)
         value = int(value)
-        self._mp_value.value = value
         return value
 
 
-class SafeDoubleVar(tk.DoubleVar):
-    def __init__(self, *kwargs):
-        super().__init__(*kwargs)
-        self._mp_value = Value(c_double, lock=RLock())
-
-    @property
-    def value(self):
-        return self._mp_value
-
-    def set(self, value: (int, float)):
-        """Set the variable to VALUE."""
-        self._mp_value.value = float(value)
-        return self._tk.globalsetvar(self._name, value)
+class SafeDoubleVar(SaveVar):
+    def __init__(self, *kwargs) -> None:
+        super(SafeDoubleVar, self).__init__(*kwargs)
+        self._var_type = float
 
     def get(self):
         value = float(self._tk.getdouble(self._tk.globalgetvar(self._name)))
-        self._mp_value.value = float(value)
         return value
 
 
 def make_spinbox(frame: tk.Frame, row: int, col: int, name: str,
                  from_: (int, float), to: (int, float), res: (int, float)) -> None:
     sp_name = SP_PREFIX + name
-    if isinstance(res, int):
-        var = SafeIntVar
+    if name in [SETTLING_TIME_MINUTES, DELTA_TEMPERATURE]:
+        if isinstance(res, int):
+            var = SafeIntVar
+        else:
+            var = SafeDoubleVar
     else:
-        var = SafeDoubleVar
+        if isinstance(res, int):
+            var = tk.IntVar
+        else:
+            var = tk.DoubleVar
     var = var(frame, from_, name)
     spinbox = tk.Spinbox(frame, from_=from_, to=to, bd=1, width=7, wrap=1, increment=res, name=sp_name)
     spinbox.config(textvariable=var)
@@ -126,8 +133,9 @@ def make_devices_status_radiobox(frame: tk.Frame, row: int, col: int, name: str,
         curr_device_status = get_device_status(name_func, devices_dict[name_func])
         if curr_device_status != next_device_status:
             if OVEN_NAME in name:
-                devices_dict[name_func].send((OVEN_NAME, next_device_status))
-                next_device_status = devices_dict[name_func].recv()
+                if devices_dict[name_func]:
+                    devices_dict[name_func].send((OVEN_NAME, next_device_status))
+                    next_device_status = devices_dict[name_func].recv()
             devices_dict[name_func] = func(name=name_func, frame=frame_func, status=next_device_status)
         try:
             set_buttons_by_devices_status(frame_func.master.nametowidget(FRAME_BUTTONS), devices_dict)
@@ -148,6 +156,8 @@ def make_devices_status_radiobox(frame: tk.Frame, row: int, col: int, name: str,
         off_button.grid(row=row, column=col)
         off_button.config(command=partial(run, name_func=name))
         off_button.invoke()
+    else:
+        dummy_button.invoke()
 
 
 def make_camera_status_radiobox(frame: tk.Frame, row: int, devices_dict: dict):
@@ -207,17 +217,9 @@ def make_terminal(frame: tk.Frame, logger: Logger):
     logger.addHandler(GuiMsgHandler(terminal, logger=logger))
 
 
-def make_devices(logger, handlers, use_dummy: bool):
-    init_devices = partial(initialize_device, logger=logger, handlers=handlers)
-    dict_devices = {}
-    for name in [CAMERA_NAME, BLACKBODY_NAME, SCANNER_NAME, FOCUS_NAME]:
-        dict_devices[name] = init_devices(name, use_dummies=use_dummy)
-    return dict_devices
-
-
-def make_device_and_handle_parameters(name: str, frame: tk.Frame, logger, handlers, status: int):
+def make_device_and_handle_parameters(name: str, frame: tk.Frame, logger, handlers, status: int, devices_dict):
     if name in OVEN_NAME:
-        device = namedtuple('mockup_oven', field_names=['is_dummy'])(status == DEVICE_DUMMY)
+        device = devices_dict[OVEN_NAME]
     elif status != DEVICE_OFF:
         device = initialize_device(name, logger, handlers, status == DEVICE_DUMMY)
     else:
@@ -228,7 +230,7 @@ def make_device_and_handle_parameters(name: str, frame: tk.Frame, logger, handle
     return device
 
 
-def make_frames(logger, handler, devices_dict) -> Tuple[tk.Tk, Dict[Any, tk.Frame]]:
+def make_frames(logger, handler, devices_dict) -> Tuple[tk.Tk, Dict[Any, tk.Frame], str]:
     root = tk.Tk()
     root.title("Environmental Chamber Experiment GUI")
     root.attributes('-zoomed', False)
@@ -272,7 +274,7 @@ def make_frames(logger, handler, devices_dict) -> Tuple[tk.Tk, Dict[Any, tk.Fram
     dict_variables[T_FPA] = SafeDoubleVar(frame_temperatures, 0.0, T_FPA)
     dict_variables[T_HOUSING] = SafeDoubleVar(frame_temperatures, 0.0, T_HOUSING)
 
-    func_device_maker = partial(make_device_and_handle_parameters, logger=logger, handlers=handler)
+    func_device_maker = partial(make_device_and_handle_parameters, logger=logger, handlers=handler, devices_dict=devices_dict)
     row_for_camera = make_range_params(frame_params, 1, func_device_maker, devices_dict)
     make_camera_status_radiobox(frame_params, row_for_camera, devices_dict)
     dict_variables[EXPERIMENT_SAVE_PATH] = tk.StringVar(master=frame_buttons, name=EXPERIMENT_SAVE_PATH,
@@ -287,4 +289,5 @@ def make_frames(logger, handler, devices_dict) -> Tuple[tk.Tk, Dict[Any, tk.Fram
     progress_bar.pack(fill=tk.X)
     return root, {FRAME_HEAD: frame_head, FRAME_PARAMS: frame_params, FRAME_TEMPERATURES: frame_temperatures,
                   FRAME_BUTTONS: frame_buttons, FRAME_PATH: frame_path, FRAME_STATUS: frame_status,
-                  FRAME_PROGRESSBAR: frame_progressbar, FRAME_TERMINAL: frame_terminal}
+                  FRAME_PROGRESSBAR: frame_progressbar, FRAME_TERMINAL: frame_terminal},\
+           dict_variables[EXPERIMENT_SAVE_PATH].get()

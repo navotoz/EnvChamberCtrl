@@ -23,7 +23,7 @@ def _func_thread_mask(cmd: DuplexPipe, grabber:DuplexPipe,
     top_left, top_right = _Point(0, 0), _Point(width, 0)
     bottom_left, bottom_right = _Point(0, height), _Point(width, height)
     while canvas.winfo_exists():
-        image = ImageTk.PhotoImage(image=func_thread_grabber(grabber))
+        image = ImageTk.PhotoImage(image=func_thread_grabber(grabber))  if canvas.winfo_exists() else None
         canvas.create_image((0, 0), anchor=tk.NW, image=image) if canvas.winfo_exists() else None
         canvas.config(scrollregion=canvas.bbox(tk.ALL)) if canvas.winfo_exists() else None
         canvas.create_polygon((*top_right, *top_left, *bottom_left, *bottom_right), width=2,

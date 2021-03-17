@@ -165,6 +165,7 @@ def thread_log_fpa_housing_temperatures(frame: tk.Frame, values_dict:dict, flag:
                 t = -float('inf')
             if t and t != -float('inf'):
                 try:
+                    frame.setvar(t_type, t)
                     frame.nametowidget(f"{t_type}_label").config(text=f"{t:.2f} C")
                 except (TypeError, ValueError):
                     pass
@@ -172,17 +173,6 @@ def thread_log_fpa_housing_temperatures(frame: tk.Frame, values_dict:dict, flag:
     while flag:
         getter()
         sleep(1)
-
-
-def getter_safe_oven_variables() -> dict:
-    return dict(delta_temperature=dict_variables[DELTA_TEMPERATURE].value,
-                settling_time_minutes=dict_variables[SETTLING_TIME_MINUTES].value
-                                      ** getter_safe_temperature_variables())
-
-
-def getter_safe_temperature_variables() -> dict:
-    return dict(fpa_temperature=dict_variables[T_FPA].value,
-                housing_temperature=dict_variables[T_HOUSING].value)
 
 
 def get_values_list(frame: tk.Frame, devices_dict: dict) -> tuple:

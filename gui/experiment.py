@@ -12,19 +12,19 @@ import yaml
 from devices.Oven.utils import make_oven_temperatures_list, get_n_experiments
 from gui.mask import make_mask_win_and_save
 import utils.constants as const
-from gui.tools import get_values_list, set_value_and_make_filename, get_inner_temperatures
-from utils.tools import check_and_make_path, normalize_image, save_average_from_images
+from gui.tools import get_values_list, set_value_and_make_filename, get_inner_temperatures, tqdm_waiting
+from utils.analyze import process_plot_images_comparison
+from utils.tools import check_and_make_path, normalize_image, save_average_from_images, get_time
 from gui.processes import semaphore_mask_sync, camera_cmd, image_grabber, flag_run, oven_temperature, logger, \
-    semaphore_plot_proc
+    semaphore_plot_proc, mp_values_dict
 
 
 def thread_run_experiment(output_path: Path, frames_dict:dict, devices_dict:dict):
     semaphore_mask_sync.acquire()
 
-    # flag_run.set(True)
-    # todo: process_plot_images_comparison to events and such...
-    # proc_plot = mp.Process(kwargs=dict(path_to_experiment=output_path, semaphore=semaphore_plot_proc,
-    #                                    flag=flag_run), name=f'proc_plot_res_{get_time().strftime("%H%M%S")}',
+    flag_run.set(True)
+    # proc_plot = mp.Process(kwargs=dict(path_to_experiment=output_path, semaphore=semaphore_plot_proc, flag=flag_run),
+    #                        name=f'proc_plot_res_{get_time().strftime("%H%M%S")}',
     #                        target=process_plot_images_comparison, daemon=True)
     # proc_plot.start()
 
@@ -62,7 +62,7 @@ def thread_run_experiment(output_path: Path, frames_dict:dict, devices_dict:dict
                     break
                 f_name = set_value_and_make_filename(blackbody_temperature, scanner_angle, focus, devices_dict, logger)
                 logger.info(f"Blackbody temperature {blackbody_temperature}C is set.")
-                devices_dict[const.CAMERA_NAME].ffc()  # calibrate
+                devices_dict[const.CAMERA_NAME].send((const.FFC, True))  # calibrate
                 for i in range(1, n_images_per_iteration + 1):
                     if not flag_run:
                         break
@@ -73,8 +73,9 @@ def thread_run_experiment(output_path: Path, frames_dict:dict, devices_dict:dict
                     path = output_path / f'{const.T_FPA}_{t_fpa}' / \
                            f'{const.BLACKBODY_NAME}_{int(blackbody_temperature * 100)}'
                     f_name_to_save = f_name + f"fpa_{t_fpa}_housing_{t_housing}_"
-                    if (image := devices_dict[const.CAMERA_NAME].grab()) is None:
-                        continue
+                    image_grabber.send(True)
+                    if (image := image_grabber.recv()) is None:
+                        break
                     f_name_to_save = str(path / f"{f_name_to_save}{i}of{n_images_per_iteration}")
                     if not path.is_dir():
                         path.mkdir(parents=True)
@@ -89,8 +90,9 @@ def thread_run_experiment(output_path: Path, frames_dict:dict, devices_dict:dict
             save_average_from_images(output_path)
     oven_temperature.send(0)
     semaphore_plot_proc.release()
-    proc_plot.kill()
-    exit()
+    devices_dict[const.OVEN_NAME].send((const.BUTTON_START, False))
+    # proc_plot.kill()
+    # exit()
 
 
 def init_experiment(frames_dict: dict, devices_dict: dict) -> None:
@@ -107,9 +109,9 @@ def init_experiment(frames_dict: dict, devices_dict: dict) -> None:
         yaml.safe_dump(const.INIT_CAMERA_PARAMETERS, fp)
     devices_dict[const.OVEN_NAME].send((const.EXPERIMENT_SAVE_PATH, output_path))
     assert devices_dict[const.OVEN_NAME].recv() == output_path, 'Oven could not set output path.'
+    devices_dict[const.OVEN_NAME].send((const.BUTTON_START, True))
 
     # apply mask to camera output
     make_mask_win_and_save(camera_cmd, image_grabber, semaphore_mask_sync, output_path)
-
     th.Thread(target=thread_run_experiment, args=(output_path, frames_dict, devices_dict,),
               name='th_run_experiment', daemon=False).start()

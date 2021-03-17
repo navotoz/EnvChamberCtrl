@@ -70,7 +70,7 @@ class CR1000(object):
         self._log = make_logger('Oven', make_device_logging_handler('Oven', logging_handlers), logging_level)
         self.pakbus = PakBus(link, dest_addr, dest, src_addr, src, security_code)
         self.pakbus.wait_packet()
-        for _ in range(20):
+        for _ in range(5):
             try:
                 if self.ping_node():
                     self.connected = True

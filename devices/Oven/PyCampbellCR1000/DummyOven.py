@@ -63,7 +63,7 @@ class CR1000(object):
 
     def set_value(self, table_name: str, field_name: str, value: float):
         self._temperature = value
-        return  self._temperature
+        return self._temperature
 
     @property
     def log(self):

@@ -26,9 +26,8 @@ class CameraCtrl(DeviceAbstract):
                  event_stop: mp.Event,
                  image_pipe: DuplexPipe,
                  cmd_pipe: DuplexPipe,
-                 log_path: Path,
                  values_dict: dict):
-        super(CameraCtrl, self).__init__(event_stop, logging_handlers, values_dict, log_path)
+        super(CameraCtrl, self).__init__(event_stop, logging_handlers, values_dict)
         self._image_pipe = image_pipe
         self._cmd_pipe = cmd_pipe
         self._flags_pipes_list = [self._image_pipe.flag_run, self._cmd_pipe.flag_run]
@@ -97,3 +96,5 @@ class CameraCtrl(DeviceAbstract):
                         self._cmd_pipe.send(self._camera.height)
                     elif value == const.WIDTH:
                         self._cmd_pipe.send(self._camera.width)
+                elif cmd==const.FFC:
+                    self._camera.ffc()

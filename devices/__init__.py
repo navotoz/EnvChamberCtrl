@@ -59,20 +59,18 @@ class DeviceAbstract(mp.Process):
 
     def __init__(self, event_stop: mp.Event,
                  logging_handlers: (tuple, list),
-                 values_dict: dict,
-                 log_path: (str, Path)):
+                 values_dict: dict):
         super().__init__()
         self._event_stop = event_stop
         self._flag_run = SyncFlag(init_state=True)
         self._logging_handlers = logging_handlers
         self._values_dict = values_dict
-        self._log_path = log_path
 
     def run(self):
-        self._workers_dict['event_stop'] = th.Thread(target=self._th_stopper, name='event_stop')
+        self._workers_dict['event_stop'] = th.Thread(target=self._th_stopper, name='event_stop', daemon=False)
         self._workers_dict['event_stop'].start()
 
-        self._workers_dict['cmd_parser'] = th.Thread(target=self._th_cmd_parser, name='cmd_parser')
+        self._workers_dict['cmd_parser'] = th.Thread(target=self._th_cmd_parser, name='cmd_parser', daemon=True)
         self._workers_dict['cmd_parser'].start()
 
         self._run()

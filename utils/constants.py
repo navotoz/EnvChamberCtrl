@@ -130,6 +130,7 @@ DEVICE_REAL = 100
 # camera status
 CAMERA_TAU = 20
 CAMERA_THERMAPP = 30
+FFC = 'ffc'
 
 # plots
 TEMPERATURE_LABEL = 'Temperature [$C^\circ$]'
