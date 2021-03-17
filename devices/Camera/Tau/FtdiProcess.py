@@ -101,9 +101,6 @@ class FtdiIO(mp.Process):
     def _reset(self) -> None:
         if not self._flag_run:
             return
-        with self._lock_access:
-            self._ftdi.set_bitmode(0xFF, Ftdi.BitMode.RESET)
-            self._ftdi.set_bitmode(0xFF, Ftdi.BitMode.SYNCFF)
         self._buffer.clear_buffer()
         self._event_allow_ftdi_access.set()
         self._event_read.clear()

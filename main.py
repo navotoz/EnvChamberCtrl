@@ -1,30 +1,3 @@
-# from datetime import datetime
-# from pathlib import Path
-# from threading import Thread
-# from time import sleep
-#
-# from devices.Camera.Tau.Tau2Grabber import TeaxGrabber
-# from gui.tools import thread_log_fpa_housing_temperatures
-# from utils.logger import make_logging_handlers
-# import utils.constants as const
-# import tkinter as tk
-#
-# from utils.tools import SyncFlag
-#
-# flag_run = SyncFlag()
-# devices_dict = {const.CAMERA_NAME:TeaxGrabber(logging_handlers=make_logging_handlers(Path('log/log.txt'), True))}
-# Thread(target=thread_log_fpa_housing_temperatures, name='th_get_fpa_housing_temperatures',
-#        args=(devices_dict, tk.Frame(), flag_run,), daemon=True).start()
-#
-#
-# N_ITERS = 100
-# devices_dict[const.CAMERA_NAME].ffc_mode = 'external'
-# while True:
-#     print(f'{datetime.now()}')
-#     for i in range(N_ITERS):
-#         devices_dict[const.CAMERA_NAME].grab()
-#     devices_dict[const.CAMERA_NAME].ffc()
-
 import signal
 from functools import partial
 from threading import Thread
@@ -33,7 +6,7 @@ from tkinter import TclError
 import utils.constants as const
 from devices.Oven.make_oven_program import make_oven_basic_prog
 from devices.Oven.plots import plot_btn_func
-from gui.makers import make_frames, make_buttons, SafeDoubleVar
+from gui.makers import make_frames, make_buttons
 from gui.processes import oven, mp_values_dict, oven_cmd, camera_cmd, image_grabber, \
     event_stop, semaphore_plot_proc, semaphore_mask_sync, logger, handlers
 from gui.tools import update_status_label, set_buttons_by_devices_status, \
@@ -47,8 +20,8 @@ from gui.experiment import init_experiment
 def _stop() -> None:
     event_stop.set()
     flag_run.set(False)
-    [semaphore_plot_proc.release() for x in range(3)]
-    [semaphore_mask_sync.release() for x in range(3)]
+    [semaphore_plot_proc.release() for _ in range(3)]
+    [semaphore_mask_sync.release() for _ in range(3)]
 
 
 def close_gui(*kwargs) -> None:
@@ -76,7 +49,7 @@ def func_stop_run() -> None:
     _stop()
 
 
-def func_start_run_loop():
+def func_start_run_loop() -> None:
     root.focus_set()
     disable_fields_and_buttons(root, buttons_dict)
     update_status_label(frames_dict[const.FRAME_STATUS], const.WORKING)
@@ -91,7 +64,7 @@ signal.signal(signal.SIGINT, close_gui)
 signal.signal(signal.SIGTERM, close_gui)
 devices_dict[const.CAMERA_NAME] = camera_cmd
 devices_dict[const.OVEN_NAME] = oven_cmd
-devices_dict[const.OVEN_NAME].send((const.EXPERIMENT_SAVE_PATH,path_to_save ))
+devices_dict[const.OVEN_NAME].send((const.EXPERIMENT_SAVE_PATH, path_to_save))
 assert devices_dict[const.OVEN_NAME].recv() == path_to_save, 'Could not set oven output path.'
 
 func_dict = {const.BUTTON_BROWSE: partial(browse_btn_func, f_btn=frames_dict[const.FRAME_BUTTONS],
@@ -120,11 +93,10 @@ dict_variables[const.SETTLING_TIME_MINUTES].set(dict_variables[const.SETTLING_TI
 flag_run = SyncFlag()
 Thread(target=thread_log_fpa_housing_temperatures, name='th_get_fpa_housing_temperatures',
        args=(frames_dict[const.FRAME_TEMPERATURES], mp_values_dict, flag_run,), daemon=True).start()
+frames_dict[const.FRAME_PROGRESSBAR].nametowidget(const.PROGRESSBAR).config(length=root.winfo_width())
 
 root.mainloop()
 
 # todo: do a proper kill function for the new camera process
-# todo: add commands into camera process
 # todo: make BlackBody into a process. The process will have keep-alive feature
-# todo: why does changing the values of "Minimal Setteling Time" have no effect during runtime
-#todo: does all periferial buttons work?
+# todo: does all periferial buttons work?

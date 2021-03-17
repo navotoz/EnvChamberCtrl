@@ -77,7 +77,7 @@ FREQ_INNER_TEMPERATURE_SECONDS = 2
 DELAY_FLOOR2CAMERA_CONST = 2.3
 
 # holds limits and resolutions of all peripherals
-LIMIT_DICT = {OVEN_NAME: {MIN_STRING: 20, MAX_STRING: 90, RESOLUTION_STRING: 1,
+LIMIT_DICT = {OVEN_NAME: {MIN_STRING: 10, MAX_STRING: 90, RESOLUTION_STRING: 1,
                           INIT_MIN: 20, INIT_MAX: 50, INIT_INC: 5},  # [Celsius]
               BLACKBODY_NAME: {MIN_STRING: 10., MAX_STRING: 70., RESOLUTION_STRING: .01,
                                INIT_MIN: 20.0, INIT_MAX: 50.0, INIT_INC: 5.0},  # [Celsius]

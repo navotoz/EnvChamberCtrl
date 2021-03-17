@@ -290,4 +290,4 @@ def make_frames(logger, handler, devices_dict) -> Tuple[tk.Tk, Dict[Any, tk.Fram
     return root, {FRAME_HEAD: frame_head, FRAME_PARAMS: frame_params, FRAME_TEMPERATURES: frame_temperatures,
                   FRAME_BUTTONS: frame_buttons, FRAME_PATH: frame_path, FRAME_STATUS: frame_status,
                   FRAME_PROGRESSBAR: frame_progressbar, FRAME_TERMINAL: frame_terminal},\
-           dict_variables[EXPERIMENT_SAVE_PATH].get()
+                    dict_variables[EXPERIMENT_SAVE_PATH].get()
