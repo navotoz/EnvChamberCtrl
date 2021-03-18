@@ -225,11 +225,11 @@ def get_inner_temperatures(frame: Frame, type_to_get: str = T_FPA, as_int: bool 
         res = frame.getvar(T_HOUSING)
     elif T_FPA.lower() in type_to_get:
         res = frame.getvar(T_FPA)
-    if 'max' in type_to_get:
+    elif 'max' in type_to_get:
         res = max(frame.getvar(T_FPA), frame.getvar(T_HOUSING))
-    if 'avg' in type_to_get or 'mean' in type_to_get or 'average' in type_to_get:
+    elif 'avg' in type_to_get or 'mean' in type_to_get or 'average' in type_to_get:
         res = (frame.getvar(T_FPA) + frame.getvar(T_HOUSING)) / 2.0
-    if 'min' in type_to_get:
+    elif 'min' in type_to_get:
         res = min(frame.getvar(T_FPA), frame.getvar(T_HOUSING))
     if res is None:
         raise NotImplementedError(f"{type_to_get} was not implemented for inner temperatures.")

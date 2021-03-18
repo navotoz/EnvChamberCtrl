@@ -66,7 +66,7 @@ def thread_run_experiment(output_path: Path, frames_dict:dict, devices_dict:dict
                 for i in range(1, n_images_per_iteration + 1):
                     if not flag_run:
                         break
-                    sleep(0.2)
+                    sleep(0.01)
                     t_fpa = get_inner_temperatures(frames_dict[const.FRAME_TEMPERATURES], const.T_FPA)
                     t_housing = get_inner_temperatures(frames_dict[const.FRAME_TEMPERATURES], const.T_HOUSING)
                     # the precision of the housing temperature is 0.01C and the precision for the fpa is 0.1C
