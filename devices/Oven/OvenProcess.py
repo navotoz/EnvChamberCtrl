@@ -27,7 +27,7 @@ class PlotterProc(mp.Process):
         self._records_path = Path(output_path) / const.OVEN_RECORDS_FILENAME
 
     def run(self) -> None:
-        th_timer = th.Thread(target=self._timer, name='th_proc_plotter_timer', daemon=False)
+        th_timer = th.Thread(target=self._timer, name='th_proc_plotter_timer', daemon=True)
         th_timer.start()
         while self._flag_run:
             self._event_timer.wait()
@@ -49,7 +49,14 @@ class PlotterProc(mp.Process):
     def terminate(self) -> None:
         if hasattr(self, '_flag_run'):
             self._flag_run.set(False)
-        self._event_timer.set()
+        try:
+            self._event_timer.set()
+        except (RuntimeError, AssertionError, AttributeError, TypeError):
+                pass
+        try:
+            self.kill()
+        except (RuntimeError, AssertionError, AttributeError, TypeError):
+                pass
 
     def _timer(self):
         while self._flag_run:
