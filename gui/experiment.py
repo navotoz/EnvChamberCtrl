@@ -63,12 +63,12 @@ def thread_run_experiment(output_path: Path, frames_dict:dict, devices_dict:dict
                 f_name = set_value_and_make_filename(blackbody_temperature, scanner_angle, focus, devices_dict, logger)
                 logger.info(f"Blackbody temperature {blackbody_temperature}C is set.")
                 devices_dict[const.CAMERA_NAME].send((const.FFC, True))  # calibrate
+                t_fpa = round(get_inner_temperatures(frames_dict[const.FRAME_TEMPERATURES], const.T_FPA), -1)
+                t_housing = get_inner_temperatures(frames_dict[const.FRAME_TEMPERATURES], const.T_HOUSING)
                 for i in range(1, n_images_per_iteration + 1):
                     if not flag_run:
                         break
                     sleep(0.01)
-                    t_fpa = round(get_inner_temperatures(frames_dict[const.FRAME_TEMPERATURES], const.T_FPA), -1)
-                    t_housing = get_inner_temperatures(frames_dict[const.FRAME_TEMPERATURES], const.T_HOUSING)
                     # the precision of the housing temperature is 0.01C and the precision for the fpa is 0.1C
                     path = output_path / f'{const.T_FPA}_{t_fpa}' / \
                            f'{const.BLACKBODY_NAME}_{int(blackbody_temperature * 100)}'
