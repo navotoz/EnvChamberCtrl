@@ -258,8 +258,6 @@ class OvenCtrl(DeviceAbstract):
 
     def _th_temperature_setter(self) -> None:
         next_temperature, prev_temperature, fin_msg = 0, 0, 'Finished waiting due to '
-        handlers = make_logging_handlers(Path('log/oven/temperature_differences.txt'))
-        logger_waiting = make_logger('OvenTempDiff', handlers, False)
         if self._use_camera_inner_temperatures:
             get_inner_temperature = wait_for_time(self._inner_temperatures, FREQ_INNER_TEMPERATURE_SECONDS)
         else:
@@ -276,8 +274,10 @@ class OvenCtrl(DeviceAbstract):
         # thread loop
         while self._flag_run:
             next_temperature = self._temperature_pipe.recv()
-            if not self._flag_run or next_temperature == 0:
+            if not self._flag_run or not next_temperature or next_temperature <= 0:
                 break
+            handlers = make_logging_handlers(f'log/oven/temperature_differences_{int(next_temperature * 100)}.txt')
+            logger_waiting = make_logger('OvenTempDiff', handlers, False)
 
             # creates a round-robin queue of differences (dt_camera) to wait until t_camera settles
             difference_lifo = VariableLengthDeque(maxlen=max(1, self._make_maxlength()))
