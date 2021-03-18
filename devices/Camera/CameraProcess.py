@@ -43,8 +43,6 @@ class CameraCtrl(DeviceAbstract):
         self._workers_dict['img_collector'] = th.Thread(target=self._th_images, name='img_collector')
         self._workers_dict['img_collector'].start()
 
-        self._wait_for_threads_to_exit()
-
     def _th_get_temperatures(self) -> None:
         def get() -> None:
             for t_type in [const.T_FPA, const.T_HOUSING]:

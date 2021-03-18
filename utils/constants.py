@@ -147,6 +147,7 @@ INIT_CAMERA_PARAMETERS = dict(
     contrast=0,
     brightness=0,
     brightness_bias=0,
+    fps=0x0004,  # 60Hz
     lvds=0x0000,  # disabled
     lvds_depth=0x0000,  # 14bit
     xp=0x0002,  # 14bit w/ 1 discrete

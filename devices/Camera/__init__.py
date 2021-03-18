@@ -175,6 +175,14 @@ class CameraAbstract:
     def cmos_depth(self, mode: int):
         pass
 
+    @property
+    def fps(self):
+        return
+
+    @fps.setter
+    def fps(self, fps_to_set: int):
+        pass
+
 
 def _make_device_from_vid_pid(vid: int, pid: int) -> usb.core.Device:
     device = usb.core.find(idVendor=vid, idProduct=pid)

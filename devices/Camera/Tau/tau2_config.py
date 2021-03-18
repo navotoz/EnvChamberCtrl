@@ -181,3 +181,9 @@ SET_CMOS_DEPTH = Code(0x12, 2, 2)
 
 GET_XP_MODE  = Code(0x12, 2, 2)
 SET_XP_MODE  = Code(0x12, 2, 2)
+
+
+# FPS
+GET_FPS = Code(0x72, 0, 2)
+FPS_CODE_DICT = {30:0x0000, 60:0x0004}
+SET_FPS = Code(0x72, 2, 2)

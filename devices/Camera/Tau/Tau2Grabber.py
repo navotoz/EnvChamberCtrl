@@ -655,6 +655,15 @@ class Tau(CameraAbstract):
         res = self._digital_output_setter(mode, self.cmos_depth, ptc.SET_CMOS_DEPTH, 0x06)
         self._log_set_values(mode, res, 'CMOS Depth')
 
+    @property
+    def fps(self):
+        return self._get_values_without_arguments(ptc.GET_FPS)
+
+    @fps.setter
+    def fps(self, mode: str):
+        self._mode_setter(mode, self.fps, ptc.SET_FPS, ptc.FPS_CODE_DICT, 'FPS')
+
+
 
 class TeaxGrabber(Tau):
     def __init__(self, vid=0x0403, pid=0x6010, logging_handlers: tuple = make_logging_handlers(None, True),
@@ -756,6 +765,7 @@ class TeaxGrabber(Tau):
         self.brightness = params.get('brightness', 0)
         self.brightness_bias = params.get('brightness_bias', 0)
         self.cmos_depth = params.get('cmos_depth', 0)  # 14bit pre AGC
+        self.fps = params.get('fps', 4)  # 60Hz NTSC
         # self.correction_mask = params.get('corr_mask', 0)  # off
         self.n_retry = default_n_retries
 
