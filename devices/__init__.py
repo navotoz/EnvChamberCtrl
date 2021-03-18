@@ -106,7 +106,10 @@ class DeviceAbstract(mp.Process):
                 pass
         self._terminate_device_specifics()
         self._wait_for_threads_to_exit()
-        self.kill()
+        try:
+            self.kill()
+        except (AttributeError, AssertionError, TypeError, KeyError):
+            pass
 
     @abstractmethod
     def _terminate_device_specifics(self):
