@@ -16,6 +16,7 @@ from utils.constants import *
 from utils.logger import make_logger, make_logging_handlers, make_device_logging_handler
 from utils.tools import SyncFlag, DuplexPipe, make_duplex_pipe
 from datetime import datetime
+
 # Tau Status codes
 CAM_OK = 0x00
 CAM_NOT_READY = 0x02
@@ -664,16 +665,16 @@ class Tau(CameraAbstract):
         self._mode_setter(mode, self.fps, ptc.SET_FPS, ptc.FPS_CODE_DICT, 'FPS')
 
 
-
 class TeaxGrabber(Tau):
-    def __init__(self, vid=0x0403, pid=0x6010, logging_handlers: tuple = make_logging_handlers(None, True),
+    def __init__(self, flag_run: SyncFlag, vid=0x0403, pid=0x6010,
+                 logging_handlers: tuple = make_logging_handlers(None, True),
                  logging_level: int = logging.INFO):
         logging_handlers = make_device_logging_handler('TeaxGrabber', logging_handlers)
         logger = make_logger('TeaxGrabber', logging_handlers, logging_level)
         super().__init__(logger=logger)
         self._n_retry = 3
 
-        self._flag_run = SyncFlag(True)
+        self._flag_run = flag_run
         self._lock_cmd_send = mp.Lock()
         self._frame_size = 2 * self.height * self.width + 10 + 4 * self.height  # 10 byte header, 4 bytes pad per row
         self._width = self.width
@@ -684,14 +685,13 @@ class TeaxGrabber(Tau):
 
         try:
             self._io = FtdiIO(vid=vid, pid=pid, cmd_pipe=cmd_pipe_proc, image_pipe=image_pipe,
-                              frame_size=self._frame_size, width=self._width, height=self._height,
-                              flag_run=self._flag_run, logging_handlers=logging_handlers, logging_level=logging_level)
+                              flag_run=self._flag_run, frame_size=self._frame_size, width=self._width,
+                              height=self._height, logging_handlers=logging_handlers, logging_level=logging_level)
         except RuntimeError:
             self._log.info('Could not connect to TeaxGrabber.')
             raise RuntimeError
-        self._io.daemon = True
         self._io.start()
-        # self.ffc()
+        self.ffc()
         self._io.purge()
 
     def __del__(self) -> None:

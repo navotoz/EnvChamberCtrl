@@ -59,7 +59,6 @@ class FtdiIO(mp.Process):
         self._thread_image = th.Thread(target=self._th_image_func, name='th_tau2grabber_image', daemon=False)
         self._thread_image.start()
         self._log.info('Ready.')
-        self._finish_run()
 
     def purge(self) -> None:
         self._cmd_pipe.send(None)
@@ -102,8 +101,6 @@ class FtdiIO(mp.Process):
         if not self._flag_run:
             return
         self._buffer.clear_buffer()
-        self._event_allow_ftdi_access.set()
-        self._event_read.clear()
         self._log.debug('Reset.')
 
     def _parse_func(self, command: Code) -> (List, None):
@@ -153,11 +150,12 @@ class FtdiIO(mp.Process):
                 self._buffer += data
 
     def _th_parse_func(self) -> None:
-        data = command = n_retry = None
         while self._flag_run:
-            res = self._cmd_pipe.recv()
-            if isinstance(res, tuple):
-                data, command, n_retry = res
+            recv_result = self._cmd_pipe.recv()
+            if not isinstance(recv_result, tuple):
+                self._cmd_pipe.send(None)
+                continue
+            data, command, n_retry = recv_result
             self._event_allow_ftdi_access.wait()
             with self._semaphore_access_ftdi:
                 if not self._flag_run:
@@ -167,16 +165,16 @@ class FtdiIO(mp.Process):
                 idx = 0
                 sleep(0.2)
                 while idx < max(1, n_retry) and self._flag_run:
-                    if (res := self._parse_func(command)) is not None:
+                    if (parsed_func := self._parse_func(command)) is not None:
                         break
                     self._log.debug('Could not parse, retrying..')
                     self._write(SYNC_MSG)
                     self._write(data)
                     idx += 1
                     sleep(0.2)
-                self._cmd_pipe.send(res)
+                self._cmd_pipe.send(parsed_func)
                 self._event_read.clear()
-                self._log.debug(f"Recv {res}") if res else None
+                self._log.debug(f"Recv {parsed_func}") if parsed_func else None
                 self._buffer.clear_buffer()
 
     def _th_image_func(self) -> None:
@@ -187,7 +185,7 @@ class FtdiIO(mp.Process):
                 idx = 0
                 while self._flag_run and idx < self._n_retries_image:
                     self._event_read.set()
-                    sleep(0.05)
+                    sleep(0.01)
                     idx += 1
                     self._buffer.sync_teax()
                     buffer_len = self._buffer.wait_for_size()

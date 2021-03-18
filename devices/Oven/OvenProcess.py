@@ -12,7 +12,7 @@ from devices.Oven.utils import get_last_measurements, VariableLengthDeque, MaxTe
 from gui.tools import tqdm_waiting
 from utils.constants import *
 from utils.logger import make_logger, make_logging_handlers
-from utils.tools import wait_for_time, check_and_make_path,  DuplexPipe
+from utils.tools import wait_for_time, check_and_make_path, DuplexPipe
 import utils.constants as const
 from devices import DeviceAbstract
 
@@ -160,10 +160,10 @@ class OvenCtrl(DeviceAbstract):
                         self._cmd_pipe.send(const.DEVICE_DUMMY)
                         self._stop()
                 elif cmd == const.SETTLING_TIME_MINUTES:
-                    self._settling_time_minutes = int(value) if value is not None else 0
+                    self._settling_time_minutes = int(value) if value is not None else self._settling_time_minutes
                     self._cmd_pipe.send(self._settling_time_minutes)
                 elif cmd == const.DELTA_TEMPERATURE:
-                    self._delta_temperature = float(value) if value is not None else 0
+                    self._delta_temperature = float(value) if value is not None else self._delta_temperature
                     self._cmd_pipe.send(self._delta_temperature)
                 elif cmd == const.BUTTON_START:
                     if value is True:
@@ -257,23 +257,27 @@ class OvenCtrl(DeviceAbstract):
                 pass
 
     def _th_temperature_setter(self) -> None:
-        handlers = make_logging_handlers(Path('log/oven/temperature_differences.txt'))
-        logger_waiting = make_logger('OvenTempDiff', handlers, False)
         next_temperature, prev_temperature, fin_msg = 0, 0, 'Finished waiting due to '
         if self._use_camera_inner_temperatures:
             get_inner_temperature = wait_for_time(self._inner_temperatures, FREQ_INNER_TEMPERATURE_SECONDS)
         else:
             get_inner_temperature = wait_for_time(partial(self._oven_temperatures.get, T_CAMERA), OVEN_LOG_TIME_SECONDS)
+
+        # handle dummy oven
         if self._is_dummy() == const.DEVICE_REAL:
             get_error = wait_for_time(partial(self._oven_temperatures.get, SIGNALERROR), wait_time_in_sec=PID_FREQ_SEC)
-            initial_wait_time = PID_FREQ_SEC + OVEN_LOG_TIME_SECONDS
+            initial_wait_time = PID_FREQ_SEC + OVEN_LOG_TIME_SECONDS * 4   # to let the average ErrSignal settle
         else:
             get_error = lambda: 0
             initial_wait_time = 1
+
+        # thread loop
         while self._flag_run:
             next_temperature = self._temperature_pipe.recv()
             if not self._flag_run or next_temperature == 0:
                 break
+            handlers = make_logging_handlers(Path('log/oven/temperature_differences.txt'))
+            logger_waiting = make_logger('OvenTempDiff', handlers, False)
 
             # creates a round-robin queue of differences (dt_camera) to wait until t_camera settles
             difference_lifo = VariableLengthDeque(maxlen=max(1, self._make_maxlength()))
@@ -305,11 +309,12 @@ class OvenCtrl(DeviceAbstract):
                 max_temperature.max = current_temperature
                 diff = abs(current_temperature - prev_temperature)
                 difference_lifo.append(diff)
-                logger_waiting.info(f"{diff:.4f} "
-                                    f"prev{prev_temperature:.3f} "
-                                    f"curr{current_temperature:.3f} "
-                                    f"max{max_temperature.max:.3f} "
-                                    f"SettleTime {int(self._settling_time_minutes):3d}Min")
+                logger_waiting.info(
+                    # f"{diff:.4f} "
+                    # f"prev{prev_temperature:.3f} "
+                    # f"curr{current_temperature:.3f} "
+                    f"max{max_temperature.max:.2f} "
+                    f"{max_temperature.time_since_setting_in_minutes:.2f}|{int(self._settling_time_minutes):3d}Min")
                 prev_temperature = current_temperature
                 if current_temperature >= next_temperature:
                     msg = f'{fin_msg} current T {current_temperature} bigger than next T {next_temperature}.'

@@ -75,7 +75,8 @@ class CameraCtrl(DeviceAbstract):
                         self._camera_type = const.DEVICE_DUMMY
                         try:
                             if value == const.CAMERA_TAU:
-                                self._camera = TeaxGrabber(logging_handlers=self._logging_handlers)
+                                self._camera = TeaxGrabber(logging_handlers=self._logging_handlers,
+                                                           flag_run=self._flag_run)
                             elif value == const.CAMERA_THERMAPP:
                                 self._camera = ThermappGrabber(logging_handlers=self._logging_handlers)
                             elif value == const.DEVICE_DUMMY:
@@ -94,5 +95,5 @@ class CameraCtrl(DeviceAbstract):
                         self._cmd_pipe.send(self._camera.height)
                     elif value == const.WIDTH:
                         self._cmd_pipe.send(self._camera.width)
-                elif cmd==const.FFC:
+                elif cmd == const.FFC:
                     self._camera.ffc()

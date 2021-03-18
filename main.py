@@ -38,7 +38,6 @@ def close_gui(*kwargs) -> None:
         root.destroy()
     except TclError:
         pass
-    exit(0)
 
 
 def signal_handler(sig, frame):
@@ -97,6 +96,7 @@ frames_dict[const.FRAME_PROGRESSBAR].nametowidget(const.PROGRESSBAR).config(leng
 
 root.mainloop()
 
+
+# todo: check settling time radiobox - put prints in SafeVar...
 # todo: do a proper kill function for the new camera process
 # todo: make BlackBody into a process. The process will have keep-alive feature
-# todo: does all periferial buttons work?
