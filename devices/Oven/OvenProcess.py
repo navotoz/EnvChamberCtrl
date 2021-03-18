@@ -291,6 +291,7 @@ class OvenCtrl(DeviceAbstract):
             while self._flag_run and get_error() >= 1.5:
                 pass
             self._set_oven_temperature(next_temperature, offset=0, verbose=True)
+            tqdm_waiting(initial_wait_time, 'Give the camera time to react to the temperature change', self._flag_run)
 
             self._oven.log.info(f'Waiting for the Camera to settle near {next_temperature:.2f}C')
             logger_waiting.info(f'#######   {next_temperature}   #######')
@@ -314,7 +315,7 @@ class OvenCtrl(DeviceAbstract):
                     # f"prev{prev_temperature:.3f} "
                     # f"curr{current_temperature:.3f} "
                     f"max{max_temperature.max:.2f} "
-                    f"{max_temperature.time_since_setting_in_minutes:.2f}|{int(self._settling_time_minutes):3d}Min")
+                    f"{int(self._settling_time_minutes):3d}|{max_temperature.time_since_setting_in_minutes:.2f}Min")
                 prev_temperature = current_temperature
                 if current_temperature >= next_temperature:
                     msg = f'{fin_msg} current T {current_temperature} bigger than next T {next_temperature}.'

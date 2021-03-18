@@ -106,6 +106,7 @@ class DeviceAbstract(mp.Process):
                 pass
         self._terminate_device_specifics()
         self._wait_for_threads_to_exit()
+        self.kill()
 
     @abstractmethod
     def _terminate_device_specifics(self):

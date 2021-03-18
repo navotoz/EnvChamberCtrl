@@ -34,6 +34,8 @@ def make_logging_handlers(logfile_path: (None, Path) = None, verbose: bool = Fal
         logfile_path = Path(logfile_path)
         logfile_path.parent.mkdir(parents=True) if not logfile_path.parent.is_dir() else None
         check_and_make_path(logfile_path.parent)
+        if logfile_path.is_file():
+            open(logfile_path, 'w').close()
     handlers_list.append(logging.FileHandler(str(logfile_path), mode='w')) if logfile_path else None
     for handler in handlers_list:
         handler.setFormatter(fmt)
