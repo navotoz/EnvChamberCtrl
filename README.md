@@ -15,6 +15,10 @@ and controlling all devices via a GUI written with python 3.8.
 The server is run using python 3.8 with requirements detailed in requirements.txt.
 
 #### Installation ####
+1. Focus the Camera on the _surface_ of the BlackBody. 
+   This is done by holding a metal slide **outside** the BlackBody (to avoid scratches), 
+   on the approximate position of the hot surface. 
+   The focus can be done on the edge of the metal slide.
 1. Install Python with pip support, preferably using Anaconda package manager.
 1. Create a virtual environment and install the requirements file using `python -m pip install -r requirements.txt`
 1. Follow the next steps:
