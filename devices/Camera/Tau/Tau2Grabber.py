@@ -493,10 +493,10 @@ class Tau(CameraAbstract):
     def ffc(self, length: bytes = ptc.FFC_LONG) -> bool:
         res = self._send_and_recv_threaded(ptc.DO_FFC, length)
         if res and struct.unpack('H', res)[0] == 0xffff:
-            self._log.debug('FFC')
+            self._log.info('FFC')
             return True
         else:
-            self._log.debug('FFC Failed')
+            self._log.info('FFC Failed')
             return False
 
     @property
@@ -669,8 +669,8 @@ class TeaxGrabber(Tau):
     def __init__(self, flag_run: SyncFlag, vid=0x0403, pid=0x6010,
                  logging_handlers: tuple = make_logging_handlers(None, True),
                  logging_level: int = logging.INFO):
-        logging_handlers = make_device_logging_handler('TeaxGrabber', logging_handlers)
-        logger = make_logger('TeaxGrabber', logging_handlers, logging_level)
+        logging_handlers_ = make_device_logging_handler('TeaxGrabber', logging_handlers)
+        logger = make_logger('TeaxGrabber', logging_handlers_, logging_level)
         super().__init__(logger=logger)
         self._n_retry = 3
 

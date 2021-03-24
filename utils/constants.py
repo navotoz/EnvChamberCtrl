@@ -130,6 +130,7 @@ DEVICE_REAL = 100
 # camera status
 CAMERA_TAU = 20
 CAMERA_THERMAPP = 30
+CAMERA_TAU_HERTZ = 0.035
 FFC = 'ffc'
 
 # plots
