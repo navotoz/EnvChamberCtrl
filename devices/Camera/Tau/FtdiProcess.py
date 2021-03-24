@@ -201,7 +201,7 @@ class FtdiIO(mp.Process):
                         continue
                     self._event_allow_ftdi_access.set()
                     self._image_pipe.send(raw_image_8bit)
-                    self._log.debug('Grabbed Image')
+                    # self._log.debug('Grabbed Image')
                     break
 
     def _is_8bit_image_borders_valid(self, raw_image_8bit: np.ndarray) -> bool:

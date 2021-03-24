@@ -1,7 +1,7 @@
 from itertools import product
-from time import sleep
+from time import sleep, time_ns
 
-import  numpy as np
+import numpy as np
 import tkinter as tk
 from datetime import datetime
 from pathlib import Path
@@ -19,7 +19,7 @@ from gui.processes import semaphore_mask_sync, camera_cmd, image_grabber, flag_r
     semaphore_plot_proc, mp_values_dict
 
 
-def thread_run_experiment(output_path: Path, frames_dict:dict, devices_dict:dict):
+def thread_run_experiment(output_path: Path, frames_dict: dict, devices_dict: dict):
     semaphore_mask_sync.acquire()
 
     flag_run.set(True)
@@ -63,26 +63,27 @@ def thread_run_experiment(output_path: Path, frames_dict:dict, devices_dict:dict
                 f_name = set_value_and_make_filename(blackbody_temperature, scanner_angle, focus, devices_dict, logger)
                 logger.info(f"Blackbody temperature {blackbody_temperature}C is set.")
                 devices_dict[const.CAMERA_NAME].send((const.FFC, True))  # calibrate
+
+                # the precision of the housing temperature is 0.01C and the precision for the fpa is 0.1C
                 t_fpa = round(get_inner_temperatures(frames_dict[const.FRAME_TEMPERATURES], const.T_FPA), -1)
                 t_housing = get_inner_temperatures(frames_dict[const.FRAME_TEMPERATURES], const.T_HOUSING)
+                path = output_path / f'{const.T_FPA}_{t_fpa}' / \
+                       f'{const.BLACKBODY_NAME}_{int(blackbody_temperature * 100)}'
+                images_dict = {}
                 for i in range(1, n_images_per_iteration + 1):
                     if not flag_run:
                         break
-                    # the precision of the housing temperature is 0.01C and the precision for the fpa is 0.1C
-                    path = output_path / f'{const.T_FPA}_{t_fpa}' / \
-                           f'{const.BLACKBODY_NAME}_{int(blackbody_temperature * 100)}'
                     f_name_to_save = f_name + f"fpa_{t_fpa}_housing_{t_housing}_"
                     image_grabber.send(True)
                     if (image := image_grabber.recv()) is None:
                         break
-                    f_name_to_save = str(path / f"{f_name_to_save}{i}of{n_images_per_iteration}")
-                    if not path.is_dir():
-                        path.mkdir(parents=True)
-                    np.save(f_name_to_save, image)
-                    normalize_image(image).save(f_name_to_save + '.jpeg', format='jpeg')
+                    f_name_to_save = path / f"{f_name_to_save}{i}of{n_images_per_iteration}"
+                    images_dict[f_name_to_save] = image
                     logger.debug(f"Taken {i} image")
                     frames_dict[const.FRAME_PROGRESSBAR].nametowidget(const.PROGRESSBAR).step(1 / total_images * 100)
                     frames_dict[const.FRAME_PROGRESSBAR].nametowidget(const.PROGRESSBAR).update_idletasks()
+                mp.Process(target=_mp_save_images, kwargs=dict(images_dict=images_dict.copy()),
+                           name=f'SaveImages{idx:d}', daemon=False).start()
             idx += 1
             logger.info(f"Experiment ended.")
             semaphore_plot_proc.release()
@@ -114,3 +115,12 @@ def init_experiment(frames_dict: dict, devices_dict: dict) -> None:
     make_mask_win_and_save(camera_cmd, image_grabber, semaphore_mask_sync, output_path)
     th.Thread(target=thread_run_experiment, args=(output_path, frames_dict, devices_dict,),
               name='th_run_experiment', daemon=False).start()
+
+
+def _mp_save_images(images_dict: dict):
+    for path, image in images_dict.items():
+        parent = Path(path).parent
+        if not parent.is_dir():
+            parent.mkdir(parents=True)
+        np.save(str(path), image)
+        normalize_image(image).save(str(path) + '.jpeg', format='jpeg')

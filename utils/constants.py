@@ -57,7 +57,7 @@ SP_PREFIX = 'sp '
 ITERATIONS_IN_TEMPERATURE = 'iterations_in_each_temperature'
 ITERATIONS_IN_TEMPERATURE_INIT_VAL = 2
 SETTLING_TIME_MINUTES = 'settling_time_minutes'
-SETTLING_TIME_MINUTES_INIT_VAL = 5   # This number needs to be big, because many T_bb are needed for each T_camera
+SETTLING_TIME_MINUTES_INIT_VAL = 6   # This number needs to be big, because many T_bb are needed for each T_camera
 DELTA_TEMPERATURE = 'delta_temperature'
 # large delta means that the system is only relevant for INCREASING temperatures,
 # because only the max temperature condition can be true
@@ -80,7 +80,7 @@ DELAY_FLOOR2CAMERA_CONST = 2.4
 LIMIT_DICT = {OVEN_NAME: {MIN_STRING: 10, MAX_STRING: 90, RESOLUTION_STRING: 1,
                           INIT_MIN: 20, INIT_MAX: 50, INIT_INC: 5},  # [Celsius]
               BLACKBODY_NAME: {MIN_STRING: 10., MAX_STRING: 70., RESOLUTION_STRING: .01,
-                               INIT_MIN: 20.0, INIT_MAX: 50.0, INIT_INC: 5.0},  # [Celsius]
+                               INIT_MIN: 20.0, INIT_MAX: 60.0, INIT_INC: 5.0},  # [Celsius]
               CAMERA_NAME: {MIN_STRING: 1, MAX_STRING: 5000, RESOLUTION_STRING: 1,
                             INIT_INC: 1000},  # [number of images]
               SCANNER_NAME: {MIN_STRING: 0., MAX_STRING: 180., RESOLUTION_STRING: 0.01},  # [Degrees]

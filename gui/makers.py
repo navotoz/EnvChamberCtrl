@@ -260,7 +260,7 @@ def make_frames(logger, handler, devices_dict) -> Tuple[tk.Tk, Dict[Any, tk.Fram
     make_spinbox(frame_head, 1, 1, DELTA_TEMPERATURE, from_=0.01, to=10, res=0.01)
     dict_variables[DELTA_TEMPERATURE].set(DELTA_TEMPERATURE_INIT_VAL)
     make_label(frame=frame_head, row=1, col=2, text='Minimal Settling Time [Minutes]:')
-    make_spinbox(frame_head, 1, 3, SETTLING_TIME_MINUTES, from_=1, to=120, res=1)
+    make_spinbox(frame_head, 1, 3, SETTLING_TIME_MINUTES, from_=0, to=120, res=1)
     dict_variables[SETTLING_TIME_MINUTES].set(SETTLING_TIME_MINUTES_INIT_VAL)
 
     make_label(frame_temperatures, row=0, col=0, text="Housing [C]:")

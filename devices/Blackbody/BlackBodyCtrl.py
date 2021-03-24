@@ -44,7 +44,7 @@ class BlackBody(BlackBodyAbstract):
         self._recv_socket.close()
         self._send_socket.close()
 
-    def _send(self, msg):
+    def _send(self, msg: str) -> None:
         msg = msg.upper()
         self._send_socket.send(msg.encode('utf-8'))
         self._log.debug(f"Send: {msg}")
@@ -74,7 +74,7 @@ class BlackBody(BlackBodyAbstract):
             raise RuntimeError(msg)
         self._log.debug('Echo succeed.')
 
-    def _recv_thread_func(self):
+    def _recv_thread_func(self) -> None:
         """
         A receiver thread.
         """
@@ -119,7 +119,7 @@ class BlackBody(BlackBodyAbstract):
         t = f"in {t / 60:.1f} minutes." if t > 60 else f"in {t:.1f} seconds."
         self._log.info(f"Reached stable temperature of {self.temperature}C {t}")
 
-    def _set_mode_absolute(self):
+    def _set_mode_absolute(self) -> None:
         """
         Sets the temperature mode to 'absolute' in the BlackBody.
         """

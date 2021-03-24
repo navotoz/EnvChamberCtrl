@@ -298,7 +298,6 @@ class OvenCtrl(DeviceAbstract):
             while self._flag_run and get_error() >= 1.5:
                 pass
             self._set_oven_temperature(next_temperature, offset=0, verbose=True)
-            tqdm_waiting(initial_wait_time, 'Give the camera time to react to the temperature change', self._flag_run)
 
             self._oven.log.info(f'Waiting for the Camera to settle near {next_temperature:.2f}C')
             logger_waiting.info(f'#######   {next_temperature}   #######')
