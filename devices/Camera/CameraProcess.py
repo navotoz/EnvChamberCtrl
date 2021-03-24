@@ -31,6 +31,8 @@ class CameraCtrl(DeviceAbstract):
         self._camera_type = const.DEVICE_DUMMY
         self._lock_camera = th.Lock()
         self._lock_image = th.Lock()
+        self._event_image = th.Event()
+        self._event_image.clear()
 
     def _run(self):
         self._camera = DummyTeaxGrabber(logging_handlers=self._logging_handlers)
@@ -62,22 +64,26 @@ class CameraCtrl(DeviceAbstract):
 
     def _th_image_grabber(self):
         def get() -> None:
-            with self._lock_camera:
-                with self._lock_image:
+            with self._lock_image:
+                with self._lock_camera:
                     self._image = self._camera.grab() if self._camera else None
+                self._event_image.set()
 
         getter = wait_for_time(get, const.CAMERA_TAU_HERTZ)  # ~30Hz
         while self._flag_run:
             getter()
+        self._event_image.set()
 
     def _th_image_sender(self):
         def get() -> None:
             with self._lock_image:
                 self._image_pipe.send(self._image)
+                self._event_image.clear()
 
         getter = wait_for_time(get, const.CAMERA_TAU_HERTZ)  # ~30Hz
         while self._flag_run:
             self._image_pipe.recv()
+            self._event_image.wait(timeout=10 * const.CAMERA_TAU_HERTZ)
             getter()
 
     def _th_cmd_parser(self):

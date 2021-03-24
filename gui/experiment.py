@@ -68,7 +68,6 @@ def thread_run_experiment(output_path: Path, frames_dict:dict, devices_dict:dict
                 for i in range(1, n_images_per_iteration + 1):
                     if not flag_run:
                         break
-                    sleep(0.01)
                     # the precision of the housing temperature is 0.01C and the precision for the fpa is 0.1C
                     path = output_path / f'{const.T_FPA}_{t_fpa}' / \
                            f'{const.BLACKBODY_NAME}_{int(blackbody_temperature * 100)}'

@@ -82,7 +82,7 @@ LIMIT_DICT = {OVEN_NAME: {MIN_STRING: 10, MAX_STRING: 90, RESOLUTION_STRING: 1,
               BLACKBODY_NAME: {MIN_STRING: 10., MAX_STRING: 70., RESOLUTION_STRING: .01,
                                INIT_MIN: 20.0, INIT_MAX: 50.0, INIT_INC: 5.0},  # [Celsius]
               CAMERA_NAME: {MIN_STRING: 1, MAX_STRING: 5000, RESOLUTION_STRING: 1,
-                            INIT_INC: 100},  # [number of images]
+                            INIT_INC: 1000},  # [number of images]
               SCANNER_NAME: {MIN_STRING: 0., MAX_STRING: 180., RESOLUTION_STRING: 0.01},  # [Degrees]
               FOCUS_NAME: {MIN_STRING: 0., MAX_STRING: 12., RESOLUTION_STRING: 0.01}}  # [mm]
 METRICS_DICT = {OVEN_NAME: 'C',
