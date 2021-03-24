@@ -493,10 +493,10 @@ class Tau(CameraAbstract):
     def ffc(self, length: bytes = ptc.FFC_LONG) -> bool:
         res = self._send_and_recv_threaded(ptc.DO_FFC, length)
         if res and struct.unpack('H', res)[0] == 0xffff:
-            self._log.debug('FFC')
+            self._log.info('FFC')
             return True
         else:
-            self._log.debug('FFC Failed')
+            self._log.info('FFC Failed')
             return False
 
     @property

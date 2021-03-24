@@ -52,11 +52,11 @@ class PlotterProc(mp.Process):
         try:
             self._event_timer.set()
         except (RuntimeError, AssertionError, AttributeError, TypeError):
-                pass
+            pass
         try:
             self.kill()
         except (RuntimeError, AssertionError, AttributeError, TypeError):
-                pass
+            pass
 
     def _timer(self):
         while self._flag_run:
@@ -69,7 +69,7 @@ class OvenCtrl(DeviceAbstract):
     _use_camera_inner_temperatures = True
     _oven = None
     _workers_dict = dict()
-    _settling_time_minutes = 0
+    _settling_time_minutes: int = 0
 
     def __init__(self,
                  logging_handlers: (tuple, list),
@@ -130,7 +130,7 @@ class OvenCtrl(DeviceAbstract):
             self._workers_dict['plotter'].start()
             self._oven.log.debug('Started plotter process.')
 
-    def _terminate_device_specifics(self):
+    def _terminate_device_specifics(self) -> None:
         self._event_plotter_plot.set()
 
     def _stop(self):
@@ -236,7 +236,7 @@ class OvenCtrl(DeviceAbstract):
             self._oven.log.debug("Added a line to the oven logs.")
 
     def _make_maxlength(self) -> int:
-        mean_change = int(self._settling_time_minutes) * 60
+        mean_change = self._settling_time_minutes * 60
         if not self._use_camera_inner_temperatures:
             return int(mean_change // OVEN_LOG_TIME_SECONDS)
         return int(mean_change // FREQ_INNER_TEMPERATURE_SECONDS)
@@ -265,6 +265,8 @@ class OvenCtrl(DeviceAbstract):
 
     def _th_temperature_setter(self) -> None:
         next_temperature, prev_temperature, fin_msg = 0, 0, 'Finished waiting due to '
+        handlers = make_logging_handlers('log/oven/temperature_differences.txt')
+        logger_waiting = make_logger('OvenTempDiff', handlers, False)
         if self._use_camera_inner_temperatures:
             get_inner_temperature = wait_for_time(self._inner_temperatures, FREQ_INNER_TEMPERATURE_SECONDS)
         else:
@@ -283,8 +285,6 @@ class OvenCtrl(DeviceAbstract):
             next_temperature = self._temperature_pipe.recv()
             if not self._flag_run or not next_temperature or next_temperature <= 0:
                 break
-            handlers = make_logging_handlers(f'log/oven/temperature_differences_{int(next_temperature * 100)}.txt')
-            logger_waiting = make_logger('OvenTempDiff', handlers, False)
 
             # creates a round-robin queue of differences (dt_camera) to wait until t_camera settles
             difference_lifo = VariableLengthDeque(maxlen=max(1, self._make_maxlength()))
@@ -307,10 +307,10 @@ class OvenCtrl(DeviceAbstract):
             # Unwanted behaviour will occur on temperature descent.
             while msg := self._flag_run:
                 # if max(difference_lifo) > float(self._delta_temperature.value):
-                #     msg = f'{fin_msg} change {max(difference_lifo)} smaller than {float(self._delta_temperature.value)}'
+                #     msg = f'{fin_msg} dt {max(difference_lifo)} smaller than {float(self._delta_temperature.value)}'
                 #     break
-                if max_temperature.time_since_setting_in_minutes > float(self._settling_time_minutes):
-                    msg = f'{fin_msg}{round(self._settling_time_minutes)}Min without change in temperature.'
+                if max_temperature.time_since_setting_in_minutes > self._settling_time_minutes:
+                    msg = f'{fin_msg}{self._settling_time_minutes}Min without change in temperature.'
                     break
                 difference_lifo.maxlength = self._make_maxlength()
                 current_temperature = get_inner_temperature()
@@ -322,11 +322,11 @@ class OvenCtrl(DeviceAbstract):
                     # f"prev{prev_temperature:.3f} "
                     # f"curr{current_temperature:.3f} "
                     f"max{max_temperature.max:.2f} "
-                    f"{int(self._settling_time_minutes):3d}|{max_temperature.time_since_setting_in_minutes:.2f}Min")
+                    f"{self._settling_time_minutes:3d}|{max_temperature.time_since_setting_in_minutes:.2f}Min")
                 prev_temperature = current_temperature
-                if current_temperature >= next_temperature:
-                    msg = f'{fin_msg} current T {current_temperature} bigger than next T {next_temperature}.'
-                    break
+                # if current_temperature >= next_temperature:
+                #     msg = f'{fin_msg} current T {current_temperature} bigger than next T {next_temperature}.'
+                #     break
             logger_waiting.info(msg) if isinstance(msg, str) else None
             self._oven.log.info(msg) if isinstance(msg, str) else None
             self._temperature_pipe.send(next_temperature)
