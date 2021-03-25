@@ -65,14 +65,14 @@ def thread_run_experiment(output_path: Path, frames_dict: dict, devices_dict: di
                 devices_dict[const.CAMERA_NAME].send((const.FFC, True))  # calibrate
 
                 # the precision of the housing temperature is 0.01C and the precision for the fpa is 0.1C
-                t_fpa = round(get_inner_temperatures(frames_dict[const.FRAME_TEMPERATURES], const.T_FPA), -1)
-                t_housing = get_inner_temperatures(frames_dict[const.FRAME_TEMPERATURES], const.T_HOUSING)
-                path = output_path / f'{const.T_FPA}_{t_fpa}' / \
-                       f'{const.BLACKBODY_NAME}_{int(blackbody_temperature * 100)}'
                 images_dict = {}
                 for i in range(1, n_images_per_iteration + 1):
                     if not flag_run:
                         break
+                    t_fpa = int(round(mp_values_dict[const.T_FPA], 1) * 100)
+                    t_housing = int(round(mp_values_dict[const.T_HOUSING], 2) * 100)
+                    path = output_path / f'{const.T_FPA}_{t_fpa}' / \
+                           f'{const.BLACKBODY_NAME}_{int(blackbody_temperature * 100)}'
                     f_name_to_save = f_name + f"fpa_{t_fpa}_housing_{t_housing}_"
                     image_grabber.send(True)
                     if (image := image_grabber.recv()) is None:
