@@ -57,7 +57,7 @@ SP_PREFIX = 'sp '
 ITERATIONS_IN_TEMPERATURE = 'iterations_in_each_temperature'
 ITERATIONS_IN_TEMPERATURE_INIT_VAL = 1   # Otherwise the FFC between the iterations has weird effects
 SETTLING_TIME_MINUTES = 'settling_time_minutes'
-SETTLING_TIME_MINUTES_INIT_VAL = 6   # This number needs to be big, because many T_bb are needed for each T_camera
+SETTLING_TIME_MINUTES_INIT_VAL = 7   # This number needs to be big, because many T_bb are needed for each T_camera
 DELTA_TEMPERATURE = 'delta_temperature'
 # large delta means that the system is only relevant for INCREASING temperatures,
 # because only the max temperature condition can be true
