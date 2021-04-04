@@ -68,7 +68,7 @@ def thread_run_experiment(output_path: Path, frames_dict: dict, devices_dict: di
                 for i in range(1, n_images_per_iteration + 1):
                     if not flag_run:
                         break
-                    t_fpa = round(mp_values_dict[const.T_FPA] * 100, -1)  # precision for the fpa is 0.1C
+                    t_fpa = round(round(mp_values_dict[const.T_FPA] * 100), -1)  # precision for the fpa is 0.1C
                     t_housing = round(mp_values_dict[const.T_HOUSING] * 100)  # precision of the housing is 0.01C
                     t_bb = round(blackbody_temperature * 100)
                     path = output_path / f'{const.T_FPA}_{t_fpa}' / f'{const.BLACKBODY_NAME}_{t_bb}'
@@ -96,8 +96,8 @@ def thread_run_experiment(output_path: Path, frames_dict: dict, devices_dict: di
 
 def init_experiment(frames_dict: dict, devices_dict: dict) -> None:
     # set the parameters for the experiment
-    devices_dict[const.CAMERA_NAME].send((const.CAMERA_PARAMETERS, const.INIT_CAMERA_PARAMETERS))
-    devices_dict[const.CAMERA_NAME].recv()
+    # devices_dict[const.CAMERA_NAME].send((const.CAMERA_PARAMETERS, const.INIT_CAMERA_PARAMETERS))
+    # devices_dict[const.CAMERA_NAME].recv()
 
     # make output path
     name = frames_dict[const.FRAME_HEAD].getvar(const.EXPERIMENT_NAME)
