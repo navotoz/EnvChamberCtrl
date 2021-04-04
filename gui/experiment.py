@@ -96,8 +96,8 @@ def thread_run_experiment(output_path: Path, frames_dict: dict, devices_dict: di
 
 def init_experiment(frames_dict: dict, devices_dict: dict) -> None:
     # set the parameters for the experiment
-    # devices_dict[const.CAMERA_NAME].send((const.CAMERA_PARAMETERS, const.INIT_CAMERA_PARAMETERS))
-    # devices_dict[const.CAMERA_NAME].recv()
+    devices_dict[const.CAMERA_NAME].send((const.CAMERA_PARAMETERS, const.INIT_CAMERA_PARAMETERS))
+    devices_dict[const.CAMERA_NAME].recv()
 
     # make output path
     name = frames_dict[const.FRAME_HEAD].getvar(const.EXPERIMENT_NAME)
