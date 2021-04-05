@@ -10,6 +10,10 @@ The environment chamber is composed of **Six** modules:
 - PC - connected to all of the above and running on Linux, 
 and controlling all devices via a GUI written with python 3.8.
 
+## Caution ##
+Do not change the state of the air-conditioning in the room during the entire run.
+Preferably - do not use it.
+
 ## Installation ##
 #### Requirements ####
 The server is run using python 3.8 with requirements detailed in requirements.txt.
