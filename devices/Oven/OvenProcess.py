@@ -332,4 +332,3 @@ class OvenCtrl(DeviceAbstract):
             self._oven.log.info(f'Camera reached temperature {prev_temperature:.2f}C '
                                 f'and settled for {self._settling_time_minutes} minutes '
                                 f'under {self._delta_temperature} delta.')
-        self._set_oven_temperature(0, offset=0, verbose=True)

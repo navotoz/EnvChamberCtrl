@@ -87,7 +87,6 @@ def thread_run_experiment(output_path: Path, frames_dict: dict, devices_dict: di
             logger.info(f"Experiment ended.")
             semaphore_plot_proc.release()
             save_average_from_images(output_path)
-    oven_temperature.send(0)
     semaphore_plot_proc.release()
     devices_dict[const.OVEN_NAME].send((const.BUTTON_START, False))
     # proc_plot.kill()

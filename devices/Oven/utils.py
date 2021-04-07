@@ -65,6 +65,8 @@ def make_oven_temperatures_list() -> list:
     lower_bound = int(get_spinbox_value(OVEN_NAME + MIN_STRING))
     upper_bound = int(get_spinbox_value(OVEN_NAME + MAX_STRING))
     increment = int(get_spinbox_value(OVEN_NAME + INC_STRING))
+    if not increment:
+        return [lower_bound]
     temperatures = list(range(lower_bound, upper_bound, increment))
     temperatures.append(upper_bound) if temperatures and temperatures[-1] != upper_bound else None
     return temperatures
