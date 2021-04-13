@@ -11,9 +11,6 @@ from devices import DeviceAbstract
 
 
 class CameraCtrl(DeviceAbstract):
-    def _terminate_device_specifics(self):
-        pass
-
     _workers_dict = dict()
     _camera: (CameraAbstract, None)
     _image = None
@@ -33,6 +30,12 @@ class CameraCtrl(DeviceAbstract):
         self._lock_image = th.Lock()
         self._event_image = th.Event()
         self._event_image.clear()
+        self._event_get_temperatures = th.Event()
+        self._event_get_temperatures.set()
+
+    def _terminate_device_specifics(self):
+        self._event_image.set()
+        self._event_get_temperatures.set()
 
     def _run(self):
         self._camera = DummyTeaxGrabber(logging_handlers=self._logging_handlers)
@@ -60,6 +63,7 @@ class CameraCtrl(DeviceAbstract):
 
         getter = wait_for_time(get, const.FREQ_INNER_TEMPERATURE_SECONDS)
         while self._flag_run:
+            self._event_get_temperatures.wait(timeout=60*10)
             getter()
 
     def _th_image_grabber(self):
@@ -69,22 +73,17 @@ class CameraCtrl(DeviceAbstract):
                     self._image = self._camera.grab() if self._camera else None
                 self._event_image.set()
 
-        getter = wait_for_time(get, const.CAMERA_TAU_HERTZ)  # ~30Hz
+        getter = wait_for_time(get, const.CAMERA_TAU_HERTZ)  # ~50Hz
         while self._flag_run:
             getter()
-        self._event_image.set()
 
     def _th_image_sender(self):
-        def get() -> None:
-            with self._lock_image:
-                self._image_pipe.send(self._image)
-                self._event_image.clear()
-
-        getter = wait_for_time(get, const.CAMERA_TAU_HERTZ)  # ~30Hz
         while self._flag_run:
             self._image_pipe.recv()
             self._event_image.wait(timeout=10 * const.CAMERA_TAU_HERTZ)
-            getter()
+            with self._lock_image:
+                self._image_pipe.send(self._image)
+                self._event_image.clear()
 
     def _th_cmd_parser(self):
         while self._flag_run:
@@ -124,3 +123,5 @@ class CameraCtrl(DeviceAbstract):
                 elif cmd == const.FFC:
                     with self._lock_camera:
                         self._camera.ffc()
+                elif cmd == const.CAMERA_EXPERIMENT:
+                    self._event_get_temperatures.clear() if value else self._event_get_temperatures.set()

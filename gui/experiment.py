@@ -1,8 +1,5 @@
 from itertools import product
-from time import sleep, time_ns
-
 import numpy as np
-import tkinter as tk
 from datetime import datetime
 from pathlib import Path
 import threading as th
@@ -61,16 +58,17 @@ def thread_run_experiment(output_path: Path, frames_dict: dict, devices_dict: di
                     logger.warning('Stopped the experiment.')
                     break
                 f_name = set_value_and_make_filename(blackbody_temperature, scanner_angle, focus, devices_dict, logger)
+                t_bb = round(blackbody_temperature * 100)
                 logger.info(f"Blackbody temperature {blackbody_temperature}C is set.")
                 devices_dict[const.CAMERA_NAME].send((const.FFC, True))  # calibrate
 
                 images_dict = {}
                 t_fpa = round(round(mp_values_dict[const.T_FPA] * 100), -1)  # precision for the fpa is 0.1C
+                t_housing = round(mp_values_dict[const.T_HOUSING] * 100)  # precision of the housing is 0.01C
+                camera_cmd.send((const.CAMERA_EXPERIMENT, True))
                 for i in range(1, n_images_per_iteration + 1):
                     if not flag_run:
                         break
-                    t_housing = round(mp_values_dict[const.T_HOUSING] * 100)  # precision of the housing is 0.01C
-                    t_bb = round(blackbody_temperature * 100)
                     path = output_path / f'{const.T_FPA}_{t_fpa}' / f'{const.BLACKBODY_NAME}_{t_bb}'
                     f_name_to_save = f_name + f"fpa_{t_fpa}_housing_{t_housing}_"
                     image_grabber.send(True)
@@ -83,6 +81,7 @@ def thread_run_experiment(output_path: Path, frames_dict: dict, devices_dict: di
                     frames_dict[const.FRAME_PROGRESSBAR].nametowidget(const.PROGRESSBAR).update_idletasks()
                 mp.Process(target=_mp_save_images, kwargs=dict(images_dict=images_dict.copy()),
                            name=f'SaveImages{idx:d}', daemon=False).start()
+                camera_cmd.send((const.CAMERA_EXPERIMENT, False))
             idx += 1
             logger.info(f"Experiment ended.")
             semaphore_plot_proc.release()

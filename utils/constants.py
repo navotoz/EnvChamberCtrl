@@ -130,7 +130,7 @@ DEVICE_REAL = 100
 # camera status
 CAMERA_TAU = 20
 CAMERA_THERMAPP = 30
-CAMERA_TAU_HERTZ = 0.035
+CAMERA_TAU_HERTZ = 0.02
 FFC = 'ffc'
 
 # plots
@@ -155,3 +155,5 @@ INIT_CAMERA_PARAMETERS = dict(
     cmos_depth=0x0000,  # 14bit pre AGC
     # corr_mask=0  # off
 )
+
+CAMERA_EXPERIMENT = 'cam_experiment'
