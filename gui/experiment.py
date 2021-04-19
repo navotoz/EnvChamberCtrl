@@ -62,26 +62,19 @@ def thread_run_experiment(output_path: Path, frames_dict: dict, devices_dict: di
                 logger.info(f"Blackbody temperature {blackbody_temperature}C is set.")
                 devices_dict[const.CAMERA_NAME].send((const.FFC, True))  # calibrate
 
-                images_dict = {}
-                t_fpa = round(round(mp_values_dict[const.T_FPA] * 100), -1)  # precision for the fpa is 0.1C
-                t_housing = round(mp_values_dict[const.T_HOUSING] * 100)  # precision of the housing is 0.01C
-                camera_cmd.send((const.CAMERA_EXPERIMENT, True))
-                for i in range(1, n_images_per_iteration + 1):
-                    if not flag_run:
-                        break
-                    path = output_path / f'{const.T_FPA}_{t_fpa}' / f'{const.BLACKBODY_NAME}_{t_bb}'
-                    f_name_to_save = f_name + f"fpa_{t_fpa}_housing_{t_housing}_"
-                    image_grabber.send(True)
-                    if (image := image_grabber.recv()) is None:
-                        break
-                    f_name_to_save = path / f"{f_name_to_save}{i}of{n_images_per_iteration}"
-                    images_dict[f_name_to_save] = image
-                    logger.debug(f"Taken {i} image")
-                    frames_dict[const.FRAME_PROGRESSBAR].nametowidget(const.PROGRESSBAR).step(1 / total_images * 100)
-                    frames_dict[const.FRAME_PROGRESSBAR].nametowidget(const.PROGRESSBAR).update_idletasks()
-                mp.Process(target=_mp_save_images, kwargs=dict(images_dict=images_dict.copy()),
+                image_grabber.send(n_images_per_iteration)
+                resp = image_grabber.recv()
+                if resp is None or resp is False:
+                    break
+                images_dict = image_grabber.recv()
+                frames_dict[const.FRAME_PROGRESSBAR].nametowidget(const.PROGRESSBAR).step(n_images_per_iteration /
+                                                                                          total_images * 100)
+                frames_dict[const.FRAME_PROGRESSBAR].nametowidget(const.PROGRESSBAR).update_idletasks()
+                mp.Process(target=_mp_save_images, kwargs=dict(images_dict=images_dict.copy(),
+                                                               f_name=f_name,
+                                                               output_path=output_path,
+                                                               t_bb=t_bb),
                            name=f'SaveImages{idx:d}', daemon=False).start()
-                camera_cmd.send((const.CAMERA_EXPERIMENT, False))
             idx += 1
             logger.info(f"Experiment ended.")
             semaphore_plot_proc.release()
@@ -114,10 +107,14 @@ def init_experiment(frames_dict: dict, devices_dict: dict) -> None:
               name='th_run_experiment', daemon=False).start()
 
 
-def _mp_save_images(images_dict: dict):
-    for path, image in images_dict.items():
-        parent = Path(path).parent
+def _mp_save_images(images_dict: dict, f_name: str, output_path: Path, t_bb: int):
+    n_images_per_iteration = len(images_dict.values())
+    for (t_fpa, t_housing, idx), image in images_dict.items():
+        path = output_path / f'{const.T_FPA}_{t_fpa}' / f'{const.BLACKBODY_NAME}_{t_bb}'
+        f_name_to_save = f_name + f"fpa_{t_fpa}_housing_{t_housing}_"
+        f_name_to_save = path / f"{f_name_to_save}{idx}of{n_images_per_iteration}"
+        parent = Path(f_name_to_save).parent
         if not parent.is_dir():
             parent.mkdir(parents=True)
-        np.save(str(path), image)
-        normalize_image(image).save(str(path) + '.jpeg', format='jpeg')
+        np.save(str(f_name_to_save), image)
+        normalize_image(image).save(str(f_name_to_save) + '.jpeg', format='jpeg')

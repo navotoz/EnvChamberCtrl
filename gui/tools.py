@@ -84,8 +84,9 @@ def apply_and_return_filename_str(val: float, device_name: str, devices_dict: di
 
 
 def func_thread_grabber(device_duplex: DuplexPipe) -> (Image.Image, None):
-    device_duplex.send(True)
-    image = device_duplex.recv()
+    device_duplex.send(1)
+    device_duplex.recv()
+    image = list(device_duplex.recv().values())[-1]
     if image is not None:
         return normalize_image(image.astype('float32'))
     return None

@@ -27,14 +27,10 @@ class CameraCtrl(DeviceAbstract):
         self._flags_pipes_list = [self._image_pipe.flag_run, self._cmd_pipe.flag_run]
         self._camera_type = const.DEVICE_DUMMY
         self._lock_camera = th.Lock()
-        self._lock_image = th.Lock()
-        self._event_image = th.Event()
-        self._event_image.clear()
         self._event_get_temperatures = th.Event()
         self._event_get_temperatures.set()
 
     def _terminate_device_specifics(self):
-        self._event_image.set()
         self._event_get_temperatures.set()
 
     def _run(self):
@@ -43,9 +39,6 @@ class CameraCtrl(DeviceAbstract):
 
         self._workers_dict['t_collector'] = th.Thread(target=self._th_get_temperatures, name='t_collector')
         self._workers_dict['t_collector'].start()
-
-        self._workers_dict['img_grabber'] = th.Thread(target=self._th_image_grabber, name='img_grabber')
-        self._workers_dict['img_grabber'].start()
 
         self._workers_dict['img_sender'] = th.Thread(target=self._th_image_sender, name='img_sender')
         self._workers_dict['img_sender'].start()
@@ -66,24 +59,27 @@ class CameraCtrl(DeviceAbstract):
             self._event_get_temperatures.wait(timeout=60*10)
             getter()
 
-    def _th_image_grabber(self):
+    def _th_image_sender(self):
         def get() -> None:
-            with self._lock_image:
-                with self._lock_camera:
-                    self._image = self._camera.grab() if self._camera else None
-                self._event_image.set()
+            with self._lock_camera:
+                return self._camera.grab() if self._camera else None
 
         getter = wait_for_time(get, const.CAMERA_TAU_HERTZ)  # ~50Hz
         while self._flag_run:
-            getter()
+            n_images_to_grab = self._image_pipe.recv()
+            if not n_images_to_grab or n_images_to_grab <= 0:
+                self._image_pipe.send(None)
+            else:
+                self._image_pipe.send(True)
 
-    def _th_image_sender(self):
-        while self._flag_run:
-            self._image_pipe.recv()
-            self._event_image.wait(timeout=10 * const.CAMERA_TAU_HERTZ)
-            with self._lock_image:
-                self._image_pipe.send(self._image)
-                self._event_image.clear()
+            self._event_get_temperatures.clear()
+            images = {}
+            for n_image in range(1, n_images_to_grab+1):
+                t_fpa = round(round(self._values_dict[const.T_FPA] * 100), -1)  # precision for the fpa is 0.1C
+                t_housing = round(self._values_dict[const.T_HOUSING] * 100)  # precision of the housing is 0.01C
+                images[(t_fpa, t_housing, n_image)] = getter()
+            self._event_get_temperatures.set()
+            self._image_pipe.send(images)
 
     def _th_cmd_parser(self):
         while self._flag_run:
@@ -123,5 +119,3 @@ class CameraCtrl(DeviceAbstract):
                 elif cmd == const.FFC:
                     with self._lock_camera:
                         self._camera.ffc()
-                elif cmd == const.CAMERA_EXPERIMENT:
-                    self._event_get_temperatures.clear() if value else self._event_get_temperatures.set()
