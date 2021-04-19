@@ -99,6 +99,7 @@ def save_average_from_images(path: (Path, str), suffix: str = 'npy'):
             np.save(str(dir_path / 'average.npy'), avg)
             normalize_image(avg).save(str(dir_path / 'average.jpeg'), format='jpeg')
 
+
 class DuplexPipe:
     def __init__(self, conn_recv: Connection, conn_send: Connection, flag_run: (SyncFlag, None)) -> None:
         self._recv = conn_recv
@@ -109,10 +110,13 @@ class DuplexPipe:
         if not self._recv.poll(0.01):
             self._send.send(data)
 
-    def recv(self) -> (bytes, None):
+    def recv(self, timeout_seconds: (int,float) = 0) -> (bytes, None):
+        time_start, timeout = time_ns(), timeout_seconds * 1e9
         while self._flag_run:
             if self._recv.poll(timeout=1):
                 return self._recv.recv()
+            if 0 < timeout < time_ns() - time_start:
+                break
         return None
 
     def purge(self) -> None:
