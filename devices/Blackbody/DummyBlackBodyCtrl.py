@@ -12,7 +12,7 @@ class BlackBody(BlackBodyAbstract):
     __is_temperature_stable = False
     __fake_temperature = 25.
 
-    def __init__(self, client_ip: str = '10.26.91.56', host_port: int = 5100, client_port: int = 5200,
+    def __init__(self, client_ip: str = '188.51.1.2', host_port: int = 5100, client_port: int = 5200,
                  logging_handlers: tuple = (logging.StreamHandler(),), logging_level: int = logging.INFO):
         # raise RuntimeError
         super().__init__(make_logger('DummyBlackBody', logging_handlers, logging_level))
@@ -26,6 +26,9 @@ class BlackBody(BlackBodyAbstract):
 
     def __del__(self):
         pass
+
+    def echo(self, msg: str = 'echo'):
+        pass   # no return value. The real BlackBody only raises RuntimeError if fails.
 
     @property
     def temperature(self) -> float:

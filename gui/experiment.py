@@ -45,7 +45,8 @@ def thread_run_experiment(output_path: Path, frames_dict: dict, devices_dict: di
             total_images = total_stops * n_images_per_iteration
 
             # find closest blackbody temperature
-            bb_list = list(map(lambda x: abs(x - devices_dict[const.BLACKBODY_NAME].temperature), values_list[0]))
+            devices_dict[const.BLACKBODY_NAME].send((const.T_BLACKBODY, True))
+            bb_list = list(map(lambda x: abs(x - devices_dict[const.BLACKBODY_NAME].recv()), values_list[0]))
             if bb_list[0] > bb_list[-1]:
                 values_list[0] = np.flip(values_list[0])
             permutations = list(product(*values_list))

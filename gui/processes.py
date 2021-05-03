@@ -5,6 +5,7 @@ import threading as th
 from time import sleep
 
 import utils.constants as const
+from devices.Blackbody.BlackBodyProcess import BlackBodyProc
 from devices.Camera.CameraProcess import CameraCtrl
 from devices.Oven.OvenProcess import OvenCtrl
 from utils.logger import make_logging_handlers, make_logger
@@ -42,3 +43,11 @@ camera = CameraCtrl(logging_handlers=handlers,
                     values_dict=mp_values_dict,
                     cmd_pipe=_cam_cmd_proc)
 camera.start()
+
+
+# MAIN PROBLEM - how to convey the logs to the GUI????
+_blackbody_cmd_proc, blackbody_cmd = make_duplex_pipe(flag_run=None)
+_blackbody_temp_proc, blackbody_temp = make_duplex_pipe(flag_run=None)
+blackbody = BlackBodyProc(logging_handlers=handlers, event_stop=event_stop,
+                          temperature_pipe=_blackbody_temp_proc, cmd_pipe=_blackbody_cmd_proc)
+blackbody.start()

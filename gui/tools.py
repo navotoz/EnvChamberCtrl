@@ -67,7 +67,10 @@ def spinbox_validation(event: (tk.Event, None) = None) -> None:
 def set_value_and_make_filename(blackbody_temperature, scanner_angle, focus, devices_dict, logger: Logger) -> str:
     func = partial(apply_and_return_filename_str, devices_dict=devices_dict, logger=logger)
     f_name = f'{get_time().strftime(FMT_TIME)}_'
-    f_name += func(blackbody_temperature, BLACKBODY_NAME)
+    devices_dict[BLACKBODY_NAME].send((T_BLACKBODY, blackbody_temperature))
+    bb_temp = int(devices_dict[BLACKBODY_NAME].recv()*100)
+    logger.debug(f"{BLACKBODY_NAME.capitalize()} set to {bb_temp}.")
+    f_name += f"{BLACKBODY_NAME}_{bb_temp}_"
     f_name += func(scanner_angle, SCANNER_NAME)
     f_name += func(focus, FOCUS_NAME)
     return f_name
@@ -139,6 +142,8 @@ def set_buttons_by_devices_status(frame: tk.Frame, devices_dict):
 
 def update_spinbox_parameters_devices_states(frame: tk.Frame, devices_dict: dict):
     for name, device in devices_dict.items():
+        if BLACKBODY_NAME in name:
+            continue
         state_device = get_device_status(name, device)
         device_sp_names = map(lambda x: str(x).split('.')[-1], frame.winfo_children())
         device_sp_names = filter(lambda x: not x.startswith('!') and x.startswith(SP_PREFIX), device_sp_names)

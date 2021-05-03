@@ -132,9 +132,9 @@ def make_devices_status_radiobox(frame: tk.Frame, row: int, col: int, name: str,
         next_device_status = next_device_status.get()
         curr_device_status = get_device_status(name_func, devices_dict[name_func])
         if curr_device_status != next_device_status:
-            if OVEN_NAME in name:
+            if OVEN_NAME in name_func or BLACKBODY_NAME in name_func:
                 if devices_dict[name_func]:
-                    devices_dict[name_func].send((OVEN_NAME, next_device_status))
+                    devices_dict[name_func].send((name_func, next_device_status))
                     next_device_status = devices_dict[name_func].recv()
             devices_dict[name_func] = func(name=name_func, frame=frame_func, status=next_device_status)
         try:
@@ -145,19 +145,20 @@ def make_devices_status_radiobox(frame: tk.Frame, row: int, col: int, name: str,
     var_dev_stat = tk.IntVar(value=DEVICE_REAL, name=f'device_status_{name}')
     make = partial(tk.Radiobutton, master=frame, variable=var_dev_stat, width=5, indicatoron=True)
     run = partial(run_func, frame_func=frame, func=cmd, next_device_status=var_dev_stat, devices_dict=devices_dict)
-    dummy_button = make(text="Dummy", name=f'dummy_{name}', value=DEVICE_DUMMY)
-    dummy_button.grid(row=row, column=col + 1)
-    dummy_button.config(command=partial(run, name_func=name))
-    real_button = make(text="Real", name=f'real_{name}', value=DEVICE_REAL)
-    real_button.grid(row=row, column=col + 2)
-    real_button.config(command=partial(run, name_func=name))
-    if OVEN_NAME not in name:
-        off_button = make(text="Off", name=f'off_{name}', value=DEVICE_OFF)
-        off_button.grid(row=row, column=col)
-        off_button.config(command=partial(run, name_func=name))
-        off_button.invoke()
-    else:
-        dummy_button.invoke()
+    if BLACKBODY_NAME not in name:
+        dummy_button = make(text="Dummy", name=f'dummy_{name}', value=DEVICE_DUMMY)
+        dummy_button.grid(row=row, column=col + 1)
+        dummy_button.config(command=partial(run, name_func=name))
+        real_button = make(text="Real", name=f'real_{name}', value=DEVICE_REAL)
+        real_button.grid(row=row, column=col + 2)
+        real_button.config(command=partial(run, name_func=name))
+        if OVEN_NAME not in name:
+            off_button = make(text="Off", name=f'off_{name}', value=DEVICE_OFF)
+            off_button.grid(row=row, column=col)
+            off_button.config(command=partial(run, name_func=name))
+            off_button.invoke()
+        else:
+            dummy_button.invoke()
 
 
 def make_camera_status_radiobox(frame: tk.Frame, row: int, devices_dict: dict):
@@ -218,7 +219,7 @@ def make_terminal(frame: tk.Frame, logger: Logger):
 
 
 def make_device_and_handle_parameters(name: str, frame: tk.Frame, logger, handlers, status: int, devices_dict):
-    if name in OVEN_NAME:
+    if name in OVEN_NAME or name in BLACKBODY_NAME:
         device = devices_dict[OVEN_NAME]
     elif status != DEVICE_OFF:
         device = initialize_device(name, logger, handlers, status == DEVICE_DUMMY)

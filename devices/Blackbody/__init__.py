@@ -9,6 +9,10 @@ class BlackBodyAbstract:
     def __del__(self):
         pass
 
+    @abstractmethod
+    def echo(self, msg: str = 'echo'):
+        pass
+
     @property
     @abstractmethod
     def temperature(self) -> float:

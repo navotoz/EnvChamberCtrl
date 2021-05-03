@@ -18,8 +18,6 @@ def initialize_device(element_name: str, logger: Logger, handlers: tuple, use_du
     use_dummies = 'Dummy' if use_dummies else ''
     if SCANNER_NAME.lower() in element_name.lower():
         m = import_module(f"devices.Scanner.{use_dummies}ScannerCtrl", f"Scanner").Scanner
-    elif BLACKBODY_NAME.lower() in element_name.lower():
-        m = import_module(f"devices.Blackbody.{use_dummies}BlackBodyCtrl", f"BlackBody").BlackBody
     elif FOCUS_NAME.lower() in element_name.lower():
         m = import_module(f"devices.Focus.{use_dummies}FocusStageCtrl", f"FocusStage").FocusStage
     else:
@@ -59,7 +57,7 @@ class DeviceAbstract(mp.Process):
 
     def __init__(self, event_stop: mp.Event,
                  logging_handlers: (tuple, list),
-                 values_dict: dict):
+                 values_dict: (dict, None)):
         super().__init__()
         self._event_stop = event_stop
         self._flag_run = SyncFlag(init_state=True)

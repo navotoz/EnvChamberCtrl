@@ -27,6 +27,7 @@ SETPOINT = 'setPoint'
 DATETIME = 'Datetime'
 T_FPA = 'fpa'
 T_HOUSING = 'housing'
+T_BLACKBODY = 'blackbody'
 T_CAMERA = 'T_camera'  # thermo-caple attached to the camera inside the oven
 
 # dimensions
