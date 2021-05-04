@@ -26,7 +26,7 @@ SET_GAIN_MODE = Code(0x0A, 2, 2)
 # FFC Commands
 GET_FFC_MODE = Code(0x0B, 0, 2)
 SET_FFC_MODE = Code(0x0B, 2, 2)
-FCC_MODE_CODE_DICT = dict(auto=0x0001, manual=0x0000, external=0x0002)
+FFC_MODE_CODE_DICT = dict(auto=0x0001, manual=0x0000, external=0x0002)
 
 GET_FFC_NFRAMES = Code(0x0B, 4, 2)
 SET_FFC_NFRAMES = Code(0x0B, 4, 2)

@@ -38,10 +38,10 @@ class TestTeaxGrabber(TestCase):
         self.assertEqual( camera.brightness , 0x0002)
 
     def test_ffc_mode(self):
-        camera.ffc_mode = ptc.FCC_MODE_CODE_DICT['auto']
-        self.assertEqual( camera.ffc_mode , ptc.FCC_MODE_CODE_DICT['auto'])
-        camera.ffc_mode = ptc.FCC_MODE_CODE_DICT['auto']
-        self.assertEqual( camera.ffc_mode , ptc.FCC_MODE_CODE_DICT['auto'])
+        camera.ffc_mode = ptc.FFC_MODE_CODE_DICT['auto']
+        self.assertEqual(camera.ffc_mode, ptc.FFC_MODE_CODE_DICT['auto'])
+        camera.ffc_mode = ptc.FFC_MODE_CODE_DICT['auto']
+        self.assertEqual(camera.ffc_mode, ptc.FFC_MODE_CODE_DICT['auto'])
 
     def test_brightness_bias(self):
         camera.brightness_bias = 0x0001

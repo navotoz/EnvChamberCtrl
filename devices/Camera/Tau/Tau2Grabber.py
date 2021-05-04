@@ -1,3 +1,5 @@
+from time import sleep
+
 import numpy as np
 import binascii
 import logging
@@ -493,7 +495,14 @@ class Tau(CameraAbstract):
     def ffc(self, length: bytes = ptc.FFC_LONG) -> bool:
         res = self._send_and_recv_threaded(ptc.DO_FFC, length)
         if res and struct.unpack('H', res)[0] == 0xffff:
-            self._log.info('FFC')
+            t_fpa = self.get_inner_temperature(T_FPA)
+            t_housing = self.get_inner_temperature(T_HOUSING)
+            f_log = 'FFC.'
+            if t_fpa:
+                f_log += f' FPA {t_fpa:.2f}C'
+            if t_housing:
+                f_log += f', Housing {t_housing:.2f}'
+            self._log.info(f_log)
             return True
         else:
             self._log.info('FFC Failed')
@@ -506,7 +515,7 @@ class Tau(CameraAbstract):
 
     @correction_mask.setter
     def correction_mask(self, mode: str):
-        self._mode_setter(mode, self.correction_mask, ptc.SET_CORRECTION_MASK, ptc.FCC_MODE_CODE_DICT, 'FCC')
+        self._mode_setter(mode, self.correction_mask, ptc.SET_CORRECTION_MASK, ptc.FFC_MODE_CODE_DICT, 'FCC')
 
     @property
     def ffc_mode(self):
@@ -514,7 +523,7 @@ class Tau(CameraAbstract):
 
     @ffc_mode.setter
     def ffc_mode(self, mode: str):
-        self._mode_setter(mode, self.ffc_mode, ptc.SET_FFC_MODE, ptc.FCC_MODE_CODE_DICT, 'FCC')
+        self._mode_setter(mode, self.ffc_mode, ptc.SET_FFC_MODE, ptc.FFC_MODE_CODE_DICT, 'FCC')
 
     @property
     def gain(self):
@@ -691,7 +700,19 @@ class TeaxGrabber(Tau):
             self._log.info('Could not connect to TeaxGrabber.')
             raise RuntimeError
         self._io.start()
-        self.ffc()
+        sleep(1)
+        mode = self.ffc_mode
+        if mode != ptc.FFC_MODE_CODE_DICT['manual'] and mode != ptc.FFC_MODE_CODE_DICT['auto']:
+            self.ffc_mode = ptc.FFC_MODE_CODE_DICT['manual']
+        for _ in range(3):
+            if self.ffc():
+               break
+        for _ in range(3):
+            self.ffc_mode = ptc.FFC_MODE_CODE_DICT['external']
+            if not self.ffc_mode == ptc.FFC_MODE_CODE_DICT['external']:
+                sleep(0.5)
+                continue
+            break
         self._io.purge()
 
     def __del__(self) -> None:
@@ -754,7 +775,7 @@ class TeaxGrabber(Tau):
             params = yaml_or_dict.copy()
         default_n_retries = self.n_retry
         self.n_retry = 10
-        self.ffc_mode = params.get('ffc_mode', 'manual')
+        self.ffc_mode = params.get('ffc_mode', 'external')
         self.isotherm = params.get('isotherm', 0)
         self.dde = params.get('dde', 0)
         self.tlinear = params.get('tlinear', 0)
