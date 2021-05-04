@@ -13,7 +13,7 @@ from devices.Blackbody.DummyBlackBodyCtrl import BlackBody as DummyBlackBody
 
 class BlackBodyProc(DeviceAbstract):
     def _terminate_device_specifics(self):
-        pass
+        self._lock_access.release()
 
     _workers_dict = dict()
     _blackbody: (BlackBody, DummyBlackBody, None)
