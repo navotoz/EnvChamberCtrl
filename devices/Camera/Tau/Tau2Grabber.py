@@ -706,7 +706,7 @@ class TeaxGrabber(Tau):
             self.ffc_mode = ptc.FFC_MODE_CODE_DICT['manual']
         for _ in range(3):
             if self.ffc():
-               break
+                break
         for _ in range(3):
             self.ffc_mode = ptc.FFC_MODE_CODE_DICT['external']
             if not self.ffc_mode == ptc.FFC_MODE_CODE_DICT['external']:
