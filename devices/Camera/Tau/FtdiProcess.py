@@ -1,4 +1,4 @@
-import multiprocessing as mp
+import devices.Camera.Tau.tau2_config as ptc
 import struct
 import threading as th
 from multiprocessing.connection import Connection
@@ -23,11 +23,11 @@ FTDI_PACKET_SIZE = 512 * 8
 SYNC_MSG = b'SYNC' + struct.pack(4 * 'B', *[0, 0, 0, 0])
 
 
-class FtdiIO(mp.Process):
-    _thread_read = _thread_parse = _thread_image = None
+class FtdiIO(th.Thread):
+    _thread_read = None
 
-    def __init__(self, vid, pid, cmd_pipe: DuplexPipe, image_pipe:DuplexPipe, frame_size: int, width: int,
-                 height: int, flag_run: SyncFlag, logging_handlers: (list, tuple), logging_level: int):
+    def __init__(self, vid, pid, frame_size: int, width: int, height: int,
+                 logging_handlers: (list, tuple), logging_level: int):
         super().__init__()
         logging_handlers = make_device_logging_handler('FtdiIO', logging_handlers)
         self._log = make_logger('FtdiIO', logging_handlers, logging_level)
@@ -36,51 +36,27 @@ class FtdiIO(mp.Process):
         except RuntimeError:
             raise RuntimeError('Could not connect to the Tau2 camera.')
 
-        self._flag_run: SyncFlag = flag_run
+        self._flag_run  = SyncFlag(init_state=True)
         self._frame_size = frame_size
         self._width = width
         self._height = height
-        self._lock_access = th.Lock()
-        self._semaphore_access_ftdi = th.Semaphore(value=1)
-        self._event_allow_ftdi_access = th.Event()
-        self._event_allow_ftdi_access.set()
+        self._lock_access_ftdi = th.Lock()
+        self._lock_parse_command = th.Lock()
+        self._event_allow_all_commands = th.Event()
+        self._event_allow_all_commands.set()
         self._event_read = th.Event()
         self._event_read.clear()
-        self._buffer = BytesBuffer(flag_run, self._frame_size)
-        self._cmd_pipe = cmd_pipe
-        self._image_pipe = image_pipe
+        self._buffer = BytesBuffer(self._flag_run, self._frame_size)
         self._n_retries_image = 5
 
     def run(self) -> None:
         self._thread_read = th.Thread(target=self._th_reader_func, name='th_tau2grabber_reader', daemon=False)
         self._thread_read.start()
-        self._thread_parse = th.Thread(target=self._th_parse_func, name='th_tau2grabber_parser', daemon=False)
-        self._thread_parse.start()
-        self._thread_image = th.Thread(target=self._th_image_func, name='th_tau2grabber_image', daemon=False)
-        self._thread_image.start()
         self._log.info('Ready.')
 
-    def purge(self) -> None:
-        self._cmd_pipe.send(None)
-        self._cmd_pipe.purge()
-        self._image_pipe.send(None)
-        self._image_pipe.purge()
-
     def _finish_run(self):
-        try:
-            self._cmd_pipe.send(None)
-        except (BrokenPipeError, AttributeError):
-            pass
-        try:
-            self._image_pipe.send(None)
-        except (BrokenPipeError, AttributeError):
-            pass
-        if hasattr(self, '_thread_read') and self._thread_read:
+        if hasattr(self, '_thread_read') and isinstance(self._thread_read, th.Thread):
             self._thread_read.join()
-        if hasattr(self, '_thread_image') and self._thread_image:
-            self._thread_image.join()
-        if hasattr(self, '_thread_parse') and self._thread_parse:
-            self._thread_parse.join()
         try:
             self._ftdi.close()
         except:
@@ -91,10 +67,14 @@ class FtdiIO(mp.Process):
             pass
 
     def __del__(self) -> None:
-        if hasattr(self, '_flag_run'):
+        if hasattr(self, '_flag_run') and isinstance(self._flag_run, SyncFlag):
             self._flag_run.set(False)
-        if hasattr(self, '_event_allow_ftdi_access') and self._event_allow_ftdi_access:
-            self._event_allow_ftdi_access.set()
+        if hasattr(self, '_buffer') and isinstance(self._buffer, BytesBuffer):
+            del self._buffer
+        if hasattr(self, '_event_read') and isinstance(self._event_read, th.Event):
+            self._event_read.set()
+        if hasattr(self, '_event_allow_ftdi_access') and isinstance(self._event_allow_all_commands, th.Event):
+            self._event_allow_all_commands.set()
         self._finish_run()
 
     def _reset(self) -> None:
@@ -133,7 +113,7 @@ class FtdiIO(mp.Process):
         buffer += int(len(data)).to_bytes(1, byteorder='big')  # doesn't matter
         buffer += data
         try:
-            with self._lock_access:
+            with self._lock_access_ftdi:
                 self._ftdi.write_data(buffer)
             self._log.debug(f"Send {data}")
         except FtdiError:
@@ -141,68 +121,58 @@ class FtdiIO(mp.Process):
             self._reset()
 
     def _th_reader_func(self) -> None:
-        while self._flag_run:
-            if self._event_read.is_set():
-                with self._lock_access:
-                    data = self._ftdi.read_data(FTDI_PACKET_SIZE)
-                    while not data and self._flag_run:
-                        data += self._ftdi.read_data(1)
-                self._buffer += data
+        try:
+            while self._flag_run:
+                if self._event_read.is_set():
+                    with self._lock_access_ftdi:
+                        data = self._ftdi.read_data(FTDI_PACKET_SIZE)
+                        while not data and self._flag_run:
+                            data += self._ftdi.read_data(1)
+                    self._buffer += data
+        except (FtdiError, AttributeError):
+            pass
 
-    def _th_parse_func(self) -> None:
-        while self._flag_run:
-            recv_result = self._cmd_pipe.recv()
-            if not isinstance(recv_result, tuple):
-                self._cmd_pipe.send(None)
-                continue
-            data, command, n_retry = recv_result
-            self._event_allow_ftdi_access.wait()
-            with self._semaphore_access_ftdi:
-                if not self._flag_run:
-                    break
-                self._event_read.set()
+    def parse(self, data: bytes, command: ptc.Code, n_retry: int) -> (None, bytes):
+        self._event_allow_all_commands.wait()
+        with self._lock_parse_command:
+            self._buffer.clear_buffer()
+            self._event_read.set()
+            self._write(data)
+            sleep(0.2)
+            for _ in range(max(1, n_retry)):
+                if (parsed_func := self._parse_func(command)) is not None:
+                    self._event_read.clear()
+                    self._log.debug(f"Recv {parsed_func}")
+                    return parsed_func
+                self._log.debug('Could not parse, retrying..')
+                self._write(SYNC_MSG)
                 self._write(data)
-                idx = 0
                 sleep(0.2)
-                while idx < max(1, n_retry) and self._flag_run:
-                    if (parsed_func := self._parse_func(command)) is not None:
-                        break
-                    self._log.debug('Could not parse, retrying..')
-                    self._write(SYNC_MSG)
-                    self._write(data)
-                    idx += 1
-                    sleep(0.2)
-                self._cmd_pipe.send(parsed_func)
-                self._event_read.clear()
-                self._log.debug(f"Recv {parsed_func}") if parsed_func else None
-                self._buffer.clear_buffer()
+            self._event_read.clear()
+            return None
 
-    def _th_image_func(self) -> None:
-        while self._flag_run:
-            self._image_pipe.recv()  # waits for signal from TeaxGrabber
-            self._event_allow_ftdi_access.clear()  # only allows this thread to operate
-            with self._semaphore_access_ftdi:
-                idx = 0
-                while self._flag_run and idx < self._n_retries_image:
-                    self._event_read.set()
-                    sleep(0.01)
-                    idx += 1
-                    self._buffer.sync_teax()
-                    buffer_len = self._buffer.wait_for_size()
-                    res = self._buffer[:min(self._frame_size, buffer_len)]
-                    if res and struct.unpack('h', res[10:12])[0] != 0x4000:  # a magic word
-                        continue
-                    frame_width = struct.unpack('h', res[5:7])[0] - 2
-                    if frame_width != self._width:
-                        self._log.debug(f"Received frame has incorrect width of {frame_width}.")
-                        continue
-                    raw_image_8bit = np.frombuffer(res[10:], dtype='uint8').reshape((-1, 2 * (self._width + 2)))
-                    if not self._is_8bit_image_borders_valid(raw_image_8bit):
-                        continue
-                    self._event_allow_ftdi_access.set()
-                    self._image_pipe.send(raw_image_8bit)
-                    # self._log.debug('Grabbed Image')
-                    break
+    def grab(self) -> (np.ndarray, None):
+        self._event_allow_all_commands.clear()  # only allows this thread to operate
+        with self._lock_parse_command:
+            for _ in range(max(1, self._n_retries_image)):
+                self._event_read.set()
+                sleep(0.01)
+                self._buffer.sync_teax()
+                buffer_len = self._buffer.wait_for_size()
+                res = self._buffer[:min(self._frame_size, buffer_len)]
+                if res and struct.unpack('h', res[10:12])[0] != 0x4000:  # a magic word
+                    continue
+                frame_width = struct.unpack('h', res[5:7])[0] - 2
+                if frame_width != self._width:
+                    self._log.debug(f"Received frame has incorrect width of {frame_width}.")
+                    continue
+                raw_image_8bit = np.frombuffer(res[10:], dtype='uint8').reshape((-1, 2 * (self._width + 2)))
+                if not self._is_8bit_image_borders_valid(raw_image_8bit):
+                    continue
+                self._event_allow_all_commands.set()
+                return raw_image_8bit
+            self._event_allow_all_commands.set()
+            return None
 
     def _is_8bit_image_borders_valid(self, raw_image_8bit: np.ndarray) -> bool:
         if raw_image_8bit is None:

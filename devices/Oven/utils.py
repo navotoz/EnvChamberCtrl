@@ -104,6 +104,18 @@ class VariableLengthDeque:
         with self._lock:
             return self._deque.__iter__()
 
+    @property
+    def mean(self) -> float:
+        with self._lock:
+            return float(np.mean(self._deque))
+
+    @property
+    def diff(self) -> np.ndarray:
+        with self._lock:
+            if not self._deque:
+                return np.empty(0)
+            return np.diff(self._deque)
+
 
 class MaxTemperatureTimer:
     def __init__(self) -> None:

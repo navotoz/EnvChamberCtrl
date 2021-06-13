@@ -3,7 +3,6 @@ from time import sleep
 import numpy as np
 import binascii
 import logging
-import multiprocessing as mp
 import struct
 from pathlib import Path
 
@@ -16,8 +15,7 @@ from devices.Camera.Tau.FtdiProcess import FtdiIO
 from devices.Camera import CameraAbstract
 from utils.constants import *
 from utils.logger import make_logger, make_logging_handlers, make_device_logging_handler
-from utils.tools import SyncFlag, DuplexPipe, make_duplex_pipe
-from datetime import datetime
+from utils.tools import SyncFlag
 
 # Tau Status codes
 CAM_OK = 0x00
@@ -454,7 +452,7 @@ class Tau(CameraAbstract):
     # def _receive_data(self, n_bytes):
     #     return self.conn.read(n_bytes)
 
-    def _get_values_without_arguments(self, command):
+    def _get_values_without_arguments(self, command: ptc.Code) -> int:
         res = self._send_and_recv_threaded(command, None)
         return struct.unpack('>h', res)[0] if res else 0xffff
 
@@ -675,7 +673,7 @@ class Tau(CameraAbstract):
 
 
 class TeaxGrabber(Tau):
-    def __init__(self, flag_run: SyncFlag, vid=0x0403, pid=0x6010,
+    def __init__(self, vid=0x0403, pid=0x6010,
                  logging_handlers: tuple = make_logging_handlers(None, True),
                  logging_level: int = logging.INFO):
         logging_handlers_ = make_device_logging_handler('TeaxGrabber', logging_handlers)
@@ -683,22 +681,17 @@ class TeaxGrabber(Tau):
         super().__init__(logger=logger)
         self._n_retry = 3
 
-        self._flag_run = flag_run
-        self._lock_cmd_send = mp.Lock()
         self._frame_size = 2 * self.height * self.width + 10 + 4 * self.height  # 10 byte header, 4 bytes pad per row
         self._width = self.width
         self._height = self.height
-
-        cmd_pipe_proc, self._cmd_pipe = make_duplex_pipe(self._flag_run)
-        image_pipe, self._image_pipe = make_duplex_pipe(self._flag_run)
-
         try:
-            self._io = FtdiIO(vid=vid, pid=pid, cmd_pipe=cmd_pipe_proc, image_pipe=image_pipe,
-                              flag_run=self._flag_run, frame_size=self._frame_size, width=self._width,
-                              height=self._height, logging_handlers=logging_handlers, logging_level=logging_level)
+            self._io = FtdiIO(vid=vid, pid=pid, frame_size=self._frame_size,
+                              width=self._width, height=self._height,
+                              logging_handlers=logging_handlers, logging_level=logging_level)
         except RuntimeError:
             self._log.info('Could not connect to TeaxGrabber.')
             raise RuntimeError
+        self._io.setDaemon(False)
         self._io.start()
         sleep(1)
         mode = self.ffc_mode
@@ -713,7 +706,6 @@ class TeaxGrabber(Tau):
                 sleep(0.5)
                 continue
             break
-        self._io.purge()
 
     def __del__(self) -> None:
         if hasattr(self, '_flag_run'):
@@ -722,26 +714,14 @@ class TeaxGrabber(Tau):
             self._log.critical('Exit.')
         except:
             pass
-        try:
-            self._cmd_pipe.send(None)
-        except (BrokenPipeError, AttributeError):
-            pass
-        try:
-            self._image_pipe.send(None)
-        except (BrokenPipeError, AttributeError):
-            pass
         if hasattr(self, '_io') and self._io:
             self._io.join()
 
-    def _send_and_recv_threaded(self, command: ptc.Code, argument: (bytes, None), n_retry: int = 3):
+    def _send_and_recv_threaded(self, command: ptc.Code, argument: (bytes, None), n_retry: int = 3) -> (bytes, None):
         data, res = _make_packet(command, argument), None
-        with self._lock_cmd_send:
-            self._cmd_pipe.purge()
-            self._cmd_pipe.send((data, command, n_retry if n_retry != self.n_retry else self.n_retry))
-            res = self._cmd_pipe.recv()
-            return res
+        return self._io.parse(data=data, command=command, n_retry=n_retry if n_retry != self.n_retry else self.n_retry)
 
-    def grab(self, to_temperature: bool = False, n_retries: int = 3) -> (None, np.ndarray):
+    def grab(self, to_temperature: bool = False, n_retries: int = 3) -> (np.ndarray, None):
         # Note that in TeAx's official driver, they use a threaded loop
         # to read data as it streams from the camera and they simply
         # process images/commands as they come back. There isn't the same
@@ -755,17 +735,13 @@ class TeaxGrabber(Tau):
         # if this is moved to a threaded function that continually services the
         # serial stream and we have some kind of helper function which responds
         # to commands and waits to see the answer from the camera.
-        idx = 0
-        while self._flag_run and idx < n_retries:
-            self._image_pipe.send(True)
-            raw_image_8bit = self._image_pipe.recv()
-            if raw_image_8bit is not None:
+        for _ in range(max(1, n_retries)):
+            if (raw_image_8bit := self._io.grab()) is not None:
                 raw_image_16bit = 0x3FFF & np.array(raw_image_8bit).view('uint16')[:, 1:-1]
 
                 if to_temperature:
                     raw_image_16bit = 0.04 * raw_image_16bit - 273
                 return raw_image_16bit
-            idx += 1
         return None
 
     def set_params_by_dict(self, yaml_or_dict: (Path, dict)):

@@ -13,7 +13,7 @@ class BytesBuffer:
     def __init__(self, flag_run: SyncFlag, size_to_signal: int = 0) -> None:
         self._buffer = b''
         self._lock = th.Lock()
-        self._event_buffer_bigger_than = mp.Event()
+        self._event_buffer_bigger_than = th.Event()
         self._event_buffer_bigger_than.clear()
         self._size_to_signal = size_to_signal
         self._flag_run = flag_run
@@ -24,7 +24,8 @@ class BytesBuffer:
         return len(self._buffer)
 
     def __del__(self) -> None:
-        self._event_buffer_bigger_than.set()
+        if hasattr(self, '_event_buffer_bigger_than') and isinstance(self._event_buffer_bigger_than, th.Event):
+            self._event_buffer_bigger_than.set()
 
     def clear_buffer(self) -> None:
         with self._lock:
