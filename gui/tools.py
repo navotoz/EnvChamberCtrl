@@ -151,7 +151,7 @@ def update_spinbox_parameters_devices_states(frame: tk.Frame, devices_dict: dict
             change_spinbox_state(frame, sp_name, tk.NORMAL if state_device != DEVICE_OFF else tk.DISABLED)
 
 
-def get_device_status(name:str,device: Any) -> int:
+def get_device_status(name: str, device: Any) -> int:
     if isinstance(device, DuplexPipe):
         device.send((name, True))
         return device.recv(timeout_seconds=3)

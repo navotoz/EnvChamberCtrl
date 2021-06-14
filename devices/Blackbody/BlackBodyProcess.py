@@ -13,7 +13,7 @@ from devices.Blackbody.DummyBlackBodyCtrl import BlackBody as DummyBlackBody
 
 class BlackBodyProc(DeviceAbstract):
     def _terminate_device_specifics(self):
-        self._lock_access.release()
+        pass
 
     _workers_dict = dict()
     _blackbody: (BlackBody, DummyBlackBody, None)
@@ -111,13 +111,10 @@ class BlackBodyProc(DeviceAbstract):
                             self._blackbody_type = value
                     self._cmd_pipe.send(self._blackbody_type)
                 elif cmd == const.T_BLACKBODY:
-                    if value is True:
-                        with self._lock_access:
-                            self._cmd_pipe.send(self._temperature)
-                    elif value is not None:
-                        with self._lock_access:
+                    with self._lock_access:
+                        if value is not None:
                             self._blackbody.temperature = value
                             self._temperature = self._blackbody.temperature
-                            self._cmd_pipe.send(self._temperature)
+                        self._cmd_pipe.send(self._temperature)
                 else:
                     self._cmd_pipe.send(None)

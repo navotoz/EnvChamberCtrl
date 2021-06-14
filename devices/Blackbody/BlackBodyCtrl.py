@@ -27,14 +27,17 @@ class BlackBody(BlackBodyAbstract):
         self._send_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         try:
             self._send_socket.connect((self._client_ip, self._client_port))
-        except OSError:
+
+            self._recv_msg_queue = SimpleQueue()
+            self._recv_thread = th.Thread(target=self._recv_thread_func, daemon=True, name='th_recv_blackbody')
+            self._recv_thread.start()
+            sleep(0.1)
+
+            self.echo(verbose=False)
+        except (OSError, RuntimeError):
             raise RuntimeError
 
-        self._recv_msg_queue = SimpleQueue()
-        self._recv_thread = th.Thread(target=self._recv_thread_func, daemon=True, name='th_recv_blackbody')
-        self._recv_thread.start()
-
-        self.echo("Initial Check".upper())
+        self.echo("Initial Check".upper(), verbose=True)
         self._check_bit()
         self._set_mode_absolute()
         self._log.info('Ready.')
@@ -48,30 +51,30 @@ class BlackBody(BlackBodyAbstract):
         self._send_socket.send(msg.encode('utf-8'))
         self._log.debug(f"Send: {msg}")
 
-    def _recv(self) -> (str, None):
+    def _recv(self, verbose: bool = True) -> (str, None):
         msg = None
         try:
             msg = self._recv_msg_queue.get(block=True, timeout=TIMEOUT_IN_SECONDS)
-            self._log.debug(f"Recv: {msg}")
+            self._log.debug(f"Recv: {msg}") if verbose else None
         except Empty:
-            self._log.warning('Timeout on _recv.')
+            self._log.warning('Timeout on _recv.') if verbose else None
         return msg
 
-    def echo(self, msg: str = 'ECHO'):
+    def echo(self, msg: str = 'ECHO', verbose: bool = True):
         """
         Sends an echo to the BlackBody. Expects the result to be the same as msg.
         If successful, logged as debug.
         If fails, raises ConnectionError.
         """
         self._send('Echo ' + msg)
-        recv_msg = self._recv()
+        recv_msg = self._recv(verbose)
         if not recv_msg or msg.lower() not in recv_msg.lower():
             msg = 'Echo test failed. Exiting.'
             self._recv_socket.close()
             self._send_socket.close()
-            self._log.critical(msg)
+            self._log.critical(msg) if verbose else None
             raise RuntimeError(msg)
-        self._log.debug('Echo succeed.')
+        self._log.debug('Echo succeed.') if verbose else None
 
     def _recv_thread_func(self):
         """

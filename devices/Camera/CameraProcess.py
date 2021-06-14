@@ -69,7 +69,7 @@ class CameraCtrl(DeviceAbstract):
         getter = wait_for_time(get, const.CAMERA_TAU_HERTZ)  # ~100Hz even though 60Hz is the max
         while self._flag_run:
             n_images_to_grab = self._image_pipe.recv()
-            if not n_images_to_grab or n_images_to_grab <= 0:
+            if n_images_to_grab is None or n_images_to_grab <= 0:
                 self._image_pipe.send(None)
 
             self._event_get_temperatures.clear()
