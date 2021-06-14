@@ -1,3 +1,5 @@
+import logging
+
 import devices.Camera.Tau.tau2_config as ptc
 import struct
 import threading as th
@@ -50,21 +52,9 @@ class FtdiIO(th.Thread):
         self._n_retries_image = 5
 
     def run(self) -> None:
-        self._thread_read = th.Thread(target=self._th_reader_func, name='th_tau2grabber_reader', daemon=False)
+        self._thread_read = th.Thread(target=self._th_reader_func, name='th_tau2grabber_reader', daemon=True)
         self._thread_read.start()
         self._log.info('Ready.')
-
-    def _finish_run(self):
-        if hasattr(self, '_thread_read') and isinstance(self._thread_read, th.Thread):
-            self._thread_read.join()
-        try:
-            self._ftdi.close()
-        except:
-            pass
-        try:
-            self._log.critical('Exit.')
-        except:
-            pass
 
     def __del__(self) -> None:
         if hasattr(self, '_flag_run') and isinstance(self._flag_run, SyncFlag):
@@ -75,7 +65,12 @@ class FtdiIO(th.Thread):
             self._event_read.set()
         if hasattr(self, '_event_allow_ftdi_access') and isinstance(self._event_allow_all_commands, th.Event):
             self._event_allow_all_commands.set()
-        self._finish_run()
+        if hasattr(self, '_thread_read') and isinstance(self._thread_read, th.Thread):
+            self._thread_read.join()
+        if hasattr(self, '_ftdi') and isinstance(self._ftdi, Ftdi):
+            self._ftdi.close()
+        if hasattr(self, '_log') and isinstance(self._log, logging.Logger):
+            self._log.critical('Exit.')
 
     def _reset(self) -> None:
         if not self._flag_run:
@@ -121,16 +116,17 @@ class FtdiIO(th.Thread):
             self._reset()
 
     def _th_reader_func(self) -> None:
-        try:
-            while self._flag_run:
-                if self._event_read.is_set():
-                    with self._lock_access_ftdi:
+        while self._flag_run:
+            if self._event_read.is_set():
+                with self._lock_access_ftdi:
+                    try:
                         data = self._ftdi.read_data(FTDI_PACKET_SIZE)
                         while not data and self._flag_run:
                             data += self._ftdi.read_data(1)
-                    self._buffer += data
-        except (FtdiError, AttributeError):
-            pass
+                    except FtdiError:
+                        pass
+                    if self._buffer is not None and data is not None:
+                        self._buffer += data
 
     def parse(self, data: bytes, command: ptc.Code, n_retry: int) -> (None, bytes):
         self._event_allow_all_commands.wait()

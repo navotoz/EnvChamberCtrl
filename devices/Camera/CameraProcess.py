@@ -1,9 +1,11 @@
 import multiprocessing as mp
 import threading as th
 
+from tqdm import tqdm
+
 from devices.Camera import CameraAbstract
 from devices.Camera.Tau.DummyTau2Grabber import TeaxGrabber as DummyTeaxGrabber
-from devices.Camera.Tau.Tau2Grabber import TeaxGrabber
+from devices.Camera.Tau.Tau2Grabber import Tau2Grabber
 from devices.Camera.Thermapp.ThermappCtrl import ThermappGrabber
 from utils.tools import wait_for_time, DuplexPipe
 import utils.constants as const
@@ -64,17 +66,15 @@ class CameraCtrl(DeviceAbstract):
             with self._lock_camera:
                 return self._camera.grab() if self._camera else None
 
-        getter = wait_for_time(get, const.CAMERA_TAU_HERTZ)  # ~50Hz
+        getter = wait_for_time(get, const.CAMERA_TAU_HERTZ)  # ~100Hz even though 60Hz is the max
         while self._flag_run:
             n_images_to_grab = self._image_pipe.recv()
             if not n_images_to_grab or n_images_to_grab <= 0:
                 self._image_pipe.send(None)
-            else:
-                self._image_pipe.send(True)
 
             self._event_get_temperatures.clear()
             images = {}
-            for n_image in range(1, n_images_to_grab+1):
+            for n_image in tqdm(range(1, n_images_to_grab+1)):
                 t_fpa = round(round(self._values_dict[const.T_FPA] * 100), -1)  # precision for the fpa is 0.1C
                 t_housing = round(self._values_dict[const.T_HOUSING] * 100)  # precision of the housing is 0.01C
                 images[(t_fpa, t_housing, n_image)] = getter()
@@ -95,8 +95,7 @@ class CameraCtrl(DeviceAbstract):
                             self._camera_type = const.DEVICE_DUMMY
                             try:
                                 if value == const.CAMERA_TAU:
-                                    self._camera = TeaxGrabber(logging_handlers=self._logging_handlers,
-                                                               flag_run=self._flag_run)
+                                    self._camera = Tau2Grabber(logging_handlers=self._logging_handlers)
                                 elif value == const.CAMERA_THERMAPP:
                                     self._camera = ThermappGrabber(logging_handlers=self._logging_handlers)
                                 elif value == const.DEVICE_DUMMY:

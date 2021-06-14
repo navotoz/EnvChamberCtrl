@@ -9,8 +9,23 @@ class Code:
         return self.__code
 
 
-# General Commands
+# Tau Status codes
+CAM_OK = 0x00
+CAM_NOT_READY = 0x02
+CAM_RANGE_ERROR = 0x03
+CAM_UNDEFINED_ERROR = 0x04
+CAM_UNDEFINED_PROCESS_ERROR = 0x05
+CAM_UNDEFINED_FUNCTION_ERROR = 0x06
+CAM_TIMEOUT_ERROR = 0x07
+CAM_BYTE_COUNT_ERROR = 0x09
+CAM_FEATURE_NOT_ENABLED = 0x0A
+ARGUMENT_FPA = 0x00
+ARGUMENT_HOUSING = 0x0A
+TIMEOUT_IN_NSEC = 1e9  # 1 seconds
+MAGIC_IMAGE_ENDING = 0x0ff0
 
+
+# General Commands
 NO_OP = Code(0x00, 0, 0)
 SET_DEFAULTS = Code(0x01, 0, 0)
 CAMERA_RESET = Code(0x02, 0, 0)
@@ -77,7 +92,7 @@ SET_AGC_ACE_CORRECT = Code(0x1C, 0, 2)
 GET_AGC_ACE_CORRECT = Code(0x1C, 2, 2)
 
 AGC_CODE_DICT = dict(plateau=0x0000, once_bright=0x0001, auto_bright=0x0002, manual=0x0003, linear=0x0005,
-                     information_based=0x0009,information_based_eq=0x000A)
+                     information_based=0x0009, information_based_eq=0x000A)
 GET_AGC_ALGORITHM = Code(0x13, 0, 2)
 SET_AGC_ALGORITHM = Code(0x13, 2, 2)
 
@@ -166,24 +181,22 @@ SET_SPATIAL_THRESHOLD = Code(0x2C, 2, 2)  # dde
 SET_TLINEAR_MODE = Code(0x8E, 4, 0)
 GET_TLINEAR_MODE = Code(0x8E, 2, 2)
 
-
 # digital output modes
 GET_DIGITAL_OUTPUT_MODE = Code(0x12, 0, 2)
 SET_DIGITAL_OUTPUT_MODE = Code(0x12, 2, 2)
 
-GET_LVDS_MODE  = Code(0x12, 2, 2)
-SET_LVDS_MODE  = Code(0x12, 2, 2)
+GET_LVDS_MODE = Code(0x12, 2, 2)
+SET_LVDS_MODE = Code(0x12, 2, 2)
 GET_LVDS_DEPTH = Code(0x12, 2, 2)
 SET_LVDS_DEPTH = Code(0x12, 2, 2)
 
 GET_CMOS_DEPTH = Code(0x12, 2, 2)
 SET_CMOS_DEPTH = Code(0x12, 2, 2)
 
-GET_XP_MODE  = Code(0x12, 2, 2)
-SET_XP_MODE  = Code(0x12, 2, 2)
-
+GET_XP_MODE = Code(0x12, 2, 2)
+SET_XP_MODE = Code(0x12, 2, 2)
 
 # FPS
 GET_FPS = Code(0x72, 0, 2)
-FPS_CODE_DICT = {30:0x0000, 60:0x0004}
+FPS_CODE_DICT = {30: 0x0000, 60: 0x0004}
 SET_FPS = Code(0x72, 2, 2)

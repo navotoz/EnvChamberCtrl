@@ -27,7 +27,7 @@ SETPOINT = 'setPoint'
 DATETIME = 'Datetime'
 T_FPA = 'fpa'
 T_HOUSING = 'housing'
-T_BLACKBODY = 'blackbody'
+T_BLACKBODY = 'T_blackbody'
 T_CAMERA = 'T_camera'  # thermo-caple attached to the camera inside the oven
 
 # dimensions
@@ -131,7 +131,7 @@ DEVICE_REAL = 100
 # camera status
 CAMERA_TAU = 20
 CAMERA_THERMAPP = 30
-CAMERA_TAU_HERTZ = 0.02
+CAMERA_TAU_HERTZ = 0.01
 FFC = 'ffc'
 
 # plots
@@ -139,7 +139,7 @@ TEMPERATURE_LABEL = 'Temperature [$C^\circ$]'
 
 CAMERA_PARAMETERS = 'camera_params'
 INIT_CAMERA_PARAMETERS = dict(
-    ffc_mode='manual',
+    ffc_mode='external',
     isotherm=0x0000,
     dde=0x0000,
     tlinear=0x0000,

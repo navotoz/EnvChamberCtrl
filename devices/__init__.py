@@ -1,12 +1,10 @@
 from abc import abstractmethod
 from importlib import import_module
 from logging import Logger
-from pathlib import Path
 
 from serial.serialutil import SerialException, SerialTimeoutException
 
-from utils.constants import CAMERA_NAME, SCANNER_NAME, BLACKBODY_NAME, FOCUS_NAME, DEVICE_DUMMY, CAMERA_TAU, \
-    CAMERA_THERMAPP
+from utils.constants import SCANNER_NAME, FOCUS_NAME
 from utils.logger import make_logging_handlers
 import multiprocessing as mp
 
@@ -59,7 +57,7 @@ class DeviceAbstract(mp.Process):
                  logging_handlers: (tuple, list),
                  values_dict: (dict, None)):
         super().__init__()
-        self._event_stop = event_stop
+        self._event_stop: mp.Event = event_stop
         self._flag_run = SyncFlag(init_state=True)
         self._logging_handlers = logging_handlers
         self._values_dict = values_dict
@@ -114,5 +112,6 @@ class DeviceAbstract(mp.Process):
         pass
 
     def __del__(self):
-        self._event_stop.set()
+        if hasattr(self, '_event_stop') and isinstance(self._event_stop, mp.synchronize.Event):
+            self._event_stop.set()
         self.terminate()
