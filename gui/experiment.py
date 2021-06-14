@@ -46,7 +46,8 @@ def thread_run_experiment(output_path: Path, frames_dict: dict, devices_dict: di
 
             # find closest blackbody temperature
             devices_dict[const.BLACKBODY_NAME].send((const.T_BLACKBODY, True))
-            bb_list = list(map(lambda x: abs(x - devices_dict[const.BLACKBODY_NAME].recv()), values_list[0]))
+            blackbody_temperature = devices_dict[const.BLACKBODY_NAME].recv()
+            bb_list = list(map(lambda x: abs(x - blackbody_temperature), values_list[0]))
             if bb_list[0] > bb_list[-1]:
                 values_list[0] = np.flip(values_list[0])
             permutations = list(product(*values_list))
@@ -61,13 +62,12 @@ def thread_run_experiment(output_path: Path, frames_dict: dict, devices_dict: di
                 f_name = set_value_and_make_filename(blackbody_temperature, scanner_angle, focus, devices_dict, logger)
                 t_bb = round(blackbody_temperature * 100)
                 logger.info(f"Blackbody temperature {blackbody_temperature}C is set.")
-                devices_dict[const.CAMERA_NAME].send((const.FFC, True))  # calibrate
+                # devices_dict[const.CAMERA_NAME].send((const.FFC, True))  # calibrate
 
                 image_grabber.send(n_images_per_iteration)
-                resp = image_grabber.recv()
-                if resp is None or resp is False:
-                    break
                 images_dict = image_grabber.recv()
+                if images_dict is None or images_dict is False:
+                    break
                 frames_dict[const.FRAME_PROGRESSBAR].nametowidget(const.PROGRESSBAR).step(n_images_per_iteration /
                                                                                           total_images * 100)
                 frames_dict[const.FRAME_PROGRESSBAR].nametowidget(const.PROGRESSBAR).update_idletasks()

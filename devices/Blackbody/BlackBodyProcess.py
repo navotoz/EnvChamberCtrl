@@ -1,3 +1,4 @@
+from numbers import Number
 import multiprocessing as mp
 import threading as th
 from pathlib import Path
@@ -112,7 +113,7 @@ class BlackBodyProc(DeviceAbstract):
                     self._cmd_pipe.send(self._blackbody_type)
                 elif cmd == const.T_BLACKBODY:
                     with self._lock_access:
-                        if value is not None:
+                        if isinstance(value, Number) and not isinstance(value, bool):
                             self._blackbody.temperature = value
                             self._temperature = self._blackbody.temperature
                         self._cmd_pipe.send(self._temperature)

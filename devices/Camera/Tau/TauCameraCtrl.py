@@ -607,6 +607,10 @@ class Tau(CameraAbstract):
     def fps(self, mode: str):
         self._mode_setter(mode, self.fps, ptc.SET_FPS, ptc.FPS_CODE_DICT, 'FPS')
 
+    @property
+    def reset(self):
+        return self._send_and_recv_threaded(ptc.CAMERA_RESET, None)
+
 
 def _make_packet(command: ptc.Code, argument: (bytes, None) = None) -> bytes:
     if argument is None:
