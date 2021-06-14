@@ -105,8 +105,8 @@ class CameraCtrl(DeviceAbstract):
                             self._camera_type = value
                     self._cmd_pipe.send(self._camera_type)
                 elif cmd == const.CAMERA_PARAMETERS:
-                    # with self._lock_camera:
-                    #     self._camera.set_params_by_dict(value)
+                    with self._lock_camera:
+                        self._camera.set_params_by_dict(value)
                     self._cmd_pipe.send(True)
                 elif cmd == const.DIM:
                     if value == const.HEIGHT:
