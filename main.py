@@ -85,8 +85,6 @@ frames_dict[const.FRAME_PARAMS].nametowidget('camera_tau2').invoke()
 if get_device_status(const.CAMERA_NAME, devices_dict[const.CAMERA_NAME]) == const.DEVICE_DUMMY:
     frames_dict[const.FRAME_PARAMS].nametowidget('camera_thermapp').invoke()
 
-dict_variables[const.DELTA_TEMPERATURE].pipe = oven_cmd
-dict_variables[const.DELTA_TEMPERATURE].set(dict_variables[const.DELTA_TEMPERATURE].get())
 dict_variables[const.SETTLING_TIME_MINUTES].pipe = oven_cmd
 dict_variables[const.SETTLING_TIME_MINUTES].set(dict_variables[const.SETTLING_TIME_MINUTES].get())
 

@@ -65,7 +65,7 @@ class SafeDoubleVar(SaveVar):
 def make_spinbox(frame: tk.Frame, row: int, col: int, name: str,
                  from_: (int, float), to: (int, float), res: (int, float)) -> None:
     sp_name = SP_PREFIX + name
-    if name in [SETTLING_TIME_MINUTES, DELTA_TEMPERATURE]:
+    if name in [SETTLING_TIME_MINUTES, FFC_TEMPERATURE]:
         if isinstance(res, int):
             var = SafeIntVar
         else:
@@ -257,9 +257,9 @@ def make_frames(logger, handler, devices_dict) -> Tuple[tk.Tk, Dict[Any, tk.Fram
                                                        USE_CAM_INNER_TEMPS)
     rb = tk.Checkbutton(frame_head, variable=dict_variables[USE_CAM_INNER_TEMPS])
     rb.grid(row=0, column=3)
-    make_label(frame=frame_head, row=1, col=0, text="Max Temperature Delta [Deg]:", pad_y=10)
-    make_spinbox(frame_head, 1, 1, DELTA_TEMPERATURE, from_=0.01, to=10, res=0.01)
-    dict_variables[DELTA_TEMPERATURE].set(DELTA_TEMPERATURE_INIT_VAL)
+    make_label(frame=frame_head, row=1, col=0, text="FFC Temperature [Deg]:", pad_y=10)
+    make_spinbox(frame_head, 1, 1, FFC_TEMPERATURE, from_=20, to=70, res=1)
+    dict_variables[FFC_TEMPERATURE].set(FFC_TEMPERATURE_INIT_VAL)
     make_label(frame=frame_head, row=1, col=2, text='Minimal Settling Time [Minutes]:')
     make_spinbox(frame_head, 1, 3, SETTLING_TIME_MINUTES, from_=0, to=120, res=1)
     dict_variables[SETTLING_TIME_MINUTES].set(SETTLING_TIME_MINUTES_INIT_VAL)
@@ -268,9 +268,11 @@ def make_frames(logger, handler, devices_dict) -> Tuple[tk.Tk, Dict[Any, tk.Fram
     make_label(frame_temperatures, row=0, col=1, text='', name=f"{T_HOUSING}_label", pad_x=30)
     make_label(frame_temperatures, row=0, col=2, text="FPA [C]:", pad_x=10)
     make_label(frame_temperatures, row=0, col=3, text='', name=f"{T_FPA}_label", pad_x=30)
-    make_label(frame_temperatures, row=0, col=4, text='Iterations in each oven temperature:')
-    make_spinbox(frame_temperatures, row=0, col=5, name=ITERATIONS_IN_TEMPERATURE, from_=1, to=20, res=1)
-    dict_variables[ITERATIONS_IN_TEMPERATURE].set(ITERATIONS_IN_TEMPERATURE_INIT_VAL)
+    make_label(frame_temperatures, row=0, col=4, text='Do FFC at every temperature')
+    dict_variables[FFC_EVERY_T] = tk.StringVar(frame_temperatures, FFC_EVERY_T_INIT_VAL, FFC_EVERY_T)
+    do_ffc = tk.Checkbutton(frame_temperatures, variable=dict_variables[FFC_EVERY_T])
+    do_ffc.grid(row=0, column=5)
+    dict_variables[FFC_EVERY_T].set(FFC_EVERY_T_INIT_VAL)
 
     dict_variables[T_FPA] = SafeDoubleVar(frame_temperatures, 0.0, T_FPA)
     dict_variables[T_HOUSING] = SafeDoubleVar(frame_temperatures, 0.0, T_HOUSING)

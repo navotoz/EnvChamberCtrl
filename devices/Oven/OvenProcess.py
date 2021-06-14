@@ -169,9 +169,6 @@ class OvenCtrl(DeviceAbstract):
                 elif cmd == const.SETTLING_TIME_MINUTES:
                     self._settling_time_minutes = int(value) if value is not None else self._settling_time_minutes
                     self._cmd_pipe.send(self._settling_time_minutes)
-                elif cmd == const.DELTA_TEMPERATURE:
-                    self._delta_temperature = float(value) if value is not None else self._delta_temperature
-                    self._cmd_pipe.send(self._delta_temperature)
                 elif cmd == const.BUTTON_START:
                     if value is True:
                         self._start()
@@ -288,7 +285,7 @@ class OvenCtrl(DeviceAbstract):
 
             # creates a round-robin queue of differences (dt_camera) to wait until t_camera settles
             difference_lifo = VariableLengthDeque(maxlen=max(1, self._make_maxlength()))
-            difference_lifo.append(float('inf'))  # +inf so that it is always bigger than DELTA_TEMPERATURE
+            difference_lifo.append(float('inf'))  # +inf so that it is always biggest
             offset = _make_temperature_offset(t_next=next_temperature, t_oven=self._oven_temperatures.get(T_FLOOR),
                                               t_cam=get_inner_temperature())
             self._set_oven_temperature(next_temperature, offset=offset, verbose=True)
@@ -305,9 +302,6 @@ class OvenCtrl(DeviceAbstract):
             # Notice - MaxTemperatureTimer() only checks for a MAXIMAL value.
             # Unwanted behaviour will occur on temperature descent.
             while msg := self._flag_run:
-                # if max(difference_lifo) > float(self._delta_temperature.value):
-                #     msg = f'{fin_msg} dt {max(difference_lifo)} smaller than {float(self._delta_temperature.value)}'
-                #     break
                 if max_temperature.time_since_setting_in_minutes > self._settling_time_minutes:
                     msg = f'{fin_msg}{self._settling_time_minutes}Min without change in temperature.'
                     break
@@ -330,5 +324,4 @@ class OvenCtrl(DeviceAbstract):
             self._oven.log.info(msg) if isinstance(msg, str) else None
             self._temperature_pipe.send(next_temperature)
             self._oven.log.info(f'Camera reached temperature {prev_temperature:.2f}C '
-                                f'and settled for {self._settling_time_minutes} minutes '
-                                f'under {self._delta_temperature} delta.')
+                                f'and settled for {self._settling_time_minutes} minutes.')

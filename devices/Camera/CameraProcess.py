@@ -69,6 +69,7 @@ class CameraCtrl(DeviceAbstract):
             n_images_to_grab = self._image_pipe.recv()
             if n_images_to_grab is None or n_images_to_grab <= 0:
                 self._image_pipe.send(None)
+                continue
 
             self._event_get_temperatures.clear()
             images = {}

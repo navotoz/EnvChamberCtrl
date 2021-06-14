@@ -59,12 +59,13 @@ ITERATIONS_IN_TEMPERATURE = 'iterations_in_each_temperature'
 ITERATIONS_IN_TEMPERATURE_INIT_VAL = 1   # Otherwise the FFC between the iterations has weird effects
 SETTLING_TIME_MINUTES = 'settling_time_minutes'
 SETTLING_TIME_MINUTES_INIT_VAL = 10   # This number needs to be big, because many T_bb are needed for each T_camera
-DELTA_TEMPERATURE = 'delta_temperature'
-# large delta means that the system is only relevant for INCREASING temperatures,
-# because only the max temperature condition can be true
-DELTA_TEMPERATURE_INIT_VAL = 8e-2
+FFC_TEMPERATURE = 'ffc_temperature'
+FFC_TEMPERATURE_INIT_VAL = 25
 USE_CAM_INNER_TEMPS = 'use_cam_inner_temps'
 USE_CAM_INNER_TEMPS_INIT_VAL = '1'
+FFC_EVERY_T = 'ffc_every_temperature'
+FFC_EVERY_T_INIT_VAL = '0'
+
 RESOLUTION_STRING = " resolution"
 IMAGES_TO_RUN_LABEL = 'images_to_run'
 EXPERIMENT_SAVE_PATH = 'experiment_save_path'
