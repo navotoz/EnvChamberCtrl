@@ -93,8 +93,4 @@ Thread(target=thread_log_fpa_housing_temperatures, name='th_get_fpa_housing_temp
        args=(frames_dict[const.FRAME_TEMPERATURES], mp_values_dict, flag_run,), daemon=True).start()
 frames_dict[const.FRAME_PROGRESSBAR].nametowidget(const.PROGRESSBAR).config(length=root.winfo_width())
 
-# set the temperature to do ffc
-if dict_variables[const.FFC_EVERY_T].get() == '0':
-    devices_dict[const.CAMERA_NAME].send((const.FFC_TEMPERATURE, dict_variables[const.FFC_TEMPERATURE].get()))
-    devices_dict[const.CAMERA_NAME].recv()
 root.mainloop()
