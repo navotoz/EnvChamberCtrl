@@ -62,7 +62,11 @@ def thread_run_experiment(output_path: Path, frames_dict: dict, devices_dict: di
                 f_name = set_value_and_make_filename(blackbody_temperature, scanner_angle, focus, devices_dict, logger)
                 t_bb = round(blackbody_temperature * 100)
                 logger.info(f"Blackbody temperature {blackbody_temperature}C is set.")
-                # devices_dict[const.CAMERA_NAME].send((const.FFC, True))  # calibrate
+
+                ffc_every_temperature = frames_dict[const.FRAME_TEMPERATURES]
+                ffc_every_temperature = ffc_every_temperature.nametowidget(const.FFC_EVERY_T).getvar(const.FFC_EVERY_T)
+                if ffc_every_temperature == '1':
+                    devices_dict[const.CAMERA_NAME].send((const.FFC, True))  # calibrate
 
                 image_grabber.send(n_images_per_iteration)
                 images_dict = image_grabber.recv()
@@ -101,6 +105,15 @@ def init_experiment(frames_dict: dict, devices_dict: dict) -> None:
     devices_dict[const.OVEN_NAME].send((const.EXPERIMENT_SAVE_PATH, output_path))
     assert devices_dict[const.OVEN_NAME].recv() == output_path, 'Oven could not set output path.'
     devices_dict[const.OVEN_NAME].send((const.BUTTON_START, True))
+
+    ffc_every_temperature = frames_dict[const.FRAME_TEMPERATURES]
+    ffc_every_temperature = ffc_every_temperature.nametowidget(const.FFC_EVERY_T).getvar(const.FFC_EVERY_T)
+    if ffc_every_temperature == '0':
+        t_ffc = frames_dict[const.FRAME_HEAD].nametowidget(f'sp {const.FFC_TEMPERATURE}').get()
+        devices_dict[const.CAMERA_NAME].send((const.FFC_TEMPERATURE, t_ffc))
+        devices_dict[const.CAMERA_NAME].recv()
+    else:
+        devices_dict[const.CAMERA_NAME].send((const.FFC, True))  # calibrate
 
     # apply mask to camera output
     make_mask_win_and_save(camera_cmd, image_grabber, semaphore_mask_sync, output_path)

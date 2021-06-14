@@ -42,8 +42,8 @@ class TeaxGrabber(CameraAbstract):
         self.__inner_temperatures_idx %= self.__resolution
         return float(self.__inner_temperatures_list[self.__inner_temperatures_idx])
 
-    def ffc(self, length=None):
-        pass
+    def ffc(self, length=None) -> bool:
+        return True
 
     @property
     def ffc_mode(self):

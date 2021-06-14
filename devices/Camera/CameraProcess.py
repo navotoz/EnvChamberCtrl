@@ -1,11 +1,13 @@
 import multiprocessing as mp
 import threading as th
+from numbers import Number
 
 import utils.constants as const
 from devices import DeviceAbstract
 from devices.Camera import CameraAbstract
 from devices.Camera.Tau.DummyTau2Grabber import TeaxGrabber as DummyTeaxGrabber
 from devices.Camera.Tau.Tau2Grabber import Tau2Grabber
+from devices.Camera.Tau.tau2_config import FFC_MODE_CODE_DICT
 from devices.Camera.Thermapp.ThermappCtrl import ThermappGrabber
 from utils.tools import wait_for_time, DuplexPipe
 
@@ -13,7 +15,7 @@ from utils.tools import wait_for_time, DuplexPipe
 class CameraCtrl(DeviceAbstract):
     _workers_dict = dict()
     _camera: (CameraAbstract, None)
-    _image = None
+    _image = _th_ffc_temperature = _flag_ffc_temperature = None
 
     def __init__(self,
                  logging_handlers: (tuple, list),
@@ -117,3 +119,40 @@ class CameraCtrl(DeviceAbstract):
                 elif cmd == const.FFC:
                     with self._lock_camera:
                         self._camera.ffc()
+                elif cmd == const.FFC_TEMPERATURE:
+                    if value is None or isinstance(value, bool):
+                        self._cmd_pipe.send(self._flag_ffc_temperature)
+                        continue
+                    value = float(value)
+                    if self._flag_ffc_temperature != value:
+                        th.Thread(daemon=True, target=self._th_ffc_t_func, args=(value,),
+                                  name=f'th_ffc_t_{int(value * 100):d}mC').start()
+                        self._cmd_pipe.send(True)
+
+    def _th_ffc_t_func(self, t_to_ffc: float):
+        def get() -> (float, None):
+            return self._values_dict[const.T_FPA]
+
+        getter = wait_for_time(get, wait_time_in_sec=5)
+        while self._flag_run:
+            t_fpa = getter()
+            if t_fpa is None:
+                continue
+            if t_fpa >= t_to_ffc:
+                ffc = ffc_mode = False
+                for _ in range(10):
+                    ffc = self._camera.ffc()
+                    if ffc:
+                        break
+                for _ in range(10):
+                    self.ffc_mode = FFC_MODE_CODE_DICT['external']
+                    ffc_mode = (self.ffc_mode == FFC_MODE_CODE_DICT['external'])
+                    if ffc_mode:
+                        break
+                if ffc and ffc_mode:
+                    self._camera.log.info(f'FFC done at {float(t_fpa):.1f}C.')
+                    self._flag_ffc_temperature = t_to_ffc
+                else:
+                    self._camera.log.critical(f'FFC at {float(t_fpa):.1f}C Failed.')
+                    self._flag_ffc_temperature = None
+                return

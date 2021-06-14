@@ -270,7 +270,7 @@ def make_frames(logger, handler, devices_dict) -> Tuple[tk.Tk, Dict[Any, tk.Fram
     make_label(frame_temperatures, row=0, col=3, text='', name=f"{T_FPA}_label", pad_x=30)
     make_label(frame_temperatures, row=0, col=4, text='Do FFC at every temperature')
     dict_variables[FFC_EVERY_T] = tk.StringVar(frame_temperatures, FFC_EVERY_T_INIT_VAL, FFC_EVERY_T)
-    do_ffc = tk.Checkbutton(frame_temperatures, variable=dict_variables[FFC_EVERY_T])
+    do_ffc = tk.Checkbutton(frame_temperatures, name=FFC_EVERY_T, variable=dict_variables[FFC_EVERY_T])
     do_ffc.grid(row=0, column=5)
     dict_variables[FFC_EVERY_T].set(FFC_EVERY_T_INIT_VAL)
 
