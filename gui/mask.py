@@ -8,22 +8,20 @@ from PIL import ImageTk
 from matplotlib.path import Path as matplotlib_Path
 
 from gui.tools import func_thread_grabber
-from utils.constants import HEIGHT_VIEWER, WIDTH_VIEWER, WIDTH_IMAGE_TAU2, HEIGHT_IMAGE_TAU2, WIDTH, HEIGHT, DIM
+import utils.constants as const
 
 from utils.tools import DuplexPipe
 
 
-def _func_thread_mask(cmd: DuplexPipe, grabber:DuplexPipe,
+def _func_thread_mask(cmd: DuplexPipe, grabber: DuplexPipe,
                       canvas: tk.Canvas, semaphore: Semaphore, output_path: (str, Path)):
     global top_left, top_right, bottom_left, bottom_right
-    cmd.send((DIM, WIDTH))
-    width = cmd.recv()
-    cmd.send((DIM, HEIGHT))
-    height = cmd.recv()
+    grabber.send(1)
+    height, width = list(grabber.recv().values())[0].shape
     top_left, top_right = _Point(0, 0), _Point(width, 0)
     bottom_left, bottom_right = _Point(0, height), _Point(width, height)
     while canvas.winfo_exists():
-        image = ImageTk.PhotoImage(image=func_thread_grabber(grabber))  if canvas.winfo_exists() else None
+        image = ImageTk.PhotoImage(image=func_thread_grabber(grabber)) if canvas.winfo_exists() else None
         canvas.create_image((0, 0), anchor=tk.NW, image=image) if canvas.winfo_exists() else None
         canvas.config(scrollregion=canvas.bbox(tk.ALL)) if canvas.winfo_exists() else None
         canvas.create_polygon((*top_right, *top_left, *bottom_left, *bottom_right), width=2,
@@ -71,10 +69,12 @@ class _Point:
         return self.coord
 
 
-def make_mask_win_and_save(cmd:DuplexPipe, image:DuplexPipe, semaphore: Semaphore, output_path):
+def make_mask_win_and_save(cmd: DuplexPipe, grabber: DuplexPipe, semaphore: Semaphore, output_path):
+    grabber.send(1)
+    height, width = list(grabber.recv().values())[0].shape
     window = tk.Toplevel()
     window.title("Camera Mask Creator")
-    window.geometry(f"{HEIGHT_VIEWER}x{WIDTH_VIEWER}")
+    window.geometry(f"{const.HEIGHT_VIEWER}x{const.WIDTH_VIEWER}")
     frame = tk.Frame(window, bd=2, relief=tk.SUNKEN)
     frame.grid_rowconfigure(0, weight=1)
     frame.grid_columnconfigure(0, weight=1)
@@ -82,7 +82,7 @@ def make_mask_win_and_save(cmd:DuplexPipe, image:DuplexPipe, semaphore: Semaphor
     x_scroll.grid(row=1, column=0, sticky=tk.E + tk.W)
     y_scroll = tk.Scrollbar(frame)
     y_scroll.grid(row=0, column=1, sticky=tk.N + tk.S)
-    canvas = tk.Canvas(frame, bd=0, width=WIDTH_VIEWER, height=HEIGHT_VIEWER,
+    canvas = tk.Canvas(frame, bd=0, width=const.WIDTH_VIEWER, height=const.HEIGHT_VIEWER,
                        xscrollcommand=x_scroll.set, yscrollcommand=y_scroll.set)
     canvas.grid(row=0, column=0, sticky=tk.N + tk.S + tk.E + tk.W)
     x_scroll.config(command=canvas.xview)
@@ -91,13 +91,13 @@ def make_mask_win_and_save(cmd:DuplexPipe, image:DuplexPipe, semaphore: Semaphor
 
     def handle_mouseclick(event):
         click_x, click_y = canvas.canvasx(event.x), canvas.canvasx(event.y)
-        _make_new_rect(min(click_x, device.width), min(click_y, device.height))
+        _make_new_rect(min(click_x, width), min(click_y, height))
 
     # mouseclick event
     canvas.bind("<ButtonPress-1>", handle_mouseclick)
-    thread_camera = Thread(target=_func_thread_mask, args=(cmd, image, canvas, semaphore, output_path), name='th_mask', daemon=True)
+    thread_camera = Thread(target=_func_thread_mask, args=(cmd, grabber, canvas, semaphore, output_path), name='th_mask', daemon=True)
     thread_camera.start()
 
 
-top_left, top_right = _Point(0, 0), _Point(WIDTH_IMAGE_TAU2, 0)
-bottom_left, bottom_right = _Point(0, HEIGHT_IMAGE_TAU2), _Point(WIDTH_IMAGE_TAU2, HEIGHT_IMAGE_TAU2)
+top_left, top_right = _Point(0, 0), _Point(const.WIDTH_IMAGE_TAU2, 0)
+bottom_left, bottom_right = _Point(0, const.HEIGHT_IMAGE_TAU2), _Point(const.WIDTH_IMAGE_TAU2, const.HEIGHT_IMAGE_TAU2)

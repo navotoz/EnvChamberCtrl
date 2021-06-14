@@ -35,8 +35,8 @@ class Tau2Grabber(Tau):
             raise RuntimeError
         self._io.setDaemon(True)
         self._io.start()
-        sleep(0.5)
-        self.ffc_mode = ptc.FFC_MODE_CODE_DICT['external']
+        # sleep(0.5)
+        # self.ffc_mode = ptc.FFC_MODE_CODE_DICT['external']
 
     def __del__(self) -> None:
         if hasattr(self, '_io') and isinstance(self._io, Thread):

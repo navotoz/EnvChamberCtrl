@@ -1,15 +1,13 @@
 import multiprocessing as mp
 import threading as th
 
-from tqdm import tqdm
-
+import utils.constants as const
+from devices import DeviceAbstract
 from devices.Camera import CameraAbstract
 from devices.Camera.Tau.DummyTau2Grabber import TeaxGrabber as DummyTeaxGrabber
 from devices.Camera.Tau.Tau2Grabber import Tau2Grabber
 from devices.Camera.Thermapp.ThermappCtrl import ThermappGrabber
 from utils.tools import wait_for_time, DuplexPipe
-import utils.constants as const
-from devices import DeviceAbstract
 
 
 class CameraCtrl(DeviceAbstract):
@@ -58,7 +56,7 @@ class CameraCtrl(DeviceAbstract):
 
         getter = wait_for_time(get, const.FREQ_INNER_TEMPERATURE_SECONDS)
         while self._flag_run:
-            self._event_get_temperatures.wait(timeout=60*10)
+            self._event_get_temperatures.wait(timeout=60 * 10)
             getter()
 
     def _th_image_sender(self):
@@ -74,7 +72,7 @@ class CameraCtrl(DeviceAbstract):
 
             self._event_get_temperatures.clear()
             images = {}
-            for n_image in tqdm(range(1, n_images_to_grab+1)):
+            for n_image in range(1, n_images_to_grab + 1):
                 t_fpa = round(round(self._values_dict[const.T_FPA] * 100), -1)  # precision for the fpa is 0.1C
                 t_housing = round(self._values_dict[const.T_HOUSING] * 100)  # precision of the housing is 0.01C
                 images[(t_fpa, t_housing, n_image)] = getter()
@@ -107,8 +105,8 @@ class CameraCtrl(DeviceAbstract):
                             self._camera_type = value
                     self._cmd_pipe.send(self._camera_type)
                 elif cmd == const.CAMERA_PARAMETERS:
-                    with self._lock_camera:
-                        self._camera.set_params_by_dict(value)
+                    # with self._lock_camera:
+                    #     self._camera.set_params_by_dict(value)
                     self._cmd_pipe.send(True)
                 elif cmd == const.DIM:
                     if value == const.HEIGHT:
