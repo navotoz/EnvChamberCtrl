@@ -5,6 +5,7 @@ from pathlib import Path
 
 import numpy as np
 import serial
+from serial.tools.list_ports import comports
 
 from devices.Camera import CameraAbstract
 from devices.Camera.Tau import tau2_config as ptc
@@ -14,7 +15,10 @@ from utils.logger import make_logging_handlers, make_device_logging_handler, mak
 
 
 class Tau(CameraAbstract):
-    def __init__(self, port=None, baud=921600, logging_handlers: tuple = make_logging_handlers(None, True),
+    conn = None
+
+    def __init__(self, port=None, vid: int = 0x10C4, pid: int = 0xEA60,
+                 baud=921600, logging_handlers: tuple = make_logging_handlers(None, True),
                  logging_level: int = logging.INFO, logger: (logging.Logger, None) = None):
         if not logger:
             logging_handlers = make_device_logging_handler('Tau2', logging_handlers)
@@ -22,22 +26,22 @@ class Tau(CameraAbstract):
         super().__init__(logger)
         self._log.info("Connecting to camera.")
 
-        if port:
-            self.conn = serial.Serial(port=port, baudrate=baud)
+        if not port:
+            port = list(filter(lambda x: x.vid == vid and x.pid == pid, comports()))
+            port = port[0].device if port else None
+        self.conn = serial.Serial(port=port, baudrate=baud)
 
-            if self.conn.is_open:
-                self._log.info("Connected to camera at {}.".format(port))
+        if self.conn.is_open:
+            self._log.info("Connected to camera at {}.".format(port))
 
-                self.conn.flushInput()
-                self.conn.flushOutput()
-                self.conn.timeout = 1
+            self.conn.flushInput()
+            self.conn.flushOutput()
+            self.conn.timeout = 1
 
-                self.conn.read(self.conn.in_waiting)
-            else:
-                self._log.critical("Couldn't connect to camera!")
-                raise IOError
+            self.conn.read(self.conn.in_waiting)
         else:
-            self.conn = None
+            self._log.critical("Couldn't connect to camera!")
+            raise IOError
         self._width = WIDTH_IMAGE_TAU2
         self._height = HEIGHT_IMAGE_TAU2
 
