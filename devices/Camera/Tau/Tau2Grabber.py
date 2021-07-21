@@ -20,7 +20,10 @@ class Tau2Grabber(Tau):
                  logging_level: int = logging.INFO):
         logging_handlers_ = make_device_logging_handler('TeaxGrabber', logging_handlers)
         logger = make_logger('TeaxGrabber', logging_handlers_, logging_level)
-        super().__init__(logger=logger)
+        try:
+            super().__init__(logger=logger)
+        except IOError:
+            pass
         self._n_retry = 3
 
         self._frame_size = 2 * self.height * self.width + 10 + 4 * self.height  # 10 byte header, 4 bytes pad per row

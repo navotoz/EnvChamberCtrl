@@ -25,10 +25,14 @@ class Tau(CameraAbstract):
             logger = make_logger('Tau2', logging_handlers, logging_level)
         super().__init__(logger)
         self._log.info("Connecting to camera.")
+        self._width = WIDTH_IMAGE_TAU2
+        self._height = HEIGHT_IMAGE_TAU2
 
         if not port:
             port = list(filter(lambda x: x.vid == vid and x.pid == pid, comports()))
             port = port[0].device if port else None
+        if not port:
+            raise IOError('Tau2 with VPC is not connected via a serial connection.')
         self.conn = serial.Serial(port=port, baudrate=baud)
 
         if self.conn.is_open:
@@ -41,9 +45,7 @@ class Tau(CameraAbstract):
             self.conn.read(self.conn.in_waiting)
         else:
             self._log.critical("Couldn't connect to camera!")
-            raise IOError
-        self._width = WIDTH_IMAGE_TAU2
-        self._height = HEIGHT_IMAGE_TAU2
+            raise RuntimeError
 
     def __del__(self):
         if self.conn:
