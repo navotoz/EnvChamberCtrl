@@ -57,10 +57,6 @@ def get_last_measurements(oven) -> (dict, None):
     return records
 
 
-def get_n_experiments(frame: Frame) -> int:
-    return int(frame.getvar(ITERATIONS_IN_TEMPERATURE))
-
-
 def make_oven_temperatures_list() -> list:
     lower_bound = int(get_spinbox_value(OVEN_NAME + MIN_STRING))
     upper_bound = int(get_spinbox_value(OVEN_NAME + MAX_STRING))

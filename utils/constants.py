@@ -55,12 +55,10 @@ INIT_MIN = "init min"
 INIT_MAX = "init max"
 INIT_INC = "init increment"
 SP_PREFIX = 'sp '
-ITERATIONS_IN_TEMPERATURE = 'iterations_in_each_temperature'
-ITERATIONS_IN_TEMPERATURE_INIT_VAL = 1   # Otherwise the FFC between the iterations has weird effects
 SETTLING_TIME_MINUTES = 'settling_time_minutes'
-SETTLING_TIME_MINUTES_INIT_VAL = 10   # This number needs to be big, because many T_bb are needed for each T_camera
+SETTLING_TIME_MINUTES_INIT_VAL = 20   # This number needs to be big, because many T_bb are needed for each T_camera
 FFC_TEMPERATURE = 'ffc_temperature'
-FFC_TEMPERATURE_INIT_VAL = 25
+FFC_TEMPERATURE_INIT_VAL = 30
 USE_CAM_INNER_TEMPS = 'use_cam_inner_temps'
 USE_CAM_INNER_TEMPS_INIT_VAL = '1'
 FFC_EVERY_T = 'ffc_every_temperature'
@@ -84,7 +82,7 @@ LIMIT_DICT = {OVEN_NAME: {MIN_STRING: 10, MAX_STRING: 90, RESOLUTION_STRING: 1,
               BLACKBODY_NAME: {MIN_STRING: 10., MAX_STRING: 70., RESOLUTION_STRING: .01,
                                INIT_MIN: 20.0, INIT_MAX: 60.0, INIT_INC: 5.0},  # [Celsius]
               CAMERA_NAME: {MIN_STRING: 1, MAX_STRING: 5000, RESOLUTION_STRING: 1,
-                            INIT_INC: 1000},  # [number of images]
+                            INIT_INC: 2000},  # [number of images]
               SCANNER_NAME: {MIN_STRING: 0., MAX_STRING: 180., RESOLUTION_STRING: 0.01},  # [Degrees]
               FOCUS_NAME: {MIN_STRING: 0., MAX_STRING: 12., RESOLUTION_STRING: 0.01}}  # [mm]
 METRICS_DICT = {OVEN_NAME: 'C',

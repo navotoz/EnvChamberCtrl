@@ -6,7 +6,7 @@ import threading as th
 import multiprocessing as mp
 import yaml
 
-from devices.Oven.utils import make_oven_temperatures_list, get_n_experiments
+from devices.Oven.utils import make_oven_temperatures_list
 from gui.mask import make_mask_win_and_save
 import utils.constants as const
 from gui.tools import get_values_list, set_value_and_make_filename, get_inner_temperatures, tqdm_waiting
@@ -35,52 +35,49 @@ def thread_run_experiment(output_path: Path, frames_dict: dict, devices_dict: di
         if not oven_temperature.recv():  # checks if the oven proc set a stable temp.
             continue
         logger.info(f'Oven has settled near {next_temperature:.2f}C')
-        idx = 0
-        while idx < get_n_experiments(frame=frames_dict[const.FRAME_TEMPERATURES]):
-            frames_dict[const.FRAME_PROGRESSBAR].nametowidget(const.PROGRESSBAR).stop()  # resets the progress bar
+        frames_dict[const.FRAME_PROGRESSBAR].nametowidget(const.PROGRESSBAR).stop()  # resets the progress bar
 
-            # make current values list from GUI
-            n_images_per_iteration = int(frames_dict[const.FRAME_PARAMS].getvar(const.CAMERA_NAME + const.INC_STRING))
-            values_list, total_stops = get_values_list(frames_dict[const.FRAME_PARAMS], devices_dict)
-            total_images = total_stops * n_images_per_iteration
+        # make current values list from GUI
+        n_images_per_iteration = int(frames_dict[const.FRAME_PARAMS].getvar(const.CAMERA_NAME + const.INC_STRING))
+        values_list, total_stops = get_values_list(frames_dict[const.FRAME_PARAMS], devices_dict)
+        total_images = total_stops * n_images_per_iteration
 
-            # find closest blackbody temperature
-            devices_dict[const.BLACKBODY_NAME].send((const.T_BLACKBODY, True))
-            blackbody_temperature = devices_dict[const.BLACKBODY_NAME].recv()
-            bb_list = list(map(lambda x: abs(x - blackbody_temperature), values_list[0]))
-            if bb_list[0] > bb_list[-1]:
-                values_list[0] = np.flip(values_list[0])
-            permutations = list(product(*values_list))
+        # find closest blackbody temperature
+        devices_dict[const.BLACKBODY_NAME].send((const.T_BLACKBODY, True))
+        blackbody_temperature = devices_dict[const.BLACKBODY_NAME].recv()
+        bb_list = list(map(lambda x: abs(x - blackbody_temperature), values_list[0]))
+        if bb_list[0] > bb_list[-1]:
+            values_list[0] = np.flip(values_list[0])
+        permutations = list(product(*values_list))
 
-            logger.info(f"Experiment started. Running {total_images} images in total.")
-            for blackbody_temperature, scanner_angle, focus in permutations:
-                if blackbody_temperature == -float('inf'):
-                    flag_run.set(False)
-                if not flag_run:
-                    logger.warning('Stopped the experiment.')
-                    break
-                f_name = set_value_and_make_filename(blackbody_temperature, scanner_angle, focus, devices_dict, logger)
-                t_bb = round(blackbody_temperature * 100)
-                logger.info(f"Blackbody temperature {blackbody_temperature}C is set.")
+        logger.info(f"Experiment started. Running {total_images} images in total.")
+        for blackbody_temperature, scanner_angle, focus in permutations:
+            if blackbody_temperature == -float('inf'):
+                flag_run.set(False)
+            if not flag_run:
+                logger.warning('Stopped the experiment.')
+                break
+            f_name = set_value_and_make_filename(blackbody_temperature, scanner_angle, focus, devices_dict, logger)
+            t_bb = round(blackbody_temperature * 100)
+            logger.info(f"Blackbody temperature {blackbody_temperature}C is set.")
 
-                ffc_every_temperature = frames_dict[const.FRAME_TEMPERATURES]
-                ffc_every_temperature = ffc_every_temperature.nametowidget(const.FFC_EVERY_T).getvar(const.FFC_EVERY_T)
-                if ffc_every_temperature == '1':
-                    devices_dict[const.CAMERA_NAME].send((const.FFC, True))  # calibrate
+            ffc_every_temperature = frames_dict[const.FRAME_TEMPERATURES]
+            ffc_every_temperature = ffc_every_temperature.nametowidget(const.FFC_EVERY_T).getvar(const.FFC_EVERY_T)
+            if ffc_every_temperature == '1':
+                devices_dict[const.CAMERA_NAME].send((const.FFC, True))  # calibrate
 
-                image_grabber.send(n_images_per_iteration)
-                images_dict = image_grabber.recv()
-                if images_dict is None or images_dict is False:
-                    break
-                frames_dict[const.FRAME_PROGRESSBAR].nametowidget(const.PROGRESSBAR).step(n_images_per_iteration /
-                                                                                          total_images * 100)
-                frames_dict[const.FRAME_PROGRESSBAR].nametowidget(const.PROGRESSBAR).update_idletasks()
-                mp.Process(target=_mp_save_images, kwargs=dict(images_dict=images_dict.copy(),
-                                                               f_name=f_name,
-                                                               output_path=output_path,
-                                                               t_bb=t_bb),
-                           name=f'SaveImages{idx:d}', daemon=False).start()
-            idx += 1
+            image_grabber.send(n_images_per_iteration)
+            images_dict = image_grabber.recv()
+            if images_dict is None or images_dict is False:
+                break
+            frames_dict[const.FRAME_PROGRESSBAR].nametowidget(const.PROGRESSBAR).step(n_images_per_iteration /
+                                                                                      total_images * 100)
+            frames_dict[const.FRAME_PROGRESSBAR].nametowidget(const.PROGRESSBAR).update_idletasks()
+            mp.Process(target=_mp_save_images, kwargs=dict(images_dict=images_dict.copy(),
+                                                           f_name=f_name,
+                                                           output_path=output_path,
+                                                           t_bb=t_bb),
+                       name=f'SaveImages', daemon=False).start()
             logger.info(f"Experiment ended.")
             semaphore_plot_proc.release()
             save_average_from_images(output_path)
