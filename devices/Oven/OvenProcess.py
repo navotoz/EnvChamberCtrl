@@ -30,8 +30,8 @@ class PlotterProc(mp.Process):
         th_timer = th.Thread(target=self._timer, name='th_proc_plotter_timer', daemon=True)
         th_timer.start()
         while self._flag_run:
-            self._event_timer.wait()
             try:
+                self._event_timer.wait()
                 check_and_make_path(self._output_path)
                 plot_oven_records_in_path(self._records_path, self._output_path)
             except Exception as err:
