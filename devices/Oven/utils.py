@@ -138,7 +138,10 @@ class MaxTemperatureTimer:
 
 
 def _make_temperature_offset(t_next: float, t_oven: float, t_cam: float) -> float:
-    offset = t_next - max(t_oven, t_cam)
+    try:
+        offset = t_next - max(t_oven, t_cam)
+    except TypeError:  # t_cam or t_oven were not yet calculated
+        offset = 0
     offset = round(max(0, DELAY_FLOOR2CAMERA_CONST * offset), 1)
     # empirically, MAX_TEMPERATURE_LINEAR_RISE is very slow to get to - around 75C
     if t_next + offset >= MAX_TEMPERATURE_LINEAR_RISE:
