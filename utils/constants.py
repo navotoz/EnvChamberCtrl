@@ -80,7 +80,7 @@ DELAY_FLOOR2CAMERA_CONST = 2.4
 LIMIT_DICT = {OVEN_NAME: {MIN_STRING: 10, MAX_STRING: 90, RESOLUTION_STRING: 1,
                           INIT_MIN: 20, INIT_MAX: 50, INIT_INC: 5},  # [Celsius]
               BLACKBODY_NAME: {MIN_STRING: 10., MAX_STRING: 70., RESOLUTION_STRING: .01,
-                               INIT_MIN: 20.0, INIT_MAX: 60.0, INIT_INC: 5.0},  # [Celsius]
+                               INIT_MIN: 10.0, INIT_MAX: 70.0, INIT_INC: 5.0},  # [Celsius]
               CAMERA_NAME: {MIN_STRING: 1, MAX_STRING: 5000, RESOLUTION_STRING: 1,
                             INIT_INC: 2000},  # [number of images]
               SCANNER_NAME: {MIN_STRING: 0., MAX_STRING: 180., RESOLUTION_STRING: 0.01},  # [Degrees]
