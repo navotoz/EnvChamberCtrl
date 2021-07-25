@@ -19,12 +19,13 @@ from gui.experiment import init_experiment
 
 def _stop() -> None:
     event_stop.set()
-    flag_run.set(False)
+    flag_run_getter_t_camera.set(False)
     [semaphore_plot_proc.release() for _ in range(3)]
     [semaphore_mask_sync.release() for _ in range(3)]
 
 
 def close_gui(*kwargs) -> None:
+    flag_run_getter_t_camera.set(False)
     event_stop.set()
     _stop()
     for key in devices_dict.keys():
@@ -88,9 +89,9 @@ if get_device_status(const.CAMERA_NAME, devices_dict[const.CAMERA_NAME]) == cons
 dict_variables[const.SETTLING_TIME_MINUTES].pipe = oven_cmd
 dict_variables[const.SETTLING_TIME_MINUTES].set(dict_variables[const.SETTLING_TIME_MINUTES].get())
 
-flag_run = SyncFlag()
+flag_run_getter_t_camera = SyncFlag()
 Thread(target=thread_log_fpa_housing_temperatures, name='th_get_fpa_housing_temperatures',
-       args=(frames_dict[const.FRAME_TEMPERATURES], mp_values_dict, flag_run,), daemon=True).start()
+       args=(frames_dict[const.FRAME_TEMPERATURES], mp_values_dict, flag_run_getter_t_camera,), daemon=True).start()
 frames_dict[const.FRAME_PROGRESSBAR].nametowidget(const.PROGRESSBAR).config(length=root.winfo_width())
 
 root.mainloop()
