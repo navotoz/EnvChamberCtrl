@@ -1,4 +1,6 @@
 from itertools import product
+from time import time_ns
+
 import numpy as np
 from datetime import datetime
 from pathlib import Path
@@ -9,11 +11,10 @@ import yaml
 from devices.Oven.utils import make_oven_temperatures_list
 from gui.mask import make_mask_win_and_save
 import utils.constants as const
-from gui.tools import get_values_list, set_value_and_make_filename, get_inner_temperatures, tqdm_waiting
-from utils.analyze import process_plot_images_comparison
-from utils.tools import check_and_make_path, normalize_image, save_average_from_images, get_time
+from gui.tools import get_values_list, set_value_and_make_filename
+from utils.tools import check_and_make_path, normalize_image, save_average_from_images
 from gui.processes import semaphore_mask_sync, camera_cmd, image_grabber, flag_run, oven_temperature, logger, \
-    semaphore_plot_proc, mp_values_dict
+    semaphore_plot_proc
 
 
 def thread_run_experiment(output_path: Path, frames_dict: dict, devices_dict: dict):
@@ -60,6 +61,7 @@ def thread_run_experiment(output_path: Path, frames_dict: dict, devices_dict: di
             f_name = set_value_and_make_filename(blackbody_temperature, scanner_angle, focus, devices_dict, logger)
             t_bb = round(blackbody_temperature * 100)
             logger.info(f"Blackbody temperature {blackbody_temperature}C is set.")
+            timer_t_bb = time_ns()
 
             ffc_every_temperature = frames_dict[const.FRAME_TEMPERATURES]
             ffc_every_temperature = ffc_every_temperature.nametowidget(const.FFC_EVERY_T).getvar(const.FFC_EVERY_T)
@@ -78,9 +80,13 @@ def thread_run_experiment(output_path: Path, frames_dict: dict, devices_dict: di
                                                            output_path=output_path,
                                                            t_bb=t_bb),
                        name=f'SaveImages', daemon=False).start()
-            logger.info(f"Experiment ended.")
             semaphore_plot_proc.release()
-            save_average_from_images(output_path)
+            logger.info(f"Finished Blackbody temperature {blackbody_temperature}C "
+                        f"after {float(time_ns()-timer_t_bb)*1e-9:.1f} seconds.")
+        save_average_from_images(output_path)
+        logger.info(f"Experiment for T_FPA"
+                    f"{frames_dict[const.FRAME_TEMPERATURES].getvar(const.T_FPA):.1f}"
+                    f" at Oven temperature of {float(oven_temperature):.1f} ended.")
     semaphore_plot_proc.release()
     devices_dict[const.OVEN_NAME].send((const.BUTTON_START, False))
     # proc_plot.kill()
