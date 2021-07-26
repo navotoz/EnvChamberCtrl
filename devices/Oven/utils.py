@@ -76,10 +76,14 @@ class VariableLengthDeque:
 
     def append(self, value: (float, int)) -> None:
         with self._lock:
+            if self._deque and self._deque[-1] != value:
+                self._deque = deque(maxlen=self._deque.maxlen)
             self._deque.append(value)
 
-    def __getitem__(self, item: slice):
+    def __getitem__(self, item: (slice, int)):
         with self._lock:
+            if isinstance(item, int):
+                return None if not self._deque else self._deque[item]
             return list(islice(self._deque, item.start, item.stop, item.step))
 
     def __len__(self):
@@ -87,7 +91,7 @@ class VariableLengthDeque:
             return len(self._deque)
 
     @property
-    def maxlength(self):
+    def maxlength(self) -> int:
         with self._lock:
             return self._deque.maxlen
 
@@ -110,35 +114,9 @@ class VariableLengthDeque:
             return self._deque.__iter__()
 
     @property
-    def mean(self) -> float:
+    def is_full(self) -> bool:
         with self._lock:
-            return float(np.mean(self._deque))
-
-    @property
-    def diff(self) -> np.ndarray:
-        with self._lock:
-            if not self._deque or len(self._deque) == 1:
-                return np.array([np.inf])
-            return np.abs(np.diff(self._deque))
-
-    @property
-    def max(self) -> float:
-        with self._lock:
-            return max(self._deque)
-
-    @property
-    def min(self) -> float:
-        with self._lock:
-            return min(self._deque)
-
-    @property
-    def n_samples_settled(self) -> int:
-        with self._lock:
-            counter = 0
-            for counter, p in enumerate(reversed(np.abs(np.diff(self._deque, append=self._deque[-1])) < 0.01)):
-                if not p:
-                    break
-            return counter
+            return len(self._deque) == self._deque.maxlen
 
 
 class MaxTemperatureTimer:

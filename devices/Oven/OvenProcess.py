@@ -266,7 +266,7 @@ class OvenCtrl(DeviceAbstract):
                 pass
 
     def _th_temperature_setter(self) -> None:
-        next_temperature, prev_temperature, fin_msg = 0, 0, 'Finished waiting due to '
+        next_temperature, fin_msg = 0, 'Finished waiting due to '
         handlers = make_logging_handlers('log/oven/temperature_differences.txt')
         logger_waiting = make_logger('OvenTempDiff', handlers, False)
         if self._use_camera_inner_temperatures:
@@ -304,19 +304,14 @@ class OvenCtrl(DeviceAbstract):
             self._oven.log.info(f'Waiting for the Camera to settle near {next_temperature:.2f}C')
             logger_waiting.info(f'#######   {next_temperature}   #######')
             while msg := self._flag_run:
-                if max(queue_temperatures.diff) <= 0.01:
+                if queue_temperatures.is_full:
                     msg = f'{fin_msg}{self._settling_time_minutes}Min without change in temperature.'
                     break
                 queue_temperatures.maxlength = self._make_maxlength()
-                current_temperature = get_inner_temperature()
-                queue_temperatures.append(current_temperature)
-                n_minutes_settled = self._samples_to_minutes(queue_temperatures.n_samples_settled)
-                logger_waiting.info(
-                    (f"min{min(queue_temperatures[1:]):.2f} " if len(queue_temperatures) > 1 else '') +
-                    (f"max{max(queue_temperatures[1:]):.2f} " if len(queue_temperatures) > 1 else '') +
-                    (f"diff{max(queue_temperatures.diff[1:]):.3f} " if len(queue_temperatures.diff) > 1 else '') +
-                    f"{self._settling_time_minutes:3d}|{n_minutes_settled:.2f}Min")
-                prev_temperature = current_temperature
+                queue_temperatures.append(get_inner_temperature())
+                n_minutes_settled = self._samples_to_minutes(len(queue_temperatures))
+                logger_waiting.info(f"FPA{queue_temperatures[0]:.1f} "
+                                    f"{self._settling_time_minutes:3d}|{n_minutes_settled:.2f}Min")
             logger_waiting.info(msg) if isinstance(msg, str) else None
             self._oven.log.info(msg) if isinstance(msg, str) else None
             self._temperature_pipe.send(next_temperature)
