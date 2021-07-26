@@ -119,7 +119,7 @@ class VariableLengthDeque:
         with self._lock:
             if not self._deque or len(self._deque) == 1:
                 return np.array([np.inf])
-            return np.diff(self._deque)
+            return np.abs(np.diff(self._deque))
 
     @property
     def max(self) -> float:
@@ -135,7 +135,7 @@ class VariableLengthDeque:
     def n_samples_settled(self) -> int:
         with self._lock:
             counter = 0
-            for counter, p in enumerate(reversed(np.diff(self._deque, append=self._deque[-1]) < 0.01)):
+            for counter, p in enumerate(reversed(np.abs(np.diff(self._deque, append=self._deque[-1])) < 0.01)):
                 if not p:
                     break
             return counter
