@@ -1,5 +1,6 @@
 import multiprocessing as mp
 from collections import deque
+from itertools import islice
 from datetime import datetime, timedelta
 from time import sleep, time_ns
 from tkinter import Frame
@@ -76,6 +77,10 @@ class VariableLengthDeque:
     def append(self, value: (float, int)) -> None:
         with self._lock:
             self._deque.append(value)
+
+    def __getitem__(self, item: slice):
+        with self._lock:
+            return list(islice(self._deque, item.start, item.stop, item.step))
 
     def __len__(self):
         with self._lock:

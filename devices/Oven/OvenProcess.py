@@ -240,8 +240,8 @@ class OvenCtrl(DeviceAbstract):
 
     def _samples_to_minutes(self, n_samples: int) -> float:
         if not self._use_camera_inner_temperatures:
-            return n_samples * OVEN_LOG_TIME_SECONDS
-        return n_samples * FREQ_INNER_TEMPERATURE_SECONDS
+            return (n_samples * OVEN_LOG_TIME_SECONDS) / 60
+        return (n_samples * FREQ_INNER_TEMPERATURE_SECONDS) / 60
 
     def _set_oven_temperature(self, next_temperature: float, offset: float, verbose: bool = True):
         if offset < 0:
@@ -290,7 +290,7 @@ class OvenCtrl(DeviceAbstract):
 
             # creates a round-robin queue of differences (dt_camera) to wait until t_camera settles
             queue_temperatures = VariableLengthDeque(maxlen=max(1, self._make_maxlength()))
-            queue_temperatures.append(float('inf'))  # +inf so that it is always biggest
+            queue_temperatures.append(-float('inf'))  # -inf so that the diff always returns +inf
             offset = _make_temperature_offset(t_next=next_temperature, t_oven=self._oven_temperatures.get(T_FLOOR),
                                               t_cam=get_inner_temperature())
             self._set_oven_temperature(next_temperature, offset=offset, verbose=True)
@@ -312,16 +312,11 @@ class OvenCtrl(DeviceAbstract):
                 queue_temperatures.append(current_temperature)
                 n_minutes_settled = self._samples_to_minutes(queue_temperatures.n_samples_settled)
                 logger_waiting.info(
-                    # f"{diff:.4f} "
-                    f"min{queue_temperatures.min:.2f} "
-                    f"max{queue_temperatures.max:.2f} "
-                    f"mean{queue_temperatures.mean:.3f} "
-                    f"diff{max(queue_temperatures.diff):.3f} "
+                    (f"min{min(queue_temperatures[1:]):.2f} " if len(queue_temperatures) > 1 else '') +
+                    (f"max{max(queue_temperatures[1:]):.2f} " if len(queue_temperatures) > 1 else '') +
+                    (f"diff{max(queue_temperatures.diff[1:]):.3f} " if len(queue_temperatures.diff) > 1 else '') +
                     f"{self._settling_time_minutes:3d}|{n_minutes_settled:.2f}Min")
                 prev_temperature = current_temperature
-                # if current_temperature >= next_temperature:
-                #     msg = f'{fin_msg} current T {current_temperature} bigger than next T {next_temperature}.'
-                #     break
             logger_waiting.info(msg) if isinstance(msg, str) else None
             self._oven.log.info(msg) if isinstance(msg, str) else None
             self._temperature_pipe.send(next_temperature)
