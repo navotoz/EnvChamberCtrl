@@ -233,10 +233,15 @@ class OvenCtrl(DeviceAbstract):
             self._oven.log.debug("Added a line to the oven logs.")
 
     def _make_maxlength(self) -> int:
-        mean_change = self._settling_time_minutes * 60
+        time_of_change_in_seconds = self._settling_time_minutes * 60
         if not self._use_camera_inner_temperatures:
-            return int(mean_change // OVEN_LOG_TIME_SECONDS)
-        return int(mean_change // FREQ_INNER_TEMPERATURE_SECONDS)
+            return int(time_of_change_in_seconds // OVEN_LOG_TIME_SECONDS)
+        return int(time_of_change_in_seconds // FREQ_INNER_TEMPERATURE_SECONDS)
+
+    def _samples_to_minutes(self, n_samples: int) -> float:
+        if not self._use_camera_inner_temperatures:
+            return n_samples * OVEN_LOG_TIME_SECONDS
+        return n_samples * FREQ_INNER_TEMPERATURE_SECONDS
 
     def _set_oven_temperature(self, next_temperature: float, offset: float, verbose: bool = True):
         if offset < 0:
@@ -272,7 +277,7 @@ class OvenCtrl(DeviceAbstract):
         # handle dummy oven
         if self._is_dummy() == const.DEVICE_REAL:
             get_error = wait_for_time(partial(self._oven_temperatures.get, SIGNALERROR), wait_time_in_sec=PID_FREQ_SEC)
-            initial_wait_time = PID_FREQ_SEC + OVEN_LOG_TIME_SECONDS * 4   # to let the average ErrSignal settle
+            initial_wait_time = PID_FREQ_SEC + OVEN_LOG_TIME_SECONDS * 4  # to let the average ErrSignal settle
         else:
             get_error = lambda: 0
             initial_wait_time = 1
@@ -284,8 +289,8 @@ class OvenCtrl(DeviceAbstract):
                 break
 
             # creates a round-robin queue of differences (dt_camera) to wait until t_camera settles
-            difference_lifo = VariableLengthDeque(maxlen=max(1, self._make_maxlength()))
-            difference_lifo.append(float('inf'))  # +inf so that it is always biggest
+            queue_temperatures = VariableLengthDeque(maxlen=max(1, self._make_maxlength()))
+            queue_temperatures.append(float('inf'))  # +inf so that it is always biggest
             offset = _make_temperature_offset(t_next=next_temperature, t_oven=self._oven_temperatures.get(T_FLOOR),
                                               t_cam=get_inner_temperature())
             self._set_oven_temperature(next_temperature, offset=offset, verbose=True)
@@ -298,24 +303,21 @@ class OvenCtrl(DeviceAbstract):
 
             self._oven.log.info(f'Waiting for the Camera to settle near {next_temperature:.2f}C')
             logger_waiting.info(f'#######   {next_temperature}   #######')
-            max_temperature = MaxTemperatureTimer()  # timer for a given time for dt_camera to settle.
-            # Notice - MaxTemperatureTimer() only checks for a MAXIMAL value.
-            # Unwanted behaviour will occur on temperature descent.
             while msg := self._flag_run:
-                if max_temperature.time_since_setting_in_minutes > self._settling_time_minutes:
+                if max(queue_temperatures.diff) <= 0.01:
                     msg = f'{fin_msg}{self._settling_time_minutes}Min without change in temperature.'
                     break
-                difference_lifo.maxlength = self._make_maxlength()
+                queue_temperatures.maxlength = self._make_maxlength()
                 current_temperature = get_inner_temperature()
-                max_temperature.max = current_temperature
-                diff = abs(current_temperature - prev_temperature)
-                difference_lifo.append(diff)
+                queue_temperatures.append(current_temperature)
+                n_minutes_settled = self._samples_to_minutes(queue_temperatures.n_samples_settled)
                 logger_waiting.info(
                     # f"{diff:.4f} "
-                    # f"prev{prev_temperature:.3f} "
-                    # f"curr{current_temperature:.3f} "
-                    f"max{max_temperature.max:.2f} "
-                    f"{self._settling_time_minutes:3d}|{max_temperature.time_since_setting_in_minutes:.2f}Min")
+                    f"min{queue_temperatures.min:.2f} "
+                    f"max{queue_temperatures.max:.2f} "
+                    f"mean{queue_temperatures.mean:.3f} "
+                    f"diff{max(queue_temperatures.diff):.3f} "
+                    f"{self._settling_time_minutes:3d}|{n_minutes_settled:.2f}Min")
                 prev_temperature = current_temperature
                 # if current_temperature >= next_temperature:
                 #     msg = f'{fin_msg} current T {current_temperature} bigger than next T {next_temperature}.'
