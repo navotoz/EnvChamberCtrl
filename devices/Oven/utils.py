@@ -112,7 +112,7 @@ class VariableLengthDeque:
     @property
     def diff(self) -> np.ndarray:
         with self._lock:
-            if not self._deque:
+            if not self._deque or len(self._deque) == 1:
                 return np.array([np.inf])
             return np.diff(self._deque)
 
