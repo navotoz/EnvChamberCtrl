@@ -315,5 +315,5 @@ class OvenCtrl(DeviceAbstract):
             logger_waiting.info(msg) if isinstance(msg, str) else None
             self._oven.log.info(msg) if isinstance(msg, str) else None
             self._temperature_pipe.send(next_temperature)
-            self._oven.log.info(f'Camera reached temperature {prev_temperature:.2f}C '
+            self._oven.log.info(f'Camera reached temperature {queue_temperatures[0]:.2f}C '
                                 f'and settled for {self._settling_time_minutes} minutes.')

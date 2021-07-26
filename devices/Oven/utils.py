@@ -80,10 +80,10 @@ class VariableLengthDeque:
                 self._deque = deque(maxlen=self._deque.maxlen)
             self._deque.append(value)
 
-    def __getitem__(self, item: (slice, int)):
+    def __getitem__(self, item: (slice, int)) -> (float, int, list):
         with self._lock:
             if isinstance(item, int):
-                return None if not self._deque else self._deque[item]
+                return float('inf') if not self._deque else self._deque[item]
             return list(islice(self._deque, item.start, item.stop, item.step))
 
     def __len__(self):
