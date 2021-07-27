@@ -87,7 +87,7 @@ def thread_run_experiment(output_path: Path, frames_dict: dict, devices_dict: di
         save_average_from_images(output_path)
         logger.info(f"Experiment for T_FPA"
                     f"{frames_dict[const.FRAME_TEMPERATURES].getvar(const.T_FPA):.1f}"
-                    f" at Oven temperature of {float(oven_temperature):.1f} ended.")
+                    f" at Oven temperature of {float(next_temperature):.1f} ended.")
     semaphore_plot_proc.release()
     devices_dict[const.OVEN_NAME].send((const.BUTTON_START, False))
     # proc_plot.kill()

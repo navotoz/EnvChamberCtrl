@@ -85,12 +85,15 @@ class FtdiIO(th.Thread):
         idx_list = generate_subsets_indices_in_string(self._buffer, b'UART')
         if not idx_list:
             return None
-        data = map(lambda idx: self._buffer[idx:idx + argument_length][5::6], idx_list)
-        data = map(lambda d: d[0], data)
-        data = generate_overlapping_list_chunks(data, len_in_bytes)
-        data = filter(lambda res: len(res) >= len_in_bytes, data)  # length of message at least as expected
-        data = filter(lambda res: res[0] == 110, data)  # header is 0x6E (110)
-        data = list(filter(lambda res: res[3] == command.code, data))
+        try:
+            data = map(lambda idx: self._buffer[idx:idx + argument_length][5::6], idx_list)
+            data = map(lambda d: d[0], data)
+            data = generate_overlapping_list_chunks(data, len_in_bytes)
+            data = filter(lambda res: len(res) >= len_in_bytes, data)  # length of message at least as expected
+            data = filter(lambda res: res[0] == 110, data)  # header is 0x6E (110)
+            data = list(filter(lambda res: res[3] == command.code, data))
+        except IndexError:
+            data = None
         if not data:
             return None
         data = data[-1]
