@@ -1,7 +1,7 @@
 /*
 Stepper controller via serial connection.
 
-Baud rate is set by a constant to be 19200.
+Baud rate is set by a constant to be 115200.
 
 Waits for the number of steps to traverse as an interger between -LIMIT to +LIMIT, where:
 {abs(LIMIT) <= 400} for the model 42BYGHM809.
@@ -21,13 +21,15 @@ STEPS:
 #define ENABLE_PIN        8  
 #define X_DIRECTION_PIN     5 
 #define X_STEP_PIN     2
-#define BAUDRATE 19200
+#define BAUDRATE 115200
 #define SERIAL_TIMEOUT_MILISECONDS 500
 #define CLOCKWISE true
 #define COUNTER_CLOCKWISE false
-#define DELAY_TIME  1000 //Delay between each pause (uS)
+#define DELAY_TIME  
 #define MSG_TERMINATOR  '\n'
 #define INIT_MSG  "OK"
+
+int delayTimePulse = 500; // Delay for pulses (uS) (400 - inf). Affects speed.
 
 
 void setup(){
@@ -51,11 +53,11 @@ void loop() {
     incomingMsg.toLowerCase(); 
     
     if (!incomingMsg.compareTo("echo"))
-      Serial.write(INIT_MSG);
+      Serial.println(INIT_MSG);
     else{
       int numOfSteps = incomingMsg.toInt();
       boolean spinDirection = numOfSteps > 0;
-      Serial.print(numOfSteps);
+      Serial.println(numOfSteps);
       takeStep(spinDirection, X_DIRECTION_PIN, X_STEP_PIN, numOfSteps);
     } 
   }
@@ -64,11 +66,11 @@ void loop() {
 
 void takeStep(boolean dir, byte dirPin, byte stepperPin, int numOfSteps){
   digitalWrite(dirPin, dir);
-  delay(DELAY_TIME);
+  delay(delayTimePulse);
   for (int i = 0; i < abs(numOfSteps); i++) {
     digitalWrite(stepperPin, HIGH);
-    delayMicroseconds(DELAY_TIME); 
+    delayMicroseconds(delayTimePulse); 
     digitalWrite(stepperPin, LOW);
-    delayMicroseconds(DELAY_TIME); 
+    delayMicroseconds(delayTimePulse); 
   }
 }
