@@ -43,12 +43,22 @@ class BlackBody(BlackBodyAbstract):
         self._log.info('Ready.')
 
     def __del__(self):
-        self._recv_socket.close()
-        self._send_socket.close()
+        try:
+            self._recv_socket.close()
+        except (RuntimeError, OSError, ValueError, IOError, AttributeError):
+            pass
+        try:
+            self._send_socket.close()
+        except (RuntimeError, OSError, ValueError, IOError, AttributeError):
+            pass
 
     def _send(self, msg: str) -> None:
         msg = msg.upper()
-        self._send_socket.send(msg.encode('utf-8'))
+        try:
+            self._send_socket.send(msg.encode('utf-8'))
+        except (OSError, RuntimeError, AttributeError, ValueError, IOError):
+            self._log.error('Cannot send on BlackBody socket.')
+            return
         self._log.debug(f"Send: {msg}")
 
     def _recv(self, verbose: bool = True) -> (str, None):
@@ -56,7 +66,7 @@ class BlackBody(BlackBodyAbstract):
         try:
             msg = self._recv_msg_queue.get(block=True, timeout=TIMEOUT_IN_SECONDS)
             self._log.debug(f"Recv: {msg}") if verbose else None
-        except Empty:
+        except (Empty, OSError):
             self._log.warning('Timeout on _recv.') if verbose else None
         return msg
 
@@ -70,8 +80,6 @@ class BlackBody(BlackBodyAbstract):
         recv_msg = self._recv(verbose)
         if not recv_msg or msg.lower() not in recv_msg.lower():
             msg = 'Echo test failed. Exiting.'
-            self._recv_socket.close()
-            self._send_socket.close()
             self._log.critical(msg) if verbose else None
             raise RuntimeError(msg)
         self._log.debug('Echo succeed.') if verbose else None
@@ -80,8 +88,11 @@ class BlackBody(BlackBodyAbstract):
         """
         A receiver thread.
         """
-        while True:
-            self._recv_msg_queue.put(self._recv_socket.recv(DATAGRAM_MAX_SIZE).decode())
+        try:
+            while True:
+                self._recv_msg_queue.put(self._recv_socket.recv(DATAGRAM_MAX_SIZE).decode())
+        except (OSError, RuntimeError, AttributeError, ValueError, IOError):
+            return
 
     @property
     def temperature(self) -> (float, None):
