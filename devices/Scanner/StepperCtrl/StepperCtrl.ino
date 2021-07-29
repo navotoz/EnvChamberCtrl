@@ -18,14 +18,14 @@ STEPS:
 100 steps - 90 deg.
 */
 
-#define ENABLE_PIN        8  
-#define X_DIRECTION_PIN     5 
+#define ENABLE_PIN        8
+#define X_DIRECTION_PIN     5
 #define X_STEP_PIN     2
 #define BAUDRATE 115200
 #define SERIAL_TIMEOUT_MILISECONDS 500
 #define CLOCKWISE true
 #define COUNTER_CLOCKWISE false
-#define DELAY_TIME  
+#define DELAY_TIME
 #define MSG_TERMINATOR  '\n'
 #define INIT_MSG  "OK"
 
@@ -38,7 +38,7 @@ void setup(){
   Serial.write(INIT_MSG);
 
   // Assign pins to outputs
-  pinMode(X_DIRECTION_PIN, OUTPUT); 
+  pinMode(X_DIRECTION_PIN, OUTPUT);
   pinMode(X_STEP_PIN, OUTPUT);
 
   // Set ENABLDE pin to LOW
@@ -47,30 +47,39 @@ void setup(){
 }
 
 
-void loop() {  
+void loop() {
   if (Serial.available() > 0){
     String incomingMsg = Serial.readStringUntil(MSG_TERMINATOR);
-    incomingMsg.toLowerCase(); 
-    
-    if (!incomingMsg.compareTo("echo"))
+    incomingMsg.toLowerCase();
+
+    if (incomingMsg.indexOf("echo") > -1)
       Serial.println(INIT_MSG);
+    else if (incomingMsg.indexOf("speed") > -1){
+      int speed = incomingMsg.substring(5).toInt();
+      if (speed < 400 | speed > 5000)
+        Serial.println("Speed must be between 400 to 5000");
+      else{
+        delayTimePulse = speed;
+        Serial.println(speed);
+      }
+    }
     else{
       int numOfSteps = incomingMsg.toInt();
       boolean spinDirection = numOfSteps > 0;
       Serial.println(numOfSteps);
       takeStep(spinDirection, X_DIRECTION_PIN, X_STEP_PIN, numOfSteps);
-    } 
+    }
   }
 }
 
 
 void takeStep(boolean dir, byte dirPin, byte stepperPin, int numOfSteps){
   digitalWrite(dirPin, dir);
-  delay(delayTimePulse);
+  delay(50);
   for (int i = 0; i < abs(numOfSteps); i++) {
     digitalWrite(stepperPin, HIGH);
-    delayMicroseconds(delayTimePulse); 
+    delayMicroseconds(delayTimePulse);
     digitalWrite(stepperPin, LOW);
-    delayMicroseconds(delayTimePulse); 
+    delayMicroseconds(delayTimePulse);
   }
 }
