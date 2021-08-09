@@ -3,7 +3,6 @@ import logging
 import devices.Camera.Tau.tau2_config as ptc
 import struct
 import threading as th
-from multiprocessing.connection import Connection
 from time import sleep
 from typing import List
 

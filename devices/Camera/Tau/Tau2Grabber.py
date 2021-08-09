@@ -46,7 +46,10 @@ class Tau2Grabber(Tau):
         if hasattr(self, '_io') and isinstance(self._io, Thread):
             self._io.join()
         if hasattr(self, '_log') and isinstance(self._log, logging.Logger):
-            self._log.critical('Exit.')
+            try:
+                self._log.critical('Exit.')
+            except NameError:
+                pass
 
     def _send_and_recv_threaded(self, command: ptc.Code, argument: (bytes, None), n_retry: int = 3) -> (bytes, None):
         data = _make_packet(command, argument)
