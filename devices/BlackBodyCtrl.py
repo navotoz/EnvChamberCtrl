@@ -1,20 +1,24 @@
+from pathlib import Path
+
+import utils.constants as const
 import logging
 import socket
 import threading as th
 from queue import SimpleQueue, Empty
 from time import time_ns, sleep
 
-from devices.Blackbody import BlackBodyAbstract
-from utils.logger import make_logger, make_device_logging_handler
+from utils.logger import make_logger, make_device_logging_handler, make_logging_handlers
+from utils.misc import SyncFlag
 
 TIMEOUT_IN_SECONDS = 3
 DATAGRAM_MAX_SIZE = 1024
 
 
-class BlackBody(BlackBodyAbstract):
+class BlackBody:
     def __init__(self, client_ip: str = '188.51.1.2', host_port: int = 5100, client_port: int = 5200,
-                 logging_handlers: tuple = (logging.StreamHandler(),), logging_level: int = logging.INFO):
-        super().__init__(make_logger('BlackBody', logging_handlers, logging_level))
+                 logging_handlers: tuple = (), logging_level: int = logging.INFO):
+        super().__init__()
+        self._log = make_logger('BlackBody', logging_handlers, logging_level)
         self._host_port = host_port  # port to receive data
         self._client_ip = client_ip  # blackbody IP
         self._client_port = client_port  # port to send data
@@ -173,3 +177,52 @@ class BlackBody(BlackBodyAbstract):
     @property
     def is_dummy(self):
         return False
+
+
+class BlackBodyThread:
+    _blackbody: (BlackBody, None) = None
+    _workers_dict = {}
+
+    def __init__(self, logging_handlers: (tuple, list)):
+        super(BlackBodyThread, self).__init__()
+        self._lock_access = th.Lock()
+        self._event_is_connected = th.Event()
+        self._event_is_connected.clear()
+        self._flag_run = SyncFlag(init_state=True)
+
+        self._logging_handlers = make_device_logging_handler(f'{const.BLACKBODY_NAME}', logging_handlers)
+        t_h = filter(lambda x: 'file' in str(type(x)).lower(), self._logging_handlers)
+        t_h = Path(list(filter(lambda x: const.BLACKBODY_NAME in x.baseFilename, t_h))[-1].baseFilename).parent
+        t_h /= 'temperatures.txt'
+        self._log_temperature = make_logger(f'{const.BLACKBODY_NAME}Temperatures', make_logging_handlers(t_h, False))
+        self._blackbody_type = const.DEVICE_DUMMY
+
+    def run(self):
+        self._workers_dict['conn'] = th.Thread(target=self._th_conn, name='bb_conn')
+        self._workers_dict['conn'].start()
+
+    def _th_conn(self):
+        while self._flag_run:
+            try:
+                self._blackbody = BlackBody(logging_handlers=self._logging_handlers)
+                self._blackbody_type = const.DEVICE_REAL
+                self._event_is_connected.set()
+                return
+            except (RuntimeError, BrokenPipeError):
+                pass
+            sleep(3)
+
+    @property
+    def temperature(self) -> (float, int):
+        with self._lock_access:
+            return self._blackbody.temperature if self._event_is_connected.is_set() else None
+
+    @temperature.setter
+    def temperature(self, temperature_to_set: (int, float)):
+        if self._event_is_connected.is_set():
+            with self._lock_access:
+                self._blackbody.temperature = temperature_to_set
+
+    @property
+    def is_connected(self) -> bool:
+        return self._event_is_connected.is_set()

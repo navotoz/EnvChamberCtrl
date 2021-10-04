@@ -12,7 +12,7 @@ from devices.Oven.utils import get_last_measurements, VariableLengthDeque, MaxTe
 from gui.tools import tqdm_waiting
 from utils.constants import *
 from utils.logger import make_logger, make_logging_handlers
-from utils.tools import wait_for_time, check_and_make_path, DuplexPipe
+from utils.misc import wait_for_time, check_and_make_path, DuplexPipe
 import utils.constants as const
 from devices import DeviceAbstract
 

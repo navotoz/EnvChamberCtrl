@@ -1,27 +1,26 @@
-import binascii
 import logging
 import struct
 from pathlib import Path
+from time import sleep
 
 import numpy as np
 import serial
 from serial.tools.list_ports import comports
 
-from devices.Camera import CameraAbstract
+from devices.Camera import CameraAbstract, WIDTH_IMAGE_TAU2, HEIGHT_IMAGE_TAU2, CAMERA_TAU, T_FPA, T_HOUSING
 from devices.Camera.Tau import tau2_config as ptc
 from devices.Camera.Tau.tau2_config import ARGUMENT_FPA, ARGUMENT_HOUSING
-from utils.constants import WIDTH_IMAGE_TAU2, HEIGHT_IMAGE_TAU2, CAMERA_TAU, T_FPA, T_HOUSING
-from utils.logger import make_logging_handlers, make_device_logging_handler, make_logger
+from utils.logger import make_logging_handlers, make_logger
 
 
 class Tau(CameraAbstract):
     conn = None
+    _ffc_mode = None
 
     def __init__(self, port=None, vid: int = 0x10C4, pid: int = 0xEA60,
                  baud=921600, logging_handlers: tuple = make_logging_handlers(None, True),
                  logging_level: int = logging.INFO, logger: (logging.Logger, None) = None):
         if not logger:
-            logging_handlers = make_device_logging_handler('Tau2', logging_handlers)
             logger = make_logger('Tau2', logging_handlers, logging_level)
         super().__init__(logger)
         self._log.info("Connecting to camera.")
@@ -51,103 +50,15 @@ class Tau(CameraAbstract):
         if self.conn:
             self.conn.close()
 
+    def send_command(self, command: ptc.Code, argument: (bytes, None)) -> (None, bytes):
+        raise NotImplementedError
+
     def _reset(self):
-        self._send_and_recv_threaded(ptc.CAMERA_RESET, None)
+        self.send_command(command=ptc.CAMERA_RESET, argument=None)
 
     @property
     def type(self) -> int:
         return CAMERA_TAU
-
-    # def ping(self):
-    #     function = ptc.NO_OP
-    #
-    #     self._send_packet(function)
-    #     res = self._read_packet(function)
-    #
-    #     return res
-    #
-    # def get_serial(self):
-    #     function = ptc.SERIAL_NUMBER
-    #
-    #     self._send_packet(function)
-    #     res = self._read_packet(function)
-    #
-    #     self._log.info("Camera serial: {}".format(int.from_bytes(res[7][:4], byteorder='big', signed=False)))
-    #     self._log.info("Sensor serial: {}".format(int.from_bytes(res[7][4:], byteorder='big', signed=False)))
-    #
-    # def shutter_open(self):
-    #     function = ptc.GET_SHUTTER_POSITION
-    #     self._send_packet(function, "")
-    #     res = self._read_packet(function)
-    #
-    #     if int.from_bytes(res[7], byteorder='big', signed=False) == 0:
-    #         return True
-    #     else:
-    #         return False
-    #
-    # def shutter_closed(self):
-    #     return not self.shutter_open()
-    #
-    # def enable_test_pattern(self, mode=1):
-    #     function = ptc.SET_TEST_PATTERN
-    #     argument = struct.pack(">h", mode)
-    #     self._send_packet(function, argument)
-    #     sleep(0.2)
-    #     res = self._read_packet(function)
-    #
-    # def disable_test_pattern(self):
-    #     function = ptc.SET_TEST_PATTERN
-    #     argument = struct.pack(">h", 0x00)
-    #     self._send_packet(function, argument)
-    #     sleep(0.2)
-    #     res = self._read_packet(function)
-    #
-    # def get_core_status(self):
-    #     function = ptc.READ_SENSOR_STATUS
-    #     argument = struct.pack(">H", 0x0011)
-    #
-    #     self._send_packet(function, argument)
-    #     res = self._read_packet(function)
-    #
-    #     status = struct.unpack(">H", res[7])[0]
-    #
-    #     overtemp = status & (1 << 0)
-    #     need_ffc = status & (1 << 2)
-    #     gain_switch = status & (1 << 3)
-    #     nuc_switch = status & (1 << 5)
-    #     ffc = status & (1 << 6)
-    #
-    #     if overtemp != 0:
-    #         self._log.critical("Core over temperature warning! Remove power immediately!")
-    #
-    #     if need_ffc != 0:
-    #         self._log.warning("Core desires a new flat field correction (FFC).")
-    #
-    #     if gain_switch != 0:
-    #         self._log.warning("Core suggests that the gain be switched (check for over/underexposure).")
-    #
-    #     if nuc_switch != 0:
-    #         self._log.warning("Core suggests that the NUC be switched.")
-    #
-    #     if ffc != 0:
-    #         self._log.info("FFC is in progress.")
-    #
-    # def get_acceleration(self):
-    #     function = ptc.READ_SENSOR_ACCELEROMETER
-    #     argument = struct.pack(">H", 0x000B)
-    #
-    #     self._send_packet(function, argument)
-    #     res = self._read_packet(function)
-    #
-    #     x, y, z = struct.unpack(">HHHxx", res[7])
-    #
-    #     x *= 0.1
-    #     y *= 0.1
-    #     z *= 0.1
-    #
-    #     self._log.info("Acceleration: ({}, {}, {}) g".format(x, y, z))
-    #
-    #     return x, y, z
 
     def get_inner_temperature(self, temperature_type: str):
         if T_FPA in temperature_type:
@@ -158,7 +69,7 @@ class Tau(CameraAbstract):
             raise TypeError(f'{temperature_type} was not implemented as an inner temperature of TAU2.')
         command = ptc.READ_SENSOR_TEMPERATURE
         argument = struct.pack(">h", arg_hex)
-        res = self._send_and_recv_threaded(command, argument, n_retry=1)
+        res = self.send_command(command=command, argument=argument)
         if res:
             res = struct.unpack(">H", res)[0]
             res /= 10.0 if temperature_type == T_FPA else 100.0
@@ -167,237 +78,17 @@ class Tau(CameraAbstract):
                 return None
         return res
 
-    def _send_and_recv_threaded(self, command: ptc.Code, argument: (bytes, None), n_retry: int = 3):
-        pass
-
-    #
-    # def close_shutter(self):
-    #     function = ptc.SET_SHUTTER_POSITION
-    #     argument = struct.pack(">h", 1)
-    #     self._send_packet(function, argument)
-    #     res = self._read_packet(function)
-    #     return
-    #
-    # def open_shutter(self):
-    #     function = ptc.SET_SHUTTER_POSITION
-    #     argument = struct.pack(">h", 0)
-    #     self._send_packet(function, argument)
-    #     res = self._read_packet(function)
-    #     return
-
-    # def _check_header(self, data):
-    #
-    #     res = struct.unpack(">BBxBBB", data)
-    #
-    #     if res[0] != 0x6E:
-    #         self._log.warning("Initial packet byte incorrect. Byte was: {}".format(res[0]))
-    #         return False
-    #
-    #     if not self.check_status(res[1]):
-    #         return False
-    #
-    #     return True
-    #
-    # def _read_packet(self, function, post_delay=0.1):
-    #     argument_length = function.reply_bytes
-    #     data = self._receive_data(10 + argument_length)
-    #
-    #     self._log.debug("Received: {}".format(data))
-    #
-    #     if self._check_header(data[:6]) and len(data) > 0:
-    #         if argument_length == 0:
-    #             res = struct.unpack(">ccxcccccxx", data)
-    #         else:
-    #             res = struct.unpack(">ccxccccc{}scc".format(argument_length), data)
-    #             # check_data_crc(res[7])
-    #     else:
-    #         res = None
-    #         self._log.warning("Error reply from camera. Try re-sending command, or check parameters.")
-    #
-    #     if post_delay > 0:
-    #         sleep(post_delay)
-    #
-    #     return res
-    #
-    # def check_status(self, code):
-    #
-    #     if code == CAM_OK:
-    #         self._log.debug("Response OK")
-    #         return True
-    #     elif code == CAM_BYTE_COUNT_ERROR:
-    #         self._log.warning("Byte count error.")
-    #     elif code == CAM_FEATURE_NOT_ENABLED:
-    #         self._log.warning("Feature not enabled.")
-    #     elif code == CAM_NOT_READY:
-    #         self._log.warning("Camera not ready.")
-    #     elif code == CAM_RANGE_ERROR:
-    #         self._log.warning("Camera range error.")
-    #     elif code == CAM_TIMEOUT_ERROR:
-    #         self._log.warning("Camera timeout error.")
-    #     elif code == CAM_UNDEFINED_ERROR:
-    #         self._log.warning("Camera returned an undefined error.")
-    #     elif code == CAM_UNDEFINED_FUNCTION_ERROR:
-    #         self._log.warning("Camera function undefined. Check the function code.")
-    #     elif code == CAM_UNDEFINED_PROCESS_ERROR:
-    #         self._log.warning("Camera process undefined.")
-    #
-    #     return False
-    #
-    # def get_num_snapshots(self):
-    #     self._log.debug("Query snapshot status")
-    #     function = ptc.GET_MEMORY_ADDRESS
-    #     argument = struct.pack('>HH', 0xFFFE, 0x13)
-    #
-    #     self._send_packet(function, argument)
-    #     res = self._read_packet(function)
-    #     snapshot_size, num_snapshots = struct.unpack(">ii", res[7])
-    #
-    #     self._log.info("Used snapshot memory: {} Bytes".format(snapshot_size))
-    #     self._log.info("Num snapshots: {}".format(num_snapshots))
-    #
-    #     return num_snapshots, snapshot_size
-    #
-    # def erase_snapshots(self, frame_id=1):
-    #     self._log.info("Erasing snapshots")
-    #
-    #     num_snapshots, snapshot_used_memory = self.get_num_snapshots()
-    #
-    #     if num_snapshots == 0:
-    #         return
-    #
-    #     # Get snapshot base address
-    #     self._log.debug("Get capture address")
-    #     function = ptc.GET_MEMORY_ADDRESS
-    #     argument = struct.pack('>HH', 0xFFFF, 0x13)
-    #
-    #     self._send_packet(function, argument)
-    #     res = self._read_packet(function)
-    #     snapshot_address, snapshot_area_size = struct.unpack(">ii", res[7])
-    #
-    #     self._log.debug("Snapshot area size: {} Bytes".format(snapshot_area_size))
-    #
-    #     # Get non-volatile memory base address
-    #     function = ptc.GET_NV_MEMORY_SIZE
-    #     argument = struct.pack('>H', 0xFFFF)
-    #
-    #     self._send_packet(function, argument)
-    #     res = self._read_packet(function)
-    #     base_address, block_size = struct.unpack(">ii", res[7])
-    #
-    #     # Compute the starting block
-    #     starting_block = int((snapshot_address - base_address) / block_size)
-    #
-    #     self._log.debug("Base address: {}".format(base_address))
-    #     self._log.debug("Snapshot address: {}".format(snapshot_address))
-    #     self._log.debug("Block size: {}".format(block_size))
-    #     self._log.debug("Starting block: {}".format(starting_block))
-    #
-    #     blocks_to_erase = math.ceil((snapshot_used_memory / block_size))
-    #
-    #     self._log.debug("Number of blocks to erase: {}".format(blocks_to_erase))
-    #
-    #     for i in range(blocks_to_erase):
-    #         function = ptc.ERASE_BLOCK
-    #         block_id = starting_block + i
-    #
-    #         self._log.debug("Erasing block: {}".format(block_id))
-    #
-    #         argument = struct.pack('>H', block_id)
-    #         self._send_packet(function, argument)
-    #         res = self._read_packet(function, post_delay=0.2)
-    #
-    # def snapshot(self, frame_id=0):
-    #     self._log.info("Capturing frame")
-    #
-    #     self.get_core_status()
-    #
-    #     if self.shutter_closed():
-    #         self._log.warning("Shutter reports that it's closed. This frame may be corrupt!")
-    #
-    #     function = ptc.TRANSFER_FRAME
-    #     frame_code = 0x16
-    #     argument = struct.pack('>BBH', frame_code, frame_id, 1)
-    #
-    #     self._send_packet(function, argument)
-    #     self._read_packet(function, post_delay=1)
-    #
-    #     bytes_remaining = self.get_memory_status()
-    #     self._log.info("{} bytes remaining to write.".format(bytes_remaining))
-    #
-    # def retrieve_snapshot(self, frame_id):
-    #     # Get snapshot address
-    #     self._log.info("Get capture address")
-    #     function = ptc.GET_MEMORY_ADDRESS
-    #     snapshot_memory = 0x13
-    #     argument = struct.pack('>HH', frame_id, snapshot_memory)
-    #
-    #     self._send_packet(function, argument)
-    #     res = self._read_packet(function)
-    #     snapshot_address, snapshot_size = struct.unpack(">ii", res[7])
-    #
-    #     self._log.info("Snapshot size: {}".format(snapshot_size))
-    #
-    #     n_transfers = math.ceil(snapshot_size / 256)
-    #     function = ptc.READ_MEMORY_256
-    #
-    #     self._log.info("Reading frame {} ({} bytes)".format(frame_id, snapshot_size))
-    #     # For N reads, read data
-    #     data = []
-    #     remaining = snapshot_size
-    #     for i in tqdm.tqdm(range(n_transfers)):
-    #         n_bytes = min(remaining, 256)
-    #         function.reply_bytes = n_bytes
-    #
-    #         argument = struct.pack('>iH', snapshot_address + i * 256, n_bytes)
-    #         self._send_packet(function, argument)
-    #         res = self._read_packet(function, post_delay=0)
-    #
-    #         data += struct.unpack(">{}B".format(int(n_bytes)), res[7])
-    #         remaining -= n_bytes
-    #
-    #     image = np.array(data, dtype='uint8')
-    #
-    #     return image
-    #
-    # def get_memory_status(self):
-    #     function = ptc.MEMORY_STATUS
-    #
-    #     self._send_packet(function)
-    #     res = self._read_packet(function)
-    #
-    #     remaining_bytes = struct.unpack(">H", res[7])[0]
-    #
-    #     if remaining_bytes == 0xFFFF:
-    #         self._log.warning("Erase error")
-    #     elif remaining_bytes == 0xFFFE:
-    #         self._log.warning("Write error")
-    #     else:
-    #         return remaining_bytes
-    #
-    # def get_last_image(self):
-    #     num_snapshots, _ = self.get_num_snapshots()
-    #
-    #     if num_snapshots > 0:
-    #         return self.retrieve_snapshot(num_snapshots - 1)
-    #     else:
-    #         return None
-    #
-    # def _send_data(self, data: bytes) -> None:
-    #     n_bytes = self.conn.write(data)
-    #     self.conn.flush()
-    #     return
-    #
-    # def _receive_data(self, n_bytes):
-    #     return self.conn.read(n_bytes)
-
     def _get_values_without_arguments(self, command: ptc.Code) -> int:
-        res = self._send_and_recv_threaded(command, None)
-        return struct.unpack('>h', res)[0] if res else 0xffff
+        res = self.send_command(command=command, argument=None)
+        if res is None:
+            return 0xffff
+        fmt = 'h' if len(res) == 2 else 'hh'
+        return struct.unpack('>' + fmt, res)[0]
 
     def _set_values_with_2bytes_send_recv(self, value: int, current_value: int, command: ptc.Code) -> bool:
         if value == current_value:
             return True
-        res = self._send_and_recv_threaded(command, struct.pack('>h', value))
+        res = self.send_command(command=command, argument=struct.pack('>h', value))
         if res and struct.unpack('>h', res)[0] == value:
             return True
         return False
@@ -408,7 +99,7 @@ class Tau(CameraAbstract):
         else:
             self._log.warning(f'Setting {value_name} to {value} failed.')
 
-    def _mode_setter(self, mode: str, current_value: int, setter_code: ptc.Code, code_dict: dict, name: str):
+    def _mode_setter(self, mode: str, current_value: int, setter_code: ptc.Code, code_dict: dict, name: str) -> bool:
         if isinstance(mode, str):
             if not mode.lower() in code_dict:
                 raise NotImplementedError(f"{name} mode {mode} is not implemented.")
@@ -417,6 +108,7 @@ class Tau(CameraAbstract):
             raise NotImplementedError(f"{name} mode {mode} is not implemented.")
         res = self._set_values_with_2bytes_send_recv(mode, current_value, setter_code)
         self._log_set_values(mode, res, f'{name} mode')
+        return res
 
     def set_params_by_dict(self, yaml_or_dict: (Path, dict)):
         pass
@@ -425,15 +117,21 @@ class Tau(CameraAbstract):
     def is_dummy(self) -> bool:
         return False
 
-    def grab(self) -> np.ndarray:
+    def grab(self, to_temperature: bool) -> np.ndarray:
         pass
 
     def ffc(self, length: bytes = ptc.FFC_LONG) -> bool:
-        if prev_flag := (self.ffc_mode == ptc.FFC_MODE_CODE_DICT['external']):
-            self.ffc_mode = ptc.FFC_MODE_CODE_DICT['manual']
-        res = self._send_and_recv_threaded(ptc.DO_FFC, length)
-        if prev_flag:
-            self.ffc_mode = ptc.FFC_MODE_CODE_DICT['external']
+        prev_mode = self.ffc_mode
+        if 'ext' in prev_mode:
+            while 'man' not in self.ffc_mode:
+                self.ffc_mode = ptc.FFC_MODE_CODE_DICT['manual']
+            sleep(0.2)
+        res = self.send_command(command=ptc.DO_FFC, argument=length)
+        sleep(0.2)
+        if 'ext' in prev_mode:
+            while 'ext' not in self.ffc_mode:
+                self.ffc_mode = ptc.FFC_MODE_CODE_DICT['external']
+            sleep(0.2)
         if res and struct.unpack('H', res)[0] == 0xffff:
             t_fpa = self.get_inner_temperature(T_FPA)
             t_housing = self.get_inner_temperature(T_HOUSING)
@@ -449,6 +147,40 @@ class Tau(CameraAbstract):
             return False
 
     @property
+    def ffc_mode(self) -> str:
+        if self._ffc_mode is None:
+            res = 0xffff
+            while res == 0xffff:
+                res = self._get_values_without_arguments(ptc.GET_FFC_MODE)
+            self._ffc_mode = {v: k for k, v in ptc.FFC_MODE_CODE_DICT.items()}[res]
+        return self._ffc_mode
+
+    @ffc_mode.setter
+    def ffc_mode(self, mode: str):
+        if self._mode_setter(mode=mode, current_value=ptc.FFC_MODE_CODE_DICT[self.ffc_mode],
+                             setter_code=ptc.SET_FFC_MODE, code_dict=ptc.FFC_MODE_CODE_DICT, name='FCC'):
+            if isinstance(mode, int):
+                self._ffc_mode = {v: k for k, v in ptc.FFC_MODE_CODE_DICT.items()}[mode]
+            else:
+                self._ffc_mode = mode
+
+    @property
+    def ffc_period(self) -> int:
+        return self._get_values_without_arguments(ptc.GET_FFC_PERIOD)
+
+    @ffc_period.setter
+    def ffc_period(self, period: int):
+        if not 0 <= period <= 30000:
+            raise ValueError(f'Given FFC period {period} not in 0 <= period <= 30000.')
+        res = False
+        for _ in range(5):
+            res = self._set_values_with_2bytes_send_recv(value=period, current_value=-1, command=ptc.SET_FFC_PERIOD)
+            if res is True:
+                break
+            sleep(1)
+        self._log_set_values(value=period, result=res, value_name='FFC Period')
+
+    @property
     def correction_mask(self):
         """ the default value is 2111 (decimal). 0 (decimal) is all off """
         return self._get_values_without_arguments(ptc.GET_CORRECTION_MASK)
@@ -456,14 +188,6 @@ class Tau(CameraAbstract):
     @correction_mask.setter
     def correction_mask(self, mode: str):
         self._mode_setter(mode, self.correction_mask, ptc.SET_CORRECTION_MASK, ptc.FFC_MODE_CODE_DICT, 'FCC')
-
-    @property
-    def ffc_mode(self):
-        return self._get_values_without_arguments(ptc.GET_FFC_MODE)
-
-    @ffc_mode.setter
-    def ffc_mode(self, mode: str):
-        self._mode_setter(mode, self.ffc_mode, ptc.SET_FFC_MODE, ptc.FFC_MODE_CODE_DICT, 'FCC')
 
     @property
     def gain(self):
@@ -483,7 +207,7 @@ class Tau(CameraAbstract):
 
     @property
     def sso(self) -> int:
-        res = self._send_and_recv_threaded(ptc.GET_AGC_THRESHOLD, struct.pack('>h', 0x0400))
+        res = self.send_command(command=ptc.GET_AGC_THRESHOLD, argument=struct.pack('>h', 0x0400))
         return struct.unpack('>h', res)[0] if res else 0xffff
 
     @sso.setter
@@ -491,7 +215,7 @@ class Tau(CameraAbstract):
         if percentage == self.sso:
             self._log.info(f'Set SSO to {percentage}')
             return
-        self._send_and_recv_threaded(ptc.SET_AGC_THRESHOLD, struct.pack('>hh', 0x0400, percentage))
+        self.send_command(command=ptc.SET_AGC_THRESHOLD, argument=struct.pack('>hh', 0x0400, percentage))
         if self.sso == percentage:
             self._log.info(f'Set SSO to {percentage}%')
             return
@@ -544,27 +268,28 @@ class Tau(CameraAbstract):
 
     @property
     def tlinear(self):
-        res = self._send_and_recv_threaded(ptc.GET_TLINEAR_MODE, struct.pack('>h', 0x0040))
+        res = self.send_command(command=ptc.GET_TLINEAR_MODE, argument=struct.pack('>h', 0x0040))
         return struct.unpack('>h', res)[0] if res else 0xffff
 
     @tlinear.setter
     def tlinear(self, value: int):
         if value == self.tlinear:
+            self._log.info(f'Set TLinear to {value}.')
             return
-        self._send_and_recv_threaded(ptc.SET_TLINEAR_MODE, struct.pack('>hh', 0x0040, value))
+        self.send_command(command=ptc.SET_TLINEAR_MODE, argument=struct.pack('>hh', 0x0040, value))
         if value == self.tlinear:
             self._log_set_values(value, True, 'tlinear mode')
             return
         self._log_set_values(value, False, 'tlinear mode')
 
     def _digital_output_getter(self, command: ptc.Code, argument: bytes):
-        res = self._send_and_recv_threaded(command, argument)
+        res = self.send_command(command=command, argument=argument)
         return struct.unpack('>h', res)[0] if res else 0xffff
 
     def _digital_output_setter(self, mode: int, current_mode: int, command: ptc.Code, argument: int) -> bool:
         if mode == current_mode:
             return True
-        res = self._send_and_recv_threaded(command, struct.pack('>bb', argument, mode))
+        res = self.send_command(command=command, argument=struct.pack('>bb', argument, mode))
         if res and struct.unpack('>bb', res)[-1] == mode:
             return True
         return False
@@ -614,52 +339,18 @@ class Tau(CameraAbstract):
         self._mode_setter(mode, self.fps, ptc.SET_FPS, ptc.FPS_CODE_DICT, 'FPS')
 
     def reset(self):
-        return self._send_and_recv_threaded(ptc.CAMERA_RESET, None)
+        return self.send_command(command=ptc.CAMERA_RESET, argument=None)
 
+    @property
+    def ace(self):
+        return self._get_values_without_arguments(ptc.GET_AGC_ACE_CORRECT)
 
-def _make_packet(command: ptc.Code, argument: (bytes, None) = None) -> bytes:
-    if argument is None:
-        argument = []
-
-    # Refer to Tau 2 Software IDD
-    # Packet Protocol (Table 3.2)
-    packet_size = len(argument)
-    assert (packet_size == command.cmd_bytes)
-
-    process_code = int(0x6E).to_bytes(1, 'big')
-    status = int(0x00).to_bytes(1, 'big')
-    function = command.code.to_bytes(1, 'big')
-
-    # First CRC is the first 6 bytes of the packet
-    # 1 - Process code
-    # 2 - Status code
-    # 3 - Reserved
-    # 4 - Function
-    # 5 - N Bytes MSB
-    # 6 - N Bytes LSB
-
-    packet = [process_code,
-              status,
-              function,
-              ((packet_size & 0xFF00) >> 8).to_bytes(1, 'big'),
-              (packet_size & 0x00FF).to_bytes(1, 'big')]
-    crc_1 = binascii.crc_hqx(struct.pack("ccxccc", *packet), 0)
-
-    packet.append(((crc_1 & 0xFF00) >> 8).to_bytes(1, 'big'))
-    packet.append((crc_1 & 0x00FF).to_bytes(1, 'big'))
-
-    if packet_size > 0:
-
-        # Second CRC is the CRC of the data (if any)
-        crc_2 = binascii.crc_hqx(argument, 0)
-        packet.append(argument)
-        packet.append(((crc_2 & 0xFF00) >> 8).to_bytes(1, 'big'))
-        packet.append((crc_2 & 0x00FF).to_bytes(1, 'big'))
-
-        fmt = ">cxcccccc{}scc".format(packet_size)
-
-    else:
-        fmt = ">cxccccccxxx"
-
-    data = struct.pack(fmt, *packet)
-    return data
+    @ace.setter
+    def ace(self, value: int):
+        if not -8 <= value <= 8:
+            return
+        for _ in range(5):
+            self.send_command(command=ptc.SET_AGC_ACE_CORRECT, argument=struct.pack('>h', value))
+            if value == self.ace:
+                self._log.info(f'Set ACE to {value}.')
+                return

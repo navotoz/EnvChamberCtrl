@@ -10,7 +10,7 @@ from matplotlib.path import Path as matplotlib_Path
 from gui.tools import func_thread_grabber
 import utils.constants as const
 
-from utils.tools import DuplexPipe
+from utils.misc import DuplexPipe
 
 
 def _func_thread_mask(cmd: DuplexPipe, grabber: DuplexPipe,

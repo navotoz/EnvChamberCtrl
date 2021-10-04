@@ -12,7 +12,7 @@ from devices.Oven.utils import make_oven_temperatures_list
 from gui.mask import make_mask_win_and_save
 import utils.constants as const
 from gui.tools import get_values_list, set_value_and_make_filename
-from utils.tools import check_and_make_path, normalize_image, save_average_from_images
+from utils.misc import check_and_make_path, normalize_image, save_average_from_images
 from gui.processes import semaphore_mask_sync, camera_cmd, image_grabber, flag_run, oven_temperature, logger, \
     semaphore_plot_proc
 

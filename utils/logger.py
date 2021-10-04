@@ -2,8 +2,6 @@ import logging
 from pathlib import Path
 from tkinter import END, DISABLED, NORMAL, Text
 
-from utils.tools import check_and_make_path
-
 
 def make_device_logging_handler(name, logging_handlers):
     handler = [handler for handler in logging_handlers if isinstance(handler, logging.FileHandler)]
@@ -27,16 +25,17 @@ def make_device_logging_handler(name, logging_handlers):
 
 
 def make_logging_handlers(logfile_path: (None, Path) = None, verbose: bool = False) -> tuple:
-    fmt = logging.Formatter("%(asctime)s %(name)s:%(levelname)s:%(message)s", datefmt='%Y-%m-%d %H:%M:%S')
+    fmt = make_fmt()
     handlers_list = []
-    handlers_list.append(logging.StreamHandler()) if verbose else None
-    if logfile_path:
-        logfile_path = Path(logfile_path)
-        logfile_path.parent.mkdir(parents=True) if not logfile_path.parent.is_dir() else None
-        check_and_make_path(logfile_path.parent)
-        if logfile_path.is_file():
-            open(logfile_path, 'w').close()
-    handlers_list.append(logging.FileHandler(str(logfile_path), mode='w')) if logfile_path else None
+    if verbose:
+        handlers_list.append(logging.StreamHandler())
+        handlers_list[0].name = 'stdout'
+    if logfile_path and not logfile_path.parent.is_dir():
+        logfile_path.parent.mkdir(parents=True)
+    try:
+        handlers_list.append(logging.FileHandler(str(logfile_path), mode='w')) if logfile_path else None
+    except:
+        pass
     for handler in handlers_list:
         handler.setFormatter(fmt)
     return tuple(handlers_list)
@@ -45,7 +44,7 @@ def make_logging_handlers(logfile_path: (None, Path) = None, verbose: bool = Fal
 def make_logger(name: str, handlers: (list, tuple), level: int = logging.INFO) -> logging.Logger:
     logger = logging.getLogger(name)
     for idx in range(len(handlers)):
-        if not isinstance(handlers[idx], logging.FileHandler):
+        if handlers[idx].name == 'stdout':
             handlers[idx].setLevel(level)
         # else:
         #     handlers[idx].setLevel(logging.DEBUG)
@@ -75,7 +74,10 @@ class GuiMsgHandler(logging.StreamHandler):
 class ExceptionsLogger:
     def __init__(self):
         self._logger = logging.getLogger('ExceptionsLogger')
-        self._logger.addHandler(logging.FileHandler('log_critical.txt', mode='w'))
+        path = Path('log') / 'critical.txt'
+        if not path.parent.is_dir():
+            path.parent.mkdir(parents=True)
+        self._logger.addHandler(logging.FileHandler(path, mode='w'))
         self._logger.addHandler(logging.StreamHandler())
 
     def flush(self):
@@ -83,4 +85,4 @@ class ExceptionsLogger:
 
     def write(self, message):
         if message != '\n':
-            self._logger.critical(message)
+            self._logger.critical(message.split('\n')[0])

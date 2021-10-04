@@ -12,7 +12,7 @@ from PIL import Image
 from tqdm import tqdm
 
 from utils.constants import *
-from utils.tools import get_time, normalize_image, check_and_make_path, SyncFlag, DuplexPipe
+from utils.misc import get_time, normalize_image, check_and_make_path, SyncFlag, DuplexPipe
 
 
 def get_spinbox_value(sp_widget_name: str) -> float:

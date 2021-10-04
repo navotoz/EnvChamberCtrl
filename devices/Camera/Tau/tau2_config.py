@@ -24,7 +24,6 @@ ARGUMENT_HOUSING = 0x0A
 TIMEOUT_IN_NSEC = 1e9  # 1 seconds
 MAGIC_IMAGE_ENDING = 0x0ff0
 
-
 # General Commands
 NO_OP = Code(0x00, 0, 0)
 SET_DEFAULTS = Code(0x01, 0, 0)
@@ -51,9 +50,9 @@ FFC_SHORT = b'\x00\x00'
 FFC_LONG = b'\x00\x01'
 
 GET_FFC_PERIOD = Code(0x0D, 0, 4)
-SET_FFC_PERIOD_LOW_GAIN = Code(0x0D, 2, 2)
-SET_FFC_PERIOD_HIGH_GAIN = Code(0x0D, 2, 2)
-SET_FFC_PERIOD = Code(0x0D, 4, 4)
+SET_FFC_PERIOD_LOW_GAIN = Code(0x0D, 4, 4)
+SET_FFC_PERIOD_HIGH_GAIN = Code(0x0D, 4, 4)
+SET_FFC_PERIOD = Code(0x0D, 2, 2)
 
 GET_FFC_TEMP_DELTA = Code(0x0E, 0, 4)
 SET_FFC_TEMP_DELTA_LOW_GAIN = Code(0x0E, 2, 2)
@@ -88,8 +87,8 @@ GET_BRIGHTNESS_BIAS = Code(0x18, 0, 2)
 SET_AGC_TAIL_SIZE = Code(0x1B, 0, 2)
 GET_AGC_TAIL_SIZE = Code(0x1B, 2, 2)
 
-SET_AGC_ACE_CORRECT = Code(0x1C, 0, 2)
-GET_AGC_ACE_CORRECT = Code(0x1C, 2, 2)
+SET_AGC_ACE_CORRECT = Code(0x1C, 2, 0)
+GET_AGC_ACE_CORRECT = Code(0x1C, 0, 2)
 
 AGC_CODE_DICT = dict(plateau=0x0000, once_bright=0x0001, auto_bright=0x0002, manual=0x0003, linear=0x0005,
                      information_based=0x0009, information_based_eq=0x000A)
@@ -153,9 +152,11 @@ SET_VIDEO_COLOR_MODE = Code(0x26, 0, 2)
 GET_VIDEO_COLOR_MODE = Code(0x26, 2, 2)
 
 # Shutter
-
 GET_SHUTTER_POSITION = Code(0x79, 0, 2)
 SET_SHUTTER_POSITION = Code(0x79, 2, 2)
+
+GET_SHUTTER_TEMPERATURE = Code(0x4D, 0, 2)
+SET_SHUTTER_TEMPERATURE = Code(0x4D, 2, 0)
 
 # Frame transfer
 

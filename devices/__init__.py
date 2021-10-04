@@ -8,7 +8,7 @@ from utils.constants import SCANNER_NAME, FOCUS_NAME
 from utils.logger import make_logging_handlers
 import multiprocessing as mp
 
-from utils.tools import SyncFlag
+from utils.misc import SyncFlag
 import threading as th
 
 
@@ -31,7 +31,7 @@ def initialize_device(element_name: str, logger: Logger, handlers: tuple, use_du
 
 def make_oven(logging_handlers: tuple = make_logging_handlers(None, True), logging_level: int = 20):
     from devices.Oven.PyCampbellCR1000.device import CR1000
-    from utils.tools import get_time
+    from utils.misc import get_time
     from serial.tools.list_ports import comports
     list_ports = comports()
     list_ports = list(filter(lambda x: 'serial' in x.description.lower() and 'usb' in x.device.lower(), list_ports))
@@ -51,67 +51,50 @@ def make_oven_dummy(logging_handlers: tuple = make_logging_handlers(None, True),
 
 class DeviceAbstract(mp.Process):
     _workers_dict = {}
-    _flags_pipes_list = []
 
-    def __init__(self, event_stop: mp.Event,
-                 logging_handlers: (tuple, list),
-                 values_dict: (dict, None)):
+    def __init__(self):
         super().__init__()
-        self._event_stop: mp.Event = event_stop
+        self.daemon = False
         self._flag_run = SyncFlag(init_state=True)
-        self._logging_handlers = logging_handlers
-        self._values_dict = values_dict
+        self._event_terminate = mp.Event()
+        self._event_terminate.clear()
+        self._workers_dict['terminate'] = th.Thread(daemon=False, name='term', target=self._terminate)
 
     def run(self):
-        self._workers_dict['event_stop'] = th.Thread(target=self._th_stopper, name='event_stop', daemon=False)
-        self._workers_dict['event_stop'].start()
-
-        self._workers_dict['cmd_parser'] = th.Thread(target=self._th_cmd_parser, name='cmd_parser', daemon=True)
-        self._workers_dict['cmd_parser'].start()
-
         self._run()
+        [p.start() for p in self._workers_dict.values()]
 
-    @abstractmethod
     def _run(self):
-        pass
-
-    @abstractmethod
-    def _th_cmd_parser(self):
-        pass
-
-    def _th_stopper(self):
-        self._event_stop.wait()
-        self.terminate()
+        raise NotImplementedError
 
     def _wait_for_threads_to_exit(self):
         for key, t in self._workers_dict.items():
-            if t.daemon:
-                continue
             try:
+                if t.daemon:
+                    continue
                 t.join()
-            except (RuntimeError, AssertionError, AttributeError):
+            except (ValueError, TypeError, AttributeError, RuntimeError, NameError, KeyError, AssertionError):
                 pass
 
-    def terminate(self) -> None:
-        if hasattr(self, '_flag_run'):
+    def terminate(self):
+        try:
+            self._event_terminate.set()
+        except (ValueError, TypeError, AttributeError, RuntimeError, NameError, KeyError, AssertionError):
+            pass
+
+    def _terminate(self) -> None:
+        self._event_terminate.wait()
+        try:
             self._flag_run.set(False)
-        for p in self._flags_pipes_list:
-            try:
-                p.set(False)
-            except (RuntimeError, AssertionError, AttributeError, TypeError):
-                pass
+        except (ValueError, TypeError, AttributeError, RuntimeError, NameError, KeyError, AssertionError):
+            pass
         self._terminate_device_specifics()
         self._wait_for_threads_to_exit()
         try:
             self.kill()
-        except (AttributeError, AssertionError, TypeError, KeyError):
+        except (ValueError, TypeError, AttributeError, RuntimeError, NameError, KeyError, AssertionError):
             pass
 
     @abstractmethod
-    def _terminate_device_specifics(self):
-        pass
-
-    def __del__(self):
-        if hasattr(self, '_event_stop') and isinstance(self._event_stop, mp.synchronize.Event):
-            self._event_stop.set()
-        self.terminate()
+    def _terminate_device_specifics(self) -> None:
+        raise NotImplementedError

@@ -9,7 +9,7 @@ import numpy as np
 from devices.Camera import _make_device_from_vid_pid
 from devices.Camera.utils import BytesBuffer
 from utils.logger import make_logger
-from utils.tools import SyncFlag, DuplexPipe
+from utils.misc import SyncFlag, DuplexPipe
 import usb.core
 import usb.util
 from usb.util import ENDPOINT_IN, ENDPOINT_OUT

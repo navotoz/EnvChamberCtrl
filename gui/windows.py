@@ -9,7 +9,7 @@ from PIL import ImageTk
 
 from gui.tools import func_thread_grabber
 from utils.constants import HEIGHT_VIEWER, WIDTH_VIEWER
-from utils.tools import normalize_image
+from utils.misc import normalize_image
 
 
 def open_upload_window():

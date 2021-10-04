@@ -1,158 +1,148 @@
 import multiprocessing as mp
 import threading as th
-from numbers import Number
+from ctypes import c_ushort, c_byte
+from itertools import cycle
+from time import sleep
 
-import utils.constants as const
+from numpy import copyto, frombuffer, uint16
+from usb.core import USBError
+
 from devices import DeviceAbstract
-from devices.Camera import CameraAbstract
-from devices.Camera.Tau.DummyTau2Grabber import TeaxGrabber as DummyTeaxGrabber
+from devices.Camera import CameraAbstract, INIT_CAMERA_PARAMETERS, HEIGHT_IMAGE_TAU2, WIDTH_IMAGE_TAU2, T_HOUSING, T_FPA
 from devices.Camera.Tau.Tau2Grabber import Tau2Grabber
-from devices.Camera.Tau.tau2_config import FFC_MODE_CODE_DICT
-from devices.Camera.Thermapp.ThermappCtrl import ThermappGrabber
-from utils.tools import wait_for_time, DuplexPipe
+from utils.logger import make_logging_handlers
+
+TEMPERATURE_ACQUIRE_FREQUENCY_SECONDS = 30
 
 
 class CameraCtrl(DeviceAbstract):
-    _workers_dict = dict()
-    _camera: (CameraAbstract, None)
-    _image = _th_ffc_temperature = _flag_ffc_temperature = None
+    _camera: (CameraAbstract, None) = None
 
-    def __init__(self,
-                 logging_handlers: (tuple, list),
-                 event_stop: mp.Event,
-                 image_pipe: DuplexPipe,
-                 cmd_pipe: DuplexPipe,
-                 values_dict: dict):
-        super(CameraCtrl, self).__init__(event_stop, logging_handlers, values_dict)
-        self._image_pipe = image_pipe
-        self._cmd_pipe = cmd_pipe
-        self._flags_pipes_list = [self._image_pipe.flag_run, self._cmd_pipe.flag_run]
-        self._camera_type = const.DEVICE_DUMMY
-        self._lock_camera = th.Lock()
-        self._event_get_temperatures = th.Event()
-        self._event_get_temperatures.set()
+    def __init__(self, camera_parameters: dict = INIT_CAMERA_PARAMETERS, is_dummy: bool = False):
+        super().__init__()
+        self._event_alive = mp.Event()
+        self._event_alive.clear() if not is_dummy else self._event_alive.set()
+        self._lock_camera = th.RLock()
+        self._lock_image = mp.Lock()
+        self._event_new_image = mp.Event()
+        self._event_new_image.clear()
+        self._semaphore_ffc_do = mp.Semaphore(value=0)
+        self._semaphore_ffc_finished = mp.Semaphore(value=0)
 
-    def _terminate_device_specifics(self):
-        self._event_get_temperatures.set()
+        # process-safe ffc results
+        self._ffc_result: mp.Value = mp.Value(typecode_or_type=c_byte)
+        self._ffc_result.value = 0
 
-    def _run(self):
-        self._camera = DummyTeaxGrabber(logging_handlers=self._logging_handlers)
-        self._camera_type = const.DEVICE_DUMMY
+        # process-safe image
+        self._image_array = mp.RawArray(c_ushort, HEIGHT_IMAGE_TAU2 * WIDTH_IMAGE_TAU2)
+        self._image_array = frombuffer(self._image_array, dtype=uint16)
+        self._image_array = self._image_array.reshape(HEIGHT_IMAGE_TAU2, WIDTH_IMAGE_TAU2)
 
-        self._workers_dict['t_collector'] = th.Thread(target=self._th_get_temperatures, name='t_collector')
-        self._workers_dict['t_collector'].start()
+        # process-safe temperature
+        self._fpa: mp.Value = mp.Value(typecode_or_type=c_ushort)  # uint16
+        self._housing: mp.Value = mp.Value(typecode_or_type=c_ushort)  # uint16
 
-        self._workers_dict['img_sender'] = th.Thread(target=self._th_image_sender, name='img_sender')
-        self._workers_dict['img_sender'].start()
+        self._camera_params = camera_parameters
 
-    def _th_get_temperatures(self) -> None:
-        def get() -> None:
-            for t_type in [const.T_FPA, const.T_HOUSING]:
-                with self._lock_camera:
-                    t = self._camera.get_inner_temperature(t_type) if self._camera else None
-                if t and t != -float('inf'):
-                    try:
-                        self._values_dict[t_type] = t
-                    except BrokenPipeError:
-                        pass
+    def _terminate_device_specifics(self) -> None:
+        try:
+            self._flag_run.set(False)
+        except (ValueError, TypeError, AttributeError, RuntimeError, NameError, KeyError):
+            pass
+        try:
+            self._event_alive.set()
+        except (ValueError, TypeError, AttributeError, RuntimeError, NameError, KeyError):
+            pass
+        try:
+            self._semaphore_ffc_do.release()
+        except (ValueError, TypeError, AttributeError, RuntimeError, NameError, KeyError):
+            pass
+        try:
+            self._semaphore_ffc_finished.release()
+        except (ValueError, TypeError, AttributeError, RuntimeError, NameError, KeyError):
+            pass
+        try:
+            self._event_new_image.set()
+        except (ValueError, TypeError, AttributeError, RuntimeError, NameError, KeyError):
+            pass
 
-        getter = wait_for_time(get, const.FREQ_INNER_TEMPERATURE_SECONDS)
+    def _run(self) -> None:
+        self._workers_dict['conn'] = th.Thread(target=self._th_connect, name='th_cam_conn', daemon=False)
+        self._workers_dict['get_t'] = th.Thread(target=self._th_getter_temperature, name='th_cam_get_t', daemon=True)
+        self._workers_dict['getter'] = th.Thread(target=self._th_getter_image, name='th_cam_getter', daemon=False)
+        self._workers_dict['ffc'] = th.Thread(target=self._th_ffc_func, name='th_cam_ffc', daemon=True)
+
+    def _th_connect(self) -> None:
+        handlers = make_logging_handlers(None, True)
         while self._flag_run:
-            self._event_get_temperatures.wait(timeout=60 * 10)
-            getter()
-
-    def _th_image_sender(self):
-        def get() -> None:
             with self._lock_camera:
-                return self._camera.grab() if self._camera else None
+                try:
+                    self._camera = Tau2Grabber(logging_handlers=handlers)
+                    self._camera.set_params_by_dict(self._camera_params)
+                    self._getter_temperature(T_FPA)
+                    self._getter_temperature(T_HOUSING)
+                    self._event_alive.set()
+                    return
+                except (RuntimeError, BrokenPipeError, USBError):
+                    pass
+            sleep(1)
 
-        getter = wait_for_time(get, const.CAMERA_TAU_HERTZ)  # ~100Hz even though 60Hz is the max
+    def _th_ffc_func(self) -> None:
+        self._event_alive.wait()
         while self._flag_run:
-            n_images_to_grab = self._image_pipe.recv()
-            if n_images_to_grab is None or n_images_to_grab <= 0:
-                self._image_pipe.send(None)
-                continue
+            self._semaphore_ffc_do.acquire()
+            self._ffc_result.value = self._camera.ffc()
+            self._semaphore_ffc_finished.release()
 
-            self._event_get_temperatures.clear()
-            images = {}
-            for n_image in range(1, n_images_to_grab + 1):
-                t_fpa = round(round(self._values_dict[const.T_FPA] * 100), -1)  # precision for the fpa is 0.1C
-                t_housing = round(self._values_dict[const.T_HOUSING] * 100)  # precision of the housing is 0.01C
-                images[(t_fpa, t_housing, n_image)] = getter()
-            self._event_get_temperatures.set()
-            self._image_pipe.send(images)
+    def _getter_temperature(self, t_type: str):  # this function exists for the th_connect function, otherwise redundant
+        with self._lock_camera:
+            t = self._camera.get_inner_temperature(t_type) if self._camera is not None else None
+        if t is not None and t != 0.0 and t != -float('inf'):
+            try:
+                t = round(t * 100)
+                if t_type == T_FPA:
+                    self._fpa.value = round(t, -1)  # precision for the fpa is 0.1C
+                elif t_type == T_HOUSING:
+                    self._housing.value = t  # precision of the housing is 0.01C
+            except (BrokenPipeError, RuntimeError):
+                pass
 
-    def _th_cmd_parser(self):
+    def _th_getter_temperature(self) -> None:
+        self._event_alive.wait()
+        for t_type in cycle([T_FPA, T_HOUSING]):
+            self._getter_temperature(t_type=t_type)
+            sleep(TEMPERATURE_ACQUIRE_FREQUENCY_SECONDS)
+
+    def _th_getter_image(self) -> None:
+        self._event_alive.wait()
         while self._flag_run:
-            if (cmd := self._cmd_pipe.recv()) is not None:
-                cmd, value = cmd
-                if cmd == const.CAMERA_NAME:
-                    if value is True:
-                        self._cmd_pipe.send(self._camera_type)
-                        continue
-                    with self._lock_camera:
-                        if value != self._camera_type:
-                            self._camera = None
-                            self._camera_type = const.DEVICE_DUMMY
-                            try:
-                                if value == const.CAMERA_TAU:
-                                    self._camera = Tau2Grabber(logging_handlers=self._logging_handlers)
-                                elif value == const.CAMERA_THERMAPP:
-                                    self._camera = ThermappGrabber(logging_handlers=self._logging_handlers)
-                                elif value == const.DEVICE_DUMMY:
-                                    self._camera = DummyTeaxGrabber(logging_handlers=self._logging_handlers)
-                                self._camera_type = value
-                            except RuntimeError:
-                                self._camera = DummyTeaxGrabber(self._logging_handlers)
-                        else:
-                            self._camera_type = value
-                    self._cmd_pipe.send(self._camera_type)
-                elif cmd == const.CAMERA_PARAMETERS:
-                    with self._lock_camera:
-                        self._camera.set_params_by_dict(value)
-                    self._cmd_pipe.send(True)
-                elif cmd == const.DIM:
-                    if value == const.HEIGHT:
-                        self._cmd_pipe.send(self._camera.height)
-                    elif value == const.WIDTH:
-                        self._cmd_pipe.send(self._camera.width)
-                elif cmd == const.FFC:
-                    with self._lock_camera:
-                        self._camera.ffc()
-                elif cmd == const.FFC_TEMPERATURE:
-                    if value is None or isinstance(value, bool):
-                        self._cmd_pipe.send(self._flag_ffc_temperature)
-                        continue
-                    value = float(value)
-                    if self._flag_ffc_temperature != value:
-                        th.Thread(daemon=True, target=self._th_ffc_t_func, args=(value,),
-                                  name=f'th_ffc_t_{int(value * 100):d}mC').start()
-                        self._cmd_pipe.send(True)
+            with self._lock_camera:
+                image = self._camera.grab() if self._camera is not None else None
+            if image is not None:
+                with self._lock_image:
+                    copyto(self._image_array, image)
+                    self._event_new_image.set()
 
-    def _th_ffc_t_func(self, t_to_ffc: float):
-        def get() -> (float, None):
-            return self._values_dict[const.T_FPA]
+    @property
+    def image(self):
+        self._event_new_image.wait()
+        with self._lock_image:
+            self._event_new_image.clear()
+            return self._image_array.copy()
 
-        getter = wait_for_time(get, wait_time_in_sec=5)
-        while self._flag_run:
-            t_fpa = getter()
-            if t_fpa is None:
-                continue
-            if t_fpa >= t_to_ffc:
-                ffc = ffc_mode = False
-                for _ in range(10):
-                    ffc = self._camera.ffc()
-                    if ffc:
-                        break
-                for _ in range(10):
-                    self.ffc_mode = FFC_MODE_CODE_DICT['external']
-                    ffc_mode = (self.ffc_mode == FFC_MODE_CODE_DICT['external'])
-                    if ffc_mode:
-                        break
-                if ffc and ffc_mode:
-                    self._camera.log.info(f'FFC done at {float(t_fpa):.1f}C.')
-                    self._flag_ffc_temperature = t_to_ffc
-                else:
-                    self._camera.log.critical(f'FFC at {float(t_fpa):.1f}C Failed.')
-                    self._flag_ffc_temperature = None
-                return
+    def ffc(self) -> bool:
+        self._semaphore_ffc_do.release()
+        self._semaphore_ffc_finished.acquire()
+        return bool(self._ffc_result.value)
+
+    @property
+    def fpa(self) -> float:
+        return self._fpa.value
+
+    @property
+    def housing(self) -> float:
+        return self._housing.value
+
+    @property
+    def is_camera_alive(self) -> bool:
+        return self._event_alive.is_set()

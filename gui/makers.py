@@ -10,7 +10,7 @@ from gui.tools import spinbox_validation, dict_variables, update_spinbox_paramet
     validate_spinbox_range, get_device_status, set_buttons_by_devices_status
 from utils.constants import *
 from utils.logger import GuiMsgHandler
-from utils.tools import DuplexPipe
+from utils.misc import DuplexPipe
 
 
 class SaveVar(tk.IntVar):

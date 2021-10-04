@@ -10,7 +10,7 @@ import numpy as np
 from devices.Oven.PyCampbellCR1000.device import CR1000
 from gui.tools import get_spinbox_value
 from utils.constants import *
-from utils.tools import get_time
+from utils.misc import get_time
 
 
 def to_datetime(s: str, fmt: str = '%Y-%m-%d %H:%M:%S'):

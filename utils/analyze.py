@@ -11,7 +11,7 @@ import numpy as np
 from matplotlib.ticker import StrMethodFormatter
 
 from utils.constants import *
-from utils.tools import check_and_make_path
+from utils.misc import check_and_make_path
 
 
 def plot_double_sides(dict_of_y_right: dict,

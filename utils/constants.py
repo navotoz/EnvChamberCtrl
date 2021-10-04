@@ -31,10 +31,6 @@ T_BLACKBODY = 'T_blackbody'
 T_CAMERA = 'T_camera'  # thermo-caple attached to the camera inside the oven
 
 # dimensions
-HEIGHT_VIEWER = 400
-WIDTH_VIEWER = 400
-HEIGHT_IMAGE_TAU2 = 256
-WIDTH_IMAGE_TAU2 = 336
 WIDTH = 'width'
 HEIGHT = 'height'
 DIM = 'dim'
@@ -135,25 +131,5 @@ FFC = 'ffc'
 
 # plots
 TEMPERATURE_LABEL = 'Temperature [$C^\circ$]'
-
-CAMERA_PARAMETERS = 'camera_params'
-INIT_CAMERA_PARAMETERS = dict(
-    ffc_mode='external',
-    isotherm=0x0000,
-    dde=0x0000,
-    tlinear=0x0000,
-    gain='high',
-    agc='manual',
-    sso=0,
-    contrast=0,
-    brightness=0,
-    brightness_bias=0,
-    fps=0x0004,  # 60Hz
-    lvds=0x0000,  # disabled
-    lvds_depth=0x0000,  # 14bit
-    xp=0x0002,  # 14bit w/ 1 discrete
-    cmos_depth=0x0000,  # 14bit pre AGC
-    # corr_mask=0  # off
-)
 
 CAMERA_EXPERIMENT = 'cam_experiment'

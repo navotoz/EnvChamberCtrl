@@ -13,7 +13,7 @@ from gui.tools import update_status_label, set_buttons_by_devices_status, \
     browse_btn_func, thread_log_fpa_housing_temperatures, update_spinbox_parameters_devices_states, get_device_status, \
     disable_fields_and_buttons, dict_variables
 from gui.windows import open_upload_window, open_viewer_window
-from utils.tools import SyncFlag
+from utils.misc import SyncFlag
 from gui.experiment import init_experiment
 
 
