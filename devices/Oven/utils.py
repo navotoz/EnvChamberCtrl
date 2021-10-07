@@ -1,13 +1,12 @@
 import multiprocessing as mp
 from collections import deque
-from itertools import islice
 from datetime import datetime, timedelta
+from itertools import islice
 from time import sleep, time_ns
-from tkinter import Frame
 
 import numpy as np
-
 from devices.Oven.PyCampbellCR1000.device import CR1000
+
 from gui.tools import get_spinbox_value
 from utils.constants import *
 from utils.misc import get_time

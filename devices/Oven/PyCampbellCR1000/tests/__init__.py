@@ -9,10 +9,10 @@
 '''
 from __future__ import unicode_literals
 
+from contextlib import contextmanager
+
 # noinspection PyUnresolvedReferences
 import pytest
-
-from contextlib import contextmanager
 
 
 @contextmanager

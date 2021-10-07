@@ -2,17 +2,16 @@ import csv
 import multiprocessing as mp
 import struct
 import threading as th
-from multiprocessing.connection import Connection
 
 import numpy as np
+import usb.core
+import usb.util
+from usb.util import ENDPOINT_IN, ENDPOINT_OUT
 
 from devices.Camera import _make_device_from_vid_pid
 from devices.Camera.utils import BytesBuffer
 from utils.logger import make_logger
 from utils.misc import SyncFlag, DuplexPipe
-import usb.core
-import usb.util
-from usb.util import ENDPOINT_IN, ENDPOINT_OUT
 
 HEADER_SIZE_BYTES = 64
 PACKET_SIZE_BYTES = 512 * 16
@@ -73,7 +72,7 @@ def connect_usb(vid, pid) -> usb.core.Device:
 class UsbIO(mp.Process):
     _thread_read = _thread_parse = _thread_image = None
 
-    def __init__(self, vid, pid, image_pipe:DuplexPipe,
+    def __init__(self, vid, pid, image_pipe: DuplexPipe,
                  flag_run: SyncFlag, logging_handlers: (list, tuple), logging_level: int):
         super().__init__()
         self._log = make_logger('UsbIO', logging_handlers, logging_level)
@@ -156,7 +155,7 @@ class UsbIO(mp.Process):
                 #### todo: what about the temperature????
                 # todo: the temperature is in the header somewhere in 14 and 15
 
-                h_  = struct.unpack(len(header)//2 * 'H', val[:HEADER_SIZE_BYTES])
+                h_ = struct.unpack(len(header) // 2 * 'H', val[:HEADER_SIZE_BYTES])
                 image_id = np.array(h_[26]).astype('uint32') | np.array(h_[27] << 16).astype('uint32')
                 tempereture = np.array(h_[14]).astype('uint32') | np.array(h_[15] << 16).astype('uint32')
                 with open('thermapp_header_dump.csv', 'a') as fp:
@@ -174,7 +173,6 @@ class UsbIO(mp.Process):
                 with open('thermapp_dump.csv', 'a') as fp:
                     w = csv.writer(fp)
                     w.writerow(h_)
-
 
                 val = val[HEADER_SIZE_BYTES:]
 
@@ -195,5 +193,3 @@ class UsbIO(mp.Process):
                 self._image_pipe.send(image)
                 self._log.debug('Grabbed Image')
                 break
-
-

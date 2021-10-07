@@ -54,15 +54,6 @@ def plot_double_sides(dict_of_y_right: dict,
     plt.close()
 
 
-def crop_image_tuples(image_tuple: Tuple[Path, np.ndarray], mask: np.ndarray) -> Tuple[Path, np.ndarray]:
-    path, image = image_tuple
-    m, n = image.shape
-    mask0, mask1 = mask.any(0), mask.any(1)
-    col_start, col_end = mask0.argmax(), n - mask0[::-1].argmax()
-    row_start, row_end = mask1.argmax(), m - mask1[::-1].argmax()
-    return path, image[row_start:row_end, col_start:col_end]
-
-
 def load_np_to_dict(path_to_load: Path) -> Tuple[str, np.ndarray]:
     return path_to_load.stem, np.load(str(path_to_load))
 
@@ -72,38 +63,25 @@ def load_files_to_mem(path_to_load: (str, Path)) -> Tuple[List[Tuple[Path, np.nd
     with Pool(cpu_count()) as pool:
         list_files = list(pool.imap(load_np_to_dict, path_list))
     list_files.sort(key=lambda x: x[0])
-    path_mask = Path(path_to_load) / 'mask.npy'
-    try:
-        mask = np.load(path_mask) if path_mask.is_file() else np.ones_like(list_files[0][0]).astype('bool')
-    except IndexError:
-        return [], np.empty(1)
-    return list_files, mask
-
-
-def crop_images(files_list: List[Tuple[Path, np.ndarray]], mask: np.ndarray) -> List[Tuple[Path, np.ndarray]]:
-    cropper = partial(crop_image_tuples, mask=mask)
-    with Pool(cpu_count()) as pool:
-        list_files = list(pool.imap(cropper, files_list))
-    list_files.sort(key=lambda x: x[0])
     return list_files
 
 
-def average_iterated_images(list_of_images: list, mask: np.ndarray) -> List[Tuple[Path, float]]:
+def average_iterated_images(list_of_images: list) -> List[Tuple[Path, float]]:
     n_images_iterations = int(list_of_images[0][0].split('of')[-1])
     list_of_images.sort(key=lambda x: x[0])
     new_list = [list_of_images[i:i + n_images_iterations] for i in range(0, len(list_of_images), n_images_iterations)]
     for idx, chunk in enumerate(new_list):
         new_name = '_'.join(chunk[0][0].split('_')[:-1])
         mean_img = np.stack([c[-1] for c in chunk])
-        new_list[idx] = (new_name, float(mean_img[:, mask].mean()))
+        new_list[idx] = (new_name, float(mean_img.mean()))
     return new_list
 
 
 def get_average_temps_entire_experiment(path_to_experiment: (str, Path)) -> (List[Tuple[Path, float]], None):
-    files_list, mask = load_files_to_mem(Path(path_to_experiment))
+    files_list = load_files_to_mem(Path(path_to_experiment))
     if not files_list:
         return None
-    return average_iterated_images(files_list, mask)
+    return average_iterated_images(files_list)
 
 
 def parse_results_paths_to_values(results_list: (List[Tuple[Path, np.ndarray]], None)) -> (List[Dict], None):

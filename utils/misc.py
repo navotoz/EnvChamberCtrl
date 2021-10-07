@@ -96,4 +96,3 @@ def save_average_from_images(path: (Path, str), suffix: str = 'npy'):
             avg = np.mean(np.stack([np.load(str(x)) for x in dir_path.glob(f'*.{suffix}')]), 0).astype('uint16')
             np.save(str(dir_path / 'average.npy'), avg)
             normalize_image(avg).save(str(dir_path / 'average.jpeg'), format='jpeg')
-

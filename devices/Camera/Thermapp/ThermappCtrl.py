@@ -1,14 +1,14 @@
 import logging
+import multiprocessing as mp
 from pathlib import Path
 
 import numpy as np
-import multiprocessing as mp
 
 from devices.Camera import CameraAbstract
 from devices.Camera.Thermapp.UsbIO import UsbIO
 from utils.constants import CAMERA_THERMAPP
 from utils.logger import make_logging_handlers, make_device_logging_handler, make_logger
-from utils.misc import SyncFlag, DuplexPipe, make_duplex_pipe
+from utils.misc import SyncFlag, make_duplex_pipe
 
 TIMEOUT_IN_NSEC = 1e9  # 1 seconds
 MAGIC_IMAGE_ENDING = 0x0ff0

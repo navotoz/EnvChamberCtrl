@@ -277,7 +277,8 @@ def make_frames(logger, handler, devices_dict) -> Tuple[tk.Tk, Dict[Any, tk.Fram
     dict_variables[T_FPA] = SafeDoubleVar(frame_temperatures, 0.0, T_FPA)
     dict_variables[T_HOUSING] = SafeDoubleVar(frame_temperatures, 0.0, T_HOUSING)
 
-    func_device_maker = partial(make_device_and_handle_parameters, logger=logger, handlers=handler, devices_dict=devices_dict)
+    func_device_maker = partial(make_device_and_handle_parameters, logger=logger, handlers=handler,
+                                devices_dict=devices_dict)
     row_for_camera = make_range_params(frame_params, 1, func_device_maker, devices_dict)
     make_camera_status_radiobox(frame_params, row_for_camera, devices_dict)
     dict_variables[EXPERIMENT_SAVE_PATH] = tk.StringVar(master=frame_buttons, name=EXPERIMENT_SAVE_PATH,
@@ -292,5 +293,5 @@ def make_frames(logger, handler, devices_dict) -> Tuple[tk.Tk, Dict[Any, tk.Fram
     progress_bar.pack(fill=tk.X)
     return root, {FRAME_HEAD: frame_head, FRAME_PARAMS: frame_params, FRAME_TEMPERATURES: frame_temperatures,
                   FRAME_BUTTONS: frame_buttons, FRAME_PATH: frame_path, FRAME_STATUS: frame_status,
-                  FRAME_PROGRESSBAR: frame_progressbar, FRAME_TERMINAL: frame_terminal},\
-                    dict_variables[EXPERIMENT_SAVE_PATH].get()
+                  FRAME_PROGRESSBAR: frame_progressbar, FRAME_TERMINAL: frame_terminal}, \
+           dict_variables[EXPERIMENT_SAVE_PATH].get()

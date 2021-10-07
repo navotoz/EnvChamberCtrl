@@ -20,7 +20,7 @@ def make_device_logging_handler(name, logging_handlers):
         handler_info = logging.FileHandler(str(path_to_info), mode='w')
         handler_info.setLevel(logging.INFO)
         handler_info.setFormatter(fmt)
-        return logging_handlers + (handler_debug, handler_info, )
+        return logging_handlers + (handler_debug, handler_info,)
     return logging_handlers
 
 
@@ -55,7 +55,7 @@ def make_logger(name: str, handlers: (list, tuple), level: int = logging.INFO) -
 
 
 class GuiMsgHandler(logging.StreamHandler):
-    def __init__(self, text_box: Text, logger:logging.Logger) -> None:
+    def __init__(self, text_box: Text, logger: logging.Logger) -> None:
         super().__init__()
         self.setFormatter(logging.Formatter("%(asctime)s | %(levelname)10s | %(message)s", datefmt='%Y-%m-%d %H:%M:%S'))
         self.text_box: Text = text_box

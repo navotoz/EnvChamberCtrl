@@ -1,12 +1,11 @@
-from pathlib import Path
-
-import utils.constants as const
 import logging
 import socket
 import threading as th
+from pathlib import Path
 from queue import SimpleQueue, Empty
 from time import time_ns, sleep
 
+import utils.constants as const
 from utils.logger import make_logger, make_device_logging_handler, make_logging_handlers
 from utils.misc import SyncFlag
 
@@ -179,7 +178,7 @@ class BlackBody:
         return False
 
 
-class BlackBodyThread:
+class BlackBodyThread(th.Thread):
     _blackbody: (BlackBody, None) = None
     _workers_dict = {}
 

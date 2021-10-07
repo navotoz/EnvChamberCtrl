@@ -6,27 +6,33 @@ from tkinter import TclError
 import utils.constants as const
 from devices.Oven.make_oven_program import make_oven_basic_prog
 from devices.Oven.plots import plot_btn_func
+from gui.experiment import thread_run_experiment
 from gui.makers import make_frames, make_buttons
-from gui.processes import oven, mp_values_dict, oven_cmd, camera_cmd, image_grabber, \
-    event_stop, semaphore_plot_proc, semaphore_mask_sync, logger, handlers, blackbody_cmd
+from gui.processes import semaphore_plot_proc, logger, handlers
 from gui.tools import update_status_label, set_buttons_by_devices_status, \
-    browse_btn_func, thread_log_fpa_housing_temperatures, update_spinbox_parameters_devices_states, get_device_status, \
+    browse_btn_func, th_cam_t_getter, update_spinbox_parameters_devices_states, get_device_status, \
     disable_fields_and_buttons, dict_variables
 from gui.windows import open_upload_window, open_viewer_window
-from utils.misc import SyncFlag
-from gui.experiment import init_experiment
 
 
 def _stop() -> None:
+    try:
+        camera.terminate()
+    except ():
+        pass
+    try:
+        oven.terminate()
+    except ():
+        pass
+    try:
+        blackbody.__del__()
+    except ():
+        pass
     event_stop.set()
-    flag_run_getter_t_camera.set(False)
     [semaphore_plot_proc.release() for _ in range(3)]
-    [semaphore_mask_sync.release() for _ in range(3)]
 
 
 def close_gui(*kwargs) -> None:
-    flag_run_getter_t_camera.set(False)
-    event_stop.set()
     _stop()
     for key in devices_dict.keys():
         devices_dict[key] = None
@@ -53,7 +59,7 @@ def func_start_run_loop() -> None:
     root.focus_set()
     disable_fields_and_buttons(root, buttons_dict)
     update_status_label(frames_dict[const.FRAME_STATUS], const.WORKING)
-    init_experiment(frames_dict=frames_dict, devices_dict=devices_dict)
+    thread_experiment.start()
 
 
 devices_dict = dict().fromkeys([const.CAMERA_NAME, const.OVEN_NAME, const.BLACKBODY_NAME,
@@ -89,9 +95,10 @@ if get_device_status(const.CAMERA_NAME, devices_dict[const.CAMERA_NAME]) == cons
 dict_variables[const.SETTLING_TIME_MINUTES].pipe = oven_cmd
 dict_variables[const.SETTLING_TIME_MINUTES].set(dict_variables[const.SETTLING_TIME_MINUTES].get())
 
-flag_run_getter_t_camera = SyncFlag()
-Thread(target=thread_log_fpa_housing_temperatures, name='th_get_fpa_housing_temperatures',
-       args=(frames_dict[const.FRAME_TEMPERATURES], mp_values_dict, flag_run_getter_t_camera,), daemon=True).start()
+th_cam_temp_getter = Thread(target=th_cam_t_getter, name='th_cam_t_getter', daemon=True,
+                            args=(frames_dict[const.FRAME_TEMPERATURES])).start()
 frames_dict[const.FRAME_PROGRESSBAR].nametowidget(const.PROGRESSBAR).config(length=root.winfo_width())
 
+thread_experiment = Thread(target=thread_run_experiment, name='th_run_experiment', daemon=False,
+                           kwargs=dict(frames_dict=frames_dict, devices_dict=devices_dict))
 root.mainloop()

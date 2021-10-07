@@ -12,7 +12,6 @@ HIGH_VOLT_LIMIT = 40
 OVEN_LOG_TIME_SECONDS = 30
 MAX_FLOOR_TEMPERATURE = 120.0
 PID_FREQ_SEC = 10
-OVEN_RECORDS_FILENAME = 'oven_records.csv'
 PAKBUS_HEADER_LENGTH = 8
 MAX_TEMPERATURE_LINEAR_RISE = 75
 
@@ -52,7 +51,7 @@ INIT_MAX = "init max"
 INIT_INC = "init increment"
 SP_PREFIX = 'sp '
 SETTLING_TIME_MINUTES = 'settling_time_minutes'
-SETTLING_TIME_MINUTES_INIT_VAL = 30   # This number needs to be big, because many T_bb are needed for each T_camera
+SETTLING_TIME_MINUTES_INIT_VAL = 30  # This number needs to be big, because many T_bb are needed for each T_camera
 FFC_TEMPERATURE = 'ffc_temperature'
 FFC_TEMPERATURE_INIT_VAL = 28
 USE_CAM_INNER_TEMPS = 'use_cam_inner_temps'

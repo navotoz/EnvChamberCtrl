@@ -8,11 +8,12 @@
 
 '''
 from __future__ import unicode_literals
+
 import random
 
+from ..compat import StringIO, is_text, is_bytes
 from ..utils import (cached_property, Dict, hex_to_bytes, bytes_to_hex,
                      csv_to_dict)
-from ..compat import StringIO, is_text, is_bytes
 
 
 def test_is_text_or_byte():

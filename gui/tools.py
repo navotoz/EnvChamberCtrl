@@ -1,6 +1,5 @@
 import tkinter as tk
-from functools import partial
-from logging import Logger
+from itertools import cycle
 from math import prod
 from pathlib import Path
 from time import sleep
@@ -11,8 +10,9 @@ import numpy as np
 from PIL import Image
 from tqdm import tqdm
 
+from gui.processes import camera, oven
 from utils.constants import *
-from utils.misc import get_time, normalize_image, check_and_make_path, SyncFlag, DuplexPipe
+from utils.misc import normalize_image, check_and_make_path, SyncFlag, DuplexPipe
 
 
 def get_spinbox_value(sp_widget_name: str) -> float:
@@ -62,28 +62,6 @@ def spinbox_validation(event: (tk.Event, None) = None) -> None:
         inc_value = max(LIMIT_DICT[device_name][RESOLUTION_STRING], get_spinbox_value(device_name + INC_STRING))
         inc_value = min(inc_value, max_value - min_value)
         set_spinbox_value(device_name + INC_STRING, inc_value)
-
-
-def set_value_and_make_filename(blackbody_temperature, scanner_angle, focus, devices_dict, logger: Logger) -> str:
-    func = partial(apply_and_return_filename_str, devices_dict=devices_dict, logger=logger)
-    f_name = f'{get_time().strftime(FMT_TIME)}_'
-    devices_dict[BLACKBODY_NAME].send((T_BLACKBODY, blackbody_temperature))
-    bb_temp = int(devices_dict[BLACKBODY_NAME].recv()*100)
-    logger.debug(f"{BLACKBODY_NAME.capitalize()} set to {bb_temp}.")
-    f_name += f"{BLACKBODY_NAME}_{bb_temp}_"
-    f_name += func(scanner_angle, SCANNER_NAME)
-    f_name += func(focus, FOCUS_NAME)
-    return f_name
-
-
-def apply_and_return_filename_str(val: float, device_name: str, devices_dict: dict, logger: Logger) -> str:
-    if val != -float('inf') and devices_dict[device_name]:
-        devices_dict[device_name](val)
-        if isinstance(val, float):
-            val = int(val * 100)
-        logger.debug(f"{device_name.capitalize()} set to {val}.")
-        return f"{device_name}_{val}_"
-    return ''
 
 
 def func_thread_grabber(device_duplex: DuplexPipe) -> (Image.Image, None):
@@ -161,22 +139,21 @@ def get_device_status(name: str, device: Any) -> int:
     return DEVICE_REAL
 
 
-def thread_log_fpa_housing_temperatures(frame: tk.Frame, values_dict:dict, flag:SyncFlag):
-    def getter() -> None:
-        for t_type in [T_FPA, T_HOUSING]:
-            try:
-                t = values_dict[t_type]
-            except BrokenPipeError:
-                t = -float('inf')
-            if t and t != -float('inf'):
-                try:
-                    frame.setvar(t_type, t)
-                    frame.nametowidget(f"{t_type}_label").config(text=f"{t:.2f} C")
-                except (TypeError, ValueError):
-                    pass
-
-    while flag:
-        getter()
+def th_cam_t_getter(frame: tk.Frame):
+    for t_type in cycle([T_FPA, T_HOUSING]):
+        if T_FPA in t_type:
+            t = camera.fpa
+            oven.set_camera_temperatures(fpa=t)
+        elif T_HOUSING in t_type:
+            t = camera.housing
+            oven.set_camera_temperatures(housing=t)
+        else:
+            return
+        try:
+            frame.setvar(t_type, t)
+            frame.nametowidget(f"{t_type}_label").config(text=f"{t:.2f} C")
+        except (TypeError, ValueError, AttributeError, IndexError, RuntimeError):
+            return
         sleep(1)
 
 

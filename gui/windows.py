@@ -28,7 +28,8 @@ def open_upload_window():
             viewer_window = None
             return
         image = ImageTk.PhotoImage(normalize_image(np.load(filename)))
-        th = Thread(target=func_upload, args=(image, canvas,), daemon=True, name=f'th_uploader_{str(Path(filename).stem)}')
+        th = Thread(target=func_upload, args=(image, canvas,), daemon=True,
+                    name=f'th_uploader_{str(Path(filename).stem)}')
         th.start()
     else:
         viewer_window = None

@@ -170,7 +170,7 @@ def make_runtime_seconds_list(df) -> np.ndarray:
 def plot_btn_func(frame_button: Frame):
     check_and_make_path(Path(frame_button.getvar(EXPERIMENT_SAVE_PATH)))
     path_to_experiment = askdirectory(initialdir=frame_button.getvar(EXPERIMENT_SAVE_PATH),
-                                           title='Choose experiment path')
+                                      title='Choose experiment path')
     if not path_to_experiment:
         path_to_experiment = Path().cwd()
     path_to_experiment = Path(path_to_experiment)

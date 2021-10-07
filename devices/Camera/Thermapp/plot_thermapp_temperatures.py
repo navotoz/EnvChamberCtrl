@@ -1,9 +1,8 @@
-import matplotlib.pyplot as plt
 import csv
-from PIL import  Image
-import numpy as np
 import struct
-from itertools import product, permutations
+from itertools import product
+
+import matplotlib.pyplot as plt
 
 path = '/home/lab/EnvChamber/src/thermapp_header_dump.csv'
 row_14 = []
@@ -13,18 +12,19 @@ with open(path, 'r') as fp:
         row_14.append(int(row[0]))
         row_15.append(int(row[1]))
 
+
 def byte_me(to_bytes_reg, to_num_reg, denominator=1.):
     return list(map(lambda x: struct.unpack(to_num_reg, x)[0] * denominator,
-             list(map(lambda x, y: struct.pack(to_bytes_reg, x, y), row_14, row_15))))
+                    list(map(lambda x, y: struct.pack(to_bytes_reg, x, y), row_14, row_15))))
 
 
-def plot_combined(a1,a2,b1,b2, denominator=1.):
+def plot_combined(a1, a2, b1, b2, denominator=1.):
     x = range(0, len(row_14))
-    for a,b in product((a1,a2), (b1, b2)):
+    for a, b in product((a1, a2), (b1, b2)):
         if not a or not b:
             continue
         fig, ax = plt.subplots()
-        ax.plot(x,byte_me(a,b, denominator), label=f'{a} {b}')
+        ax.plot(x, byte_me(a, b, denominator), label=f'{a} {b}')
         ax.xaxis.set_major_locator(plt.MaxNLocator(10))
         ax.yaxis.set_major_locator(plt.MaxNLocator(10))
         ax.grid()
@@ -36,8 +36,8 @@ def plot_combined(a1,a2,b1,b2, denominator=1.):
 def plot_rows():
     x = range(0, len(row_14))
     fig, ax = plt.subplots()
-    ax.plot(x,row_14, label='14')
-    ax.plot(x,row_15, label='15')
+    ax.plot(x, row_14, label='14')
+    ax.plot(x, row_15, label='15')
     ax.xaxis.set_major_locator(plt.MaxNLocator(10))
     ax.yaxis.set_major_locator(plt.MaxNLocator(10))
     ax.grid()
@@ -74,11 +74,10 @@ def plot_double():
     plt.close()
 
 
+i = byte_me('<HH', '<I')
+f = byte_me('<HH', '<f')
 
-i=byte_me('<HH', '<I')
-f=byte_me('<HH', '<f')
-
-xi = 5/63271718
+xi = 5 / 63271718
 bi = -72.94083957
 
 xf = 0.00071663468
@@ -101,4 +100,3 @@ plot_combined(None, '<HH', None, '<f', denominator=1e-3)
 
 # plot_rows()
 # plot_double()
-
