@@ -10,7 +10,7 @@ import yaml
 import utils.constants as const
 from devices.Camera import INIT_CAMERA_PARAMETERS
 from devices.Oven.utils import make_oven_temperatures_list
-from gui.processes import logger, semaphore_plot_proc, camera, oven
+from processes import logger, semaphore_plot_proc, camera, oven
 from gui.tools import get_values_list
 from utils.misc import check_and_make_path, normalize_image, save_average_from_images
 

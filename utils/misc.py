@@ -1,3 +1,4 @@
+import argparse
 from datetime import datetime
 from multiprocessing import Event
 from pathlib import Path
@@ -96,3 +97,37 @@ def save_average_from_images(path: (Path, str), suffix: str = 'npy'):
             avg = np.mean(np.stack([np.load(str(x)) for x in dir_path.glob(f'*.{suffix}')]), 0).astype('uint16')
             np.save(str(dir_path / 'average.npy'), avg)
             normalize_image(avg).save(str(dir_path / 'average.jpeg'), format='jpeg')
+
+
+def make_parser():
+    parser = argparse.ArgumentParser(description='Measures multiple images of the BlackBody at different setpoints, '
+                                                 'at a predefined camera temperature.'
+                                                 'The Oven temperature is first settled at the predefiend temperature, '
+                                                 'and when the temperature of the camera settles, '
+                                                 'measurements of the BlackBody at differnet setpoints commance.'
+                                                 'The images are saved as a dict in a pickle file.')
+    # general
+    parser.add_argument('--path', help="The folder to save the results. Create folder if invalid.",
+                        default='measurements')
+    parser.add_argument('--n_images', help="The number of images to capture for each point.", default=3000, type=int)
+
+    # camera
+    parser.add_argument('--ffc', help=f"The camera performs FFC before each measurement.", action='store_true')
+    parser.add_argument('--tlinear', help=f"The grey levels are linear to the temperature as: 0.04 * t - 273.15.",
+                        action='store_true')
+
+    # blackbody
+    parser.add_argument('--blackbody_stops', help=f"How many BlackBody temperatures will be "
+                                                  f"measured between blackbody_max to blackbody_min.",
+                        type=int, default=11)
+    parser.add_argument('--blackbody_max', help=f"Maximal temperature of the BlackBody in C.", type=int, default=70)
+    parser.add_argument('--blackbody_min', help=f"Minimal temperature of the BlackBody in C.", type=int, default=20)
+
+    # oven
+    parser.add_argument('--oven_stops', help=f"How many Oven temperatures will be set between oven_max to oven_min.",
+                        type=int, default=11)
+    parser.add_argument('--oven_max', help=f"Maximal temperature of the oven in C.", type=int, default=70)
+    parser.add_argument('--oven_min', help=f"Minimal temperature of the oven in C.", type=int, default=20)
+    parser.add_argument('--settling_time', help=f"The time in Minutes to wait for the camera temperature to settle"
+                                                f" in an Oven setpoint before measurement.", type=int, default=20)
+    return parser.parse_args()

@@ -3,11 +3,10 @@ import ctypes
 import multiprocessing as mp
 import threading as th
 from pathlib import Path
-from time import sleep
+from time import sleep, time_ns
 
 from serial import SerialException, SerialTimeoutException
 
-import utils.constants as const
 from devices import DeviceAbstract
 from devices.Oven.utils import get_last_measurements
 from utils.constants import *
@@ -41,43 +40,31 @@ class OvenCtrl(DeviceAbstract):
     _oven = make_oven_dummy()
     _output_path = _records_path = None
 
-    def __init__(self, logfile_path: (str, Path)):
+    def __init__(self, logfile_path: (str, Path), output_path: (str, Path)):
         super(OvenCtrl, self).__init__()
 
         # sync objects
         self._event_connected = mp.Event()
         self._event_connected.clear()
-        self._event_output_path_is_set = th.Event()
-        self._event_output_path_is_set.clear()
         self._semaphore_setpoint = mp.Semaphore(value=0)
-        self._pipe_output_path_send, self._pipe_output_path_receive = mp.Pipe(duplex=False)
+        self._semaphore_collect = mp.Semaphore(value=0)
 
         # paths
+        self._output_path = Path(output_path)
+        if not self._output_path.is_dir():
+            self._output_path.mkdir(parents=True)
+        self._records_path = self._output_path / OVEN_RECORDS_FILENAME
+
         self._logging_handlers = make_logging_handlers(logfile_path=logfile_path)
         _mp_manager = mp.Manager()
         self._temperatures = _mp_manager.dict().fromkeys([T_FLOOR, T_INSULATION, T_CAMERA, T_FPA, T_HOUSING,
                                                           SIGNALERROR, SETPOINT], 0.0)
-        self._settling_time_minutes = mp.Value(ctypes.c_ulong)
-        self._settling_time_minutes.value = 0
-
-    def set_output_path(self, output_path_to_set: (str, Path)):
-        self._pipe_output_path_send.send(output_path_to_set)
-
-    def _th_setter_path(self):
-        try:
-            self._output_path = Path(self._pipe_output_path_receive.recv())
-        except TypeError:
-            return
-        if not self._output_path.is_dir():
-            self._output_path.mkdir(parents=True)
-        self._records_path = self._output_path / OVEN_RECORDS_FILENAME
-        self._event_output_path_is_set.set()
 
     def _run(self):
-        self._workers_dict['setter_path'] = th.Thread(target=self._th_setter_path, name='oven_setter_path', daemon=True)
         self._workers_dict['conn'] = th.Thread(target=self._th_connect, name='oven_conn', daemon=True)
         self._workers_dict['getter'] = th.Thread(target=self._th_getter, name='oven_getter', daemon=True)
         self._workers_dict['collector'] = th.Thread(target=self._th_collect_records, name='oven_collect', daemon=False)
+        self._workers_dict['timer'] = th.Thread(target=self._th_timer, name='oven_timer', daemon=False)
         self._workers_dict['setter_setpoint'] = th.Thread(target=self._th_setter_setpoint,
                                                           name='oven_setter_setpoint', daemon=True)
 
@@ -86,6 +73,7 @@ class OvenCtrl(DeviceAbstract):
             try:
                 self._oven = make_oven(self._logging_handlers)
                 self._getter_temperature()
+                self._semaphore_collect.release()
                 self._event_connected.set()
                 return
             except (RuntimeError, AttributeError, IndexError, ValueError):
@@ -116,24 +104,8 @@ class OvenCtrl(DeviceAbstract):
             self._temperatures[T_HOUSING] = housing
 
     @property
-    def settling_time_minutes(self) -> int:
-        return self._settling_time_minutes.value
-
-    @settling_time_minutes.setter
-    def settling_time_minutes(self, value: float):
-        self.settling_time_minutes.value = value
-
-    @property
     def is_connected(self):
         return self._event_connected.is_set()
-
-    def _make_maxlength(self) -> int:
-        time_of_change_in_seconds = self.settling_time_minutes * 60
-        return int(time_of_change_in_seconds // FREQ_INNER_TEMPERATURE_SECONDS)
-
-    @staticmethod
-    def _samples_to_minutes(n_samples: int) -> float:
-        return (n_samples * FREQ_INNER_TEMPERATURE_SECONDS) / 60
 
     def _th_getter(self) -> None:
         self._event_connected.wait()
@@ -141,9 +113,17 @@ class OvenCtrl(DeviceAbstract):
             self._getter_temperature()
             sleep(OVEN_LOG_TIME_SECONDS)
 
+    def _th_timer(self):
+        self._event_connected.wait()
+        timer = time_ns()
+        while True:
+            if time_ns() - timer >= OVEN_LOG_TIME_SECONDS:
+                self._semaphore_collect.release()
+                timer = time_ns()
+            sleep(3)
+
     def _th_collect_records(self):
         self._event_connected.wait()
-        self._event_output_path_is_set.wait()
         oven_keys = [t['Fields'] for t in self._oven.table_def
                      if OVEN_TABLE_NAME.encode() in t['Header']['TableName']][0]
         oven_keys = [t['FieldName'].decode() for t in oven_keys]
@@ -152,11 +132,11 @@ class OvenCtrl(DeviceAbstract):
         with open(self._records_path, 'w') as fp_csv:
             writer_csv = csv.writer(fp_csv)
             writer_csv.writerow(oven_keys)
-        get = wait_for_time(func=get_last_measurements, wait_time_in_sec=OVEN_LOG_TIME_SECONDS)
         keys_to_fix = [CTRLSIGNAL, 'dInputKd', 'sumErrKi', f'{SIGNALERROR}Kp', 'dInput', 'sumErr', f'{SIGNALERROR}']
 
         while self._flag_run:
-            if not (records := get(self._oven)):
+            self._semaphore_collect.acquire()
+            if not (records := get_last_measurements(self._oven)):
                 continue
             records[T_FPA] = float(self._temperatures[T_FPA])
             records[T_HOUSING] = float(self._temperatures[T_HOUSING])
@@ -190,7 +170,7 @@ class OvenCtrl(DeviceAbstract):
                 except (ValueError, RuntimeError, ModuleNotFoundError, NameError, ReferenceError, IOError, SystemError):
                     pass
 
-    def _terminate_device_specifics(self) -> None:  # todo: add relevent sync obj
+    def _terminate_device_specifics(self) -> None:
         try:
             self._flag_run.set(False)
         except (ValueError, TypeError, AttributeError, RuntimeError, NameError, KeyError):
@@ -200,14 +180,11 @@ class OvenCtrl(DeviceAbstract):
         except (ValueError, TypeError, AttributeError, RuntimeError, NameError, KeyError):
             pass
         try:
-            self._pipe_output_path_send.send(None)
-        except (ValueError, TypeError, AttributeError, RuntimeError, NameError, KeyError):
-            pass
-        try:
-            self._event_output_path_is_set.set()
-        except (ValueError, TypeError, AttributeError, RuntimeError, NameError, KeyError):
-            pass
-        try:
             self._semaphore_setpoint.release()
         except (ValueError, TypeError, AttributeError, RuntimeError, NameError, KeyError):
             pass
+        try:
+            self._semaphore_collect.release()
+        except (ValueError, TypeError, AttributeError, RuntimeError, NameError, KeyError):
+            pass
+

@@ -1,6 +1,5 @@
 import logging
 from pathlib import Path
-from tkinter import END, DISABLED, NORMAL, Text
 
 
 def make_device_logging_handler(name, logging_handlers):
@@ -23,10 +22,14 @@ def make_device_logging_handler(name, logging_handlers):
         return logging_handlers + (handler_debug, handler_info,)
     return logging_handlers
 
+def make_fmt():
+    return logging.Formatter("%(asctime)s %(name)s:%(levelname)s:%(message)s", datefmt='%Y-%m-%d %H:%M:%S')
 
-def make_logging_handlers(logfile_path: (None, Path) = None, verbose: bool = False) -> tuple:
+
+def make_logging_handlers(logfile_path: (None, Path) = None, verbose: bool = False, use_fmt: bool = True) -> tuple:
     fmt = make_fmt()
     handlers_list = []
+    logfile_path = Path(logfile_path) if logfile_path else None
     if verbose:
         handlers_list.append(logging.StreamHandler())
         handlers_list[0].name = 'stdout'
@@ -37,7 +40,7 @@ def make_logging_handlers(logfile_path: (None, Path) = None, verbose: bool = Fal
     except:
         pass
     for handler in handlers_list:
-        handler.setFormatter(fmt)
+        handler.setFormatter(fmt) if use_fmt else None
     return tuple(handlers_list)
 
 
@@ -46,29 +49,12 @@ def make_logger(name: str, handlers: (list, tuple), level: int = logging.INFO) -
     for idx in range(len(handlers)):
         if handlers[idx].name == 'stdout':
             handlers[idx].setLevel(level)
-        # else:
-        #     handlers[idx].setLevel(logging.DEBUG)
+        else:
+            handlers[idx].setLevel(logging.DEBUG)
     for handler in handlers:
         logger.addHandler(handler)
-    logger.setLevel(logging.DEBUG)
+    logger.setLevel(level)
     return logger
-
-
-class GuiMsgHandler(logging.StreamHandler):
-    def __init__(self, text_box: Text, logger: logging.Logger) -> None:
-        super().__init__()
-        self.setFormatter(logging.Formatter("%(asctime)s | %(levelname)10s | %(message)s", datefmt='%Y-%m-%d %H:%M:%S'))
-        self.text_box: Text = text_box
-        handlers_list = [x for x in logger.handlers if not isinstance(x, logging.FileHandler)]
-        if handlers_list:
-            self.setLevel(handlers_list[0].level)
-
-    def emit(self, record):
-        self.text_box.config(state=NORMAL)
-        self.text_box.insert(END, self.format(record) + self.terminator)
-        self.text_box.see(END)
-        self.text_box.config(state=DISABLED)
-        self.text_box.update_idletasks()
 
 
 class ExceptionsLogger:

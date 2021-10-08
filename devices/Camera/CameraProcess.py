@@ -12,7 +12,7 @@ from devices.Camera import CameraAbstract, INIT_CAMERA_PARAMETERS, HEIGHT_IMAGE_
 from devices.Camera.Tau.Tau2Grabber import Tau2Grabber
 from utils.logger import make_logging_handlers
 
-TEMPERATURE_ACQUIRE_FREQUENCY_SECONDS = 30
+TEMPERATURE_ACQUIRE_FREQUENCY_SECONDS = 15
 
 
 class CameraCtrl(DeviceAbstract):
@@ -20,8 +20,8 @@ class CameraCtrl(DeviceAbstract):
 
     def __init__(self, camera_parameters: dict = INIT_CAMERA_PARAMETERS, is_dummy: bool = False):
         super().__init__()
-        self._event_alive = mp.Event()
-        self._event_alive.clear() if not is_dummy else self._event_alive.set()
+        self._event_connected = mp.Event()
+        self._event_connected.clear() if not is_dummy else self._event_connected.set()
         self._lock_camera = th.RLock()
         self._lock_image = mp.Lock()
         self._event_new_image = mp.Event()
@@ -50,7 +50,7 @@ class CameraCtrl(DeviceAbstract):
         except (ValueError, TypeError, AttributeError, RuntimeError, NameError, KeyError):
             pass
         try:
-            self._event_alive.set()
+            self._event_connected.set()
         except (ValueError, TypeError, AttributeError, RuntimeError, NameError, KeyError):
             pass
         try:
@@ -81,14 +81,14 @@ class CameraCtrl(DeviceAbstract):
                     self._camera.set_params_by_dict(self._camera_params)
                     self._getter_temperature(T_FPA)
                     self._getter_temperature(T_HOUSING)
-                    self._event_alive.set()
+                    self._event_connected.set()
                     return
                 except (RuntimeError, BrokenPipeError, USBError):
                     pass
             sleep(1)
 
     def _th_ffc_func(self) -> None:
-        self._event_alive.wait()
+        self._event_connected.wait()
         while self._flag_run:
             self._semaphore_ffc_do.acquire()
             self._ffc_result.value = self._camera.ffc()
@@ -108,13 +108,13 @@ class CameraCtrl(DeviceAbstract):
                 pass
 
     def _th_getter_temperature(self) -> None:
-        self._event_alive.wait()
+        self._event_connected.wait()
         for t_type in cycle([T_FPA, T_HOUSING]):
             self._getter_temperature(t_type=t_type)
             sleep(TEMPERATURE_ACQUIRE_FREQUENCY_SECONDS)
 
     def _th_getter_image(self) -> None:
-        self._event_alive.wait()
+        self._event_connected.wait()
         while self._flag_run:
             with self._lock_camera:
                 image = self._camera.grab() if self._camera is not None else None
@@ -144,5 +144,5 @@ class CameraCtrl(DeviceAbstract):
         return self._housing.value
 
     @property
-    def is_camera_alive(self) -> bool:
-        return self._event_alive.is_set()
+    def is_connected(self) -> bool:
+        return self._event_connected.is_set()

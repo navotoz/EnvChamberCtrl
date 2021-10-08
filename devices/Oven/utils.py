@@ -7,7 +7,6 @@ from time import sleep, time_ns
 import numpy as np
 from devices.Oven.PyCampbellCR1000.device import CR1000
 
-from gui.tools import get_spinbox_value
 from utils.constants import *
 from utils.misc import get_time
 
@@ -55,17 +54,6 @@ def get_last_measurements(oven) -> (dict, None):
     if records:
         records = {key: val[-1] for key, val in records.items()}
     return records
-
-
-def make_oven_temperatures_list() -> list:
-    lower_bound = int(get_spinbox_value(OVEN_NAME + MIN_STRING))
-    upper_bound = int(get_spinbox_value(OVEN_NAME + MAX_STRING))
-    increment = int(get_spinbox_value(OVEN_NAME + INC_STRING))
-    if not increment:
-        return [lower_bound]
-    temperatures = list(range(lower_bound, upper_bound, increment))
-    temperatures.append(upper_bound) if temperatures and temperatures[-1] != upper_bound else None
-    return temperatures
 
 
 class VariableLengthDeque:
@@ -152,3 +140,12 @@ def _make_temperature_offset(t_next: float, t_oven: float, t_cam: float) -> floa
     if t_next + offset >= MAX_TEMPERATURE_LINEAR_RISE:
         offset = MAX_TEMPERATURE_LINEAR_RISE - t_next
     return offset
+
+
+def _make_maxlength(self) -> int:
+    time_of_change_in_seconds = self.settling_time_minutes * 60
+    return int(time_of_change_in_seconds // FREQ_INNER_TEMPERATURE_SECONDS)
+
+
+def _samples_to_minutes(n_samples: int) -> float:
+    return (n_samples * FREQ_INNER_TEMPERATURE_SECONDS) / 60

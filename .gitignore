@@ -14,3 +14,5 @@
 *.xml
 *.CR1
 *.cr1
+/measurements/
+*/measurements/
