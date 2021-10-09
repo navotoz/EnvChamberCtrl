@@ -15,12 +15,15 @@ HEIGHT_IMAGE_TAU2 = 256
 WIDTH_IMAGE_TAU2 = 336
 
 INIT_CAMERA_PARAMETERS = dict(
-    ffc_mode='auto',
+    lens_number=2,
+    ffc_mode='manual',
+    ffc_period=0,
     isotherm=0x0000,
     dde=0x0000,
-    tlinear=0x0000,
+    tlinear=0,  # T-Linear disabled. The scene will not represent temperatures, because of the filters.
     gain='high',
     agc='manual',
+    ace=0,
     sso=0,
     contrast=0,
     brightness=0,
@@ -30,7 +33,6 @@ INIT_CAMERA_PARAMETERS = dict(
     lvds_depth=0x0000,  # 14bit
     xp=0x0002,  # 14bit w/ 1 discrete
     cmos_depth=0x0000,  # 14bit pre AGC
-    # corr_mask=0  # off
 )
 
 

@@ -56,56 +56,6 @@ def get_last_measurements(oven) -> (dict, None):
     return records
 
 
-class VariableLengthDeque:
-    def __init__(self, maxlen: int):
-        self._deque = deque(maxlen=maxlen)
-        self._lock = mp.Lock()
-
-    def append(self, value: (float, int)) -> None:
-        with self._lock:
-            if self._deque and self._deque[-1] != value:
-                self._deque = deque(maxlen=self._deque.maxlen)
-            self._deque.append(value)
-
-    def __getitem__(self, item: (slice, int)) -> (float, int, list):
-        with self._lock:
-            if isinstance(item, int):
-                return float('inf') if not self._deque else self._deque[item]
-            return list(islice(self._deque, item.start, item.stop, item.step))
-
-    def __len__(self):
-        with self._lock:
-            return len(self._deque)
-
-    @property
-    def maxlength(self) -> int:
-        with self._lock:
-            return self._deque.maxlen
-
-    @maxlength.setter
-    def maxlength(self, new_len: int):
-        new_len = int(new_len)
-        with self._lock:
-            if new_len == self._deque.maxlen:
-                return
-            elif new_len > self._deque.maxlen:
-                new_deque = deque(maxlen=new_len)
-                new_deque.extend(self._deque)
-            elif new_len < self._deque.maxlen:
-                new_deque = deque(maxlen=new_len)
-                [new_deque.append(x) for x in list(self._deque)]
-            self._deque = new_deque
-
-    def __iter__(self):
-        with self._lock:
-            return self._deque.__iter__()
-
-    @property
-    def is_full(self) -> bool:
-        with self._lock:
-            return len(self._deque) == self._deque.maxlen
-
-
 class MaxTemperatureTimer:
     def __init__(self) -> None:
         self._max_temperature = -float('inf')
@@ -130,7 +80,7 @@ class MaxTemperatureTimer:
             self._max_temperature = new_max_temperature
 
 
-def _make_temperature_offset(t_next: float, t_oven: float, t_cam: float) -> float:
+def make_temperature_offset(t_next: float, t_oven: float, t_cam: float) -> float:
     try:
         offset = t_next - max(t_oven, t_cam)
     except TypeError:  # t_cam or t_oven were not yet calculated
@@ -140,12 +90,3 @@ def _make_temperature_offset(t_next: float, t_oven: float, t_cam: float) -> floa
     if t_next + offset >= MAX_TEMPERATURE_LINEAR_RISE:
         offset = MAX_TEMPERATURE_LINEAR_RISE - t_next
     return offset
-
-
-def _make_maxlength(self) -> int:
-    time_of_change_in_seconds = self.settling_time_minutes * 60
-    return int(time_of_change_in_seconds // FREQ_INNER_TEMPERATURE_SECONDS)
-
-
-def _samples_to_minutes(n_samples: int) -> float:
-    return (n_samples * FREQ_INNER_TEMPERATURE_SECONDS) / 60
