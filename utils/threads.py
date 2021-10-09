@@ -1,18 +1,61 @@
-def th_saver(t_bb_: int, images: dict, fpa: dict, housing: dict, path: Path, params_cam: dict):
-    dict_results = {'camera_params': params_cam.copy(), 'measurements': {}}
-    for name_of_filter in list(images.keys()):
-        dict_results['measurements'].setdefault(name_of_filter, {}).setdefault('fpa', fpa.pop(name_of_filter))
-        dict_results['measurements'].setdefault(name_of_filter, {}).setdefault('housing', housing.pop(name_of_filter))
-        dict_results['measurements'].setdefault(name_of_filter, {}).setdefault('frames', images.pop(name_of_filter))
-    pickle.dump(dict_results, open(path / f'blackbody_temperature_{t_bb_:d}.pkl', 'wb'))
+import pickle
+from pathlib import Path
+
+import numpy as np
+from collections import deque
+from time import sleep, time_ns
+
+from tqdm import tqdm
+
+from devices.Camera.CameraProcess import CameraCtrl, TEMPERATURE_ACQUIRE_FREQUENCY_SECONDS
+from devices.Oven.OvenProcess import OvenCtrl
+from devices.Oven.utils import make_temperature_offset
+from utils.constants import SIGNALERROR, PID_FREQ_SEC, OVEN_LOG_TIME_SECONDS, T_FLOOR
+from utils.misc import tqdm_waiting
 
 
-def th_t_cam_getter():
-    while not oven.is_connected or not camera.is_connected:
+def set_oven_and_settle(setpoint: (float, int), settling_time_minutes: int, oven: OvenCtrl, camera: CameraCtrl) -> None:
+    initial_wait_time = PID_FREQ_SEC + OVEN_LOG_TIME_SECONDS * 4  # to let the average ErrSignal settle
+
+    # creates a round-robin queue of differences (dt_camera) to wait until t_camera settles
+    queue_temperatures = deque(maxlen=1 + (60 // PID_FREQ_SEC) * settling_time_minutes)
+    queue_temperatures.append(-float('inf'))  # -inf so that the diff always returns +inf
+    offset = make_temperature_offset(t_next=setpoint, t_oven=oven.temperature(T_FLOOR), t_cam=camera.fpa)
+    oven.setpoint = setpoint + offset  # sets the setpoint with the offset of the oven
+
+    # wait until signal error reaches within 1.5deg of setPoint
+    tqdm_waiting(initial_wait_time, postfix=f'Waiting for PID to settle near {setpoint + offset}C')
+    sleep(0.5)
+    while oven.temperature(SIGNALERROR) >= 1.5:
         sleep(1)
-    while True:
-        oven.set_camera_temperatures(fpa=camera.fpa, housing=camera.housing)
-        sleep(TEMPERATURE_ACQUIRE_FREQUENCY_SECONDS)
+    oven.setpoint = setpoint  # sets the setpoint to the oven
+
+    print(f'Waiting for the Camera to settle near {setpoint:.2f}C', flush=True)
+    n_minutes_settled = 0
+    with tqdm(total=settling_time_minutes, desc=f'Wait for settling') as progressbar:
+        while n_minutes_settled > settling_time_minutes:
+            queue_temperatures.append(camera.fpa)
+            if np.mean(np.diff(queue_temperatures)) >= 1e-2:
+                n_minutes_settled = 0
+                progressbar.refresh()
+                progressbar.reset()
+            else:
+                n_minutes_settled += PID_FREQ_SEC / 60
+            progressbar.set_postfix_str(f"FPA{queue_temperatures[0]:.1f} "
+                                        f"{n_minutes_settled:.2f}|{settling_time_minutes:3d}Min")
+            sleep(PID_FREQ_SEC)
+    sleep(0.5)
+    print(f'Camera temperature {camera.fpa:.2f}C and settled after {n_minutes_settled} minutes.', flush=True)
+
+
+
+
+
+
+
+
+def th_plot_realtime():
+    raise NotImplementedError
 
 
 class PlotterProc(mp.Process):
@@ -63,53 +106,4 @@ class PlotterProc(mp.Process):
         self._event_timer.set()
 
 
-def _th_temperature_setter(self) -> None:
-    next_temperature, fin_msg = 0, 'Finished waiting due to '
-    handlers = make_logging_handlers('log/oven/temperature_differences.txt')
-    logger_waiting = make_logger('OvenTempDiff', handlers, False)
 
-    # handle dummy oven
-    if self._event_connected.is_set() == const.DEVICE_REAL:
-        get_error = wait_for_time(partial(self._oven_temperatures.get, SIGNALERROR), wait_time_in_sec=PID_FREQ_SEC)
-        initial_wait_time = PID_FREQ_SEC + OVEN_LOG_TIME_SECONDS * 4  # to let the average ErrSignal settle
-    else:
-        get_error = lambda: 0
-        initial_wait_time = 1
-
-    # thread loop
-    while self._flag_run:
-        self._semaphore_setpoint.acquire()
-        next_temperature = self.setpoint
-        if not self._flag_run or not next_temperature or next_temperature <= 0:
-            return
-
-        # creates a round-robin queue of differences (dt_camera) to wait until t_camera settles
-        queue_temperatures = VariableLengthDeque(maxlen=max(1, self._make_maxlength()))
-        queue_temperatures.append(-float('inf'))  # -inf so that the diff always returns +inf
-        offset = _make_temperature_offset(t_next=next_temperature,
-                                          t_oven=self._oven_temperatures.get(T_FLOOR).value,
-                                          t_cam=get_inner_temperature())
-        self._set_oven_temperature(next_temperature, offset=offset, verbose=True)
-
-        # wait until signal error reaches within 1.5deg of setPoint
-        tqdm_waiting(initial_wait_time, 'Waiting for PID to settle', self._flag_run)
-        while self._flag_run and get_error() >= 1.5:
-            pass
-        self._set_oven_temperature(next_temperature, offset=0, verbose=True)
-
-        self._oven.log.info(f'Waiting for the Camera to settle near {next_temperature:.2f}C')
-        logger_waiting.info(f'#######   {next_temperature}   #######')
-        while msg := self._flag_run:
-            if queue_temperatures.is_full:
-                msg = f'{fin_msg}{self.settling_time_minutes}Min without change in temperature.'
-                break
-            queue_temperatures.maxlength = self._make_maxlength()
-            queue_temperatures.append(get_inner_temperature())
-            n_minutes_settled = self._samples_to_minutes(len(queue_temperatures))
-            logger_waiting.info(f"FPA{queue_temperatures[0]:.1f} "
-                                f"{self.settling_time_minutes:3d}|{n_minutes_settled:.2f}Min")
-        logger_waiting.info(msg) if isinstance(msg, str) else None
-        self._oven.log.info(msg) if isinstance(msg, str) else None
-        self._temperature_pipe.send(next_temperature)
-        self._oven.log.info(f'Camera reached temperature {queue_temperatures[0]:.2f}C '
-                            f'and settled for {self.settling_time_minutes} minutes.')

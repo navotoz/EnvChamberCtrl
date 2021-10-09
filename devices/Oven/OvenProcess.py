@@ -107,6 +107,12 @@ class OvenCtrl(DeviceAbstract):
     def is_connected(self):
         return self._event_connected.is_set()
 
+    def temperature(self, name: str) -> (float, None):
+        try:
+            return self._temperatures[name]
+        except (KeyError, ValueError, NameError, IndexError):
+            return None
+
     def _th_getter(self) -> None:
         self._event_connected.wait()
         while self._flag_run:

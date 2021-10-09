@@ -182,18 +182,16 @@ class BlackBodyThread(th.Thread):
     _blackbody: (BlackBody, None) = None
     _workers_dict = {}
 
-    def __init__(self, logging_handlers: (tuple, list)):
+    def __init__(self, logfile_path: (str, Path), output_folder_path: (str, Path)):
         super(BlackBodyThread, self).__init__()
         self._lock_access = th.Lock()
         self._event_is_connected = th.Event()
         self._event_is_connected.clear()
         self._flag_run = SyncFlag(init_state=True)
 
-        self._logging_handlers = make_device_logging_handler(f'{const.BLACKBODY_NAME}', logging_handlers)
-        t_h = filter(lambda x: 'file' in str(type(x)).lower(), self._logging_handlers)
-        t_h = Path(list(filter(lambda x: const.BLACKBODY_NAME in x.baseFilename, t_h))[-1].baseFilename).parent
-        t_h /= 'temperatures.txt'
-        self._log_temperature = make_logger(f'{const.BLACKBODY_NAME}Temperatures', make_logging_handlers(t_h, False))
+        self._logging_handlers = make_logging_handlers(logfile_path=logfile_path)
+        self._log_temperature = make_logger(f'{const.BLACKBODY_NAME}Temperatures',
+                                            make_logging_handlers(output_folder_path / 'temperatures.txt', False))
         self._blackbody_type = const.DEVICE_DUMMY
 
     def run(self):
@@ -225,3 +223,9 @@ class BlackBodyThread(th.Thread):
     @property
     def is_connected(self) -> bool:
         return self._event_is_connected.is_set()
+
+    def terminate(self):
+        try:
+            self._blackbody.__del__()
+        except (RuntimeError, OSError, ValueError, IOError, AttributeError):
+            pass
