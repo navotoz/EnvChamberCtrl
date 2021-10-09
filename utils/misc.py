@@ -102,9 +102,9 @@ def save_average_from_images(path: (Path, str), suffix: str = 'npy'):
 def make_parser():
     parser = argparse.ArgumentParser(description='Measures multiple images of the BlackBody at different setpoints, '
                                                  'at a predefined camera temperature.'
-                                                 'The Oven temperature is first settled at the predefiend temperature, '
+                                                 'The Oven temperature is first settled at the predefined temperature, '
                                                  'and when the temperature of the camera settles, '
-                                                 'measurements of the BlackBody at differnet setpoints commance.'
+                                                 'measurements of the BlackBody at different setpoints commence.'
                                                  'The images are saved as a dict in a pickle file.')
     # general
     parser.add_argument('--path', help="The folder to save the results. Create folder if invalid.",
@@ -124,10 +124,7 @@ def make_parser():
     parser.add_argument('--blackbody_min', help=f"Minimal temperature of the BlackBody in C.", type=int, default=20)
 
     # oven
-    parser.add_argument('--oven_stops', help=f"How many Oven temperatures will be set between oven_max to oven_min.",
-                        type=int, default=11)
-    parser.add_argument('--oven_max', help=f"Maximal temperature of the oven in C.", type=int, default=70)
-    parser.add_argument('--oven_min', help=f"Minimal temperature of the oven in C.", type=int, default=20)
+    parser.add_argument('--oven_temperature', help=f"What Oven temperatures will be set.", type=int, required=True)
     parser.add_argument('--settling_time', help=f"The time in Minutes to wait for the camera temperature to settle"
-                                                f" in an Oven setpoint before measurement.", type=int, default=20)
+                                                f" in an Oven setpoint before measurement.", type=int, default=30)
     return parser.parse_args()
