@@ -1,27 +1,28 @@
+import pickle
 import signal
 import sys
 import threading as th
 from datetime import datetime
+from functools import partial
 from pathlib import Path
 from time import sleep
 
-import yaml
-
-from devices.Camera import T_FPA, T_HOUSING, INIT_CAMERA_PARAMETERS
-from devices.Oven.OvenProcess import OvenCtrl, OVEN_RECORDS_FILENAME
-from devices.Oven.plots import plot_oven_records_in_path
-from utils.misc import make_parser
-from utils.threads import set_oven_and_settle
-
-sys.path.append(str(Path().cwd().parent))
-
+import matplotlib.pyplot as plt
 import numpy as np
+import yaml
+from matplotlib.animation import FuncAnimation
 from tqdm import tqdm
 
-import pickle
-
 from devices.BlackBodyCtrl import BlackBodyThread, BlackBodyDummyThread
+from devices.Camera import T_FPA, T_HOUSING, INIT_CAMERA_PARAMETERS
 from devices.Camera.CameraProcess import CameraCtrl, TEMPERATURE_ACQUIRE_FREQUENCY_SECONDS
+from devices.Oven.OvenProcess import OvenCtrl, OVEN_RECORDS_FILENAME
+from devices.Oven.plots import plot_oven_records_in_path
+from devices.Oven.utils import set_oven_and_settle
+from utils.constants import OVEN_LOG_TIME_SECONDS
+from utils.misc import make_parser
+
+sys.path.append(str(Path().cwd().parent))
 
 
 def _stop(a, b, **kwargs) -> None:
@@ -41,7 +42,6 @@ def _stop(a, b, **kwargs) -> None:
         print('Oven terminated.', flush=True)
     except (ValueError, TypeError, AttributeError, RuntimeError, NameError, KeyError, AssertionError):
         pass
-    plot_oven_records_in_path(path_to_log=path_to_save, path_to_save=path_to_save / 'figures')
 
 
 def th_t_cam_getter():
@@ -58,6 +58,7 @@ if __name__ == "__main__":
     params = INIT_CAMERA_PARAMETERS.copy()
     params['tlinear'] = int(args.tlinear)
 
+    # save run parameters
     path_to_save = Path(args.path) / datetime.now().strftime("%Y%m%d_h%Hm%Ms%S")
     if not path_to_save.is_dir():
         path_to_save.mkdir(parents=True)
@@ -107,13 +108,15 @@ if __name__ == "__main__":
         sleep(1)
 
     # init thread
-    list_th = [th.Thread(target=th_t_cam_getter, name='th_cam2oven_temperatures', daemon=True)]
-    # th.Thread(target=mp_plot_realtime, name='th_plot_realtime', daemon=False,
-    #           kwargs=dict(path_to_records=path_to_save / OVEN_RECORDS_FILENAME,
-    #                       event_stop=event_stop))]
-    [p.start() for p in list_th]
+    th_cam_getter = th.Thread(target=th_t_cam_getter, name='th_cam2oven_temperatures', daemon=True)
+    th_cam_getter.start()
 
-    # todo: add realtime plot!
+    # realtime plot of temperatures
+    fig = plt.figure(figsize=(12, 6))
+    ax = plt.subplot()
+    plot = partial(plot_oven_records_in_path, fig=fig, ax=ax, path_to_log=path_to_save / OVEN_RECORDS_FILENAME)
+    ani = FuncAnimation(fig, plot, interval=OVEN_LOG_TIME_SECONDS * 1e3)
+    plt.show()
 
     # measurements
     set_oven_and_settle(setpoint=oven_temperature, settling_time_minutes=settling_time, oven=oven, camera=camera)
@@ -128,4 +131,15 @@ if __name__ == "__main__":
             dict_meas.setdefault(T_FPA, {}).setdefault(t_bb, []).append(camera.fpa)
             dict_meas.setdefault(T_HOUSING, {}).setdefault(t_bb, []).append(camera.housing)
     pickle.dump(dict_meas, open(str(path_to_save / f'fpa_{int(camera.fpa * 100):d}.pkl'), 'wb'))
+
+    # save temperature plot
+    fig, ax = plt.subplots()
+    plot_oven_records_in_path(idx=0, fig=fig, ax=ax, path_to_log=path_to_save / OVEN_RECORDS_FILENAME)
+    path_to_save = Path(path_to_save)
+    if path_to_save.is_file():
+        raise TypeError(f'Expected folder for path_to_save, given a file {path_to_save}.')
+    elif not path_to_save.is_dir():
+        path_to_save.mkdir(parents=True)
+    plt.savefig(path_to_save / 'temperature.png')
+
     _stop(None, None)
