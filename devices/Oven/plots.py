@@ -1,13 +1,9 @@
-import csv
-from functools import partial
 from pathlib import Path
-from typing import Dict
 
 import numpy as np
 import pandas as pd
 from matplotlib import pyplot as plt
 
-from devices.Oven.utils import to_datetime
 from utils.constants import *
 from utils.misc import check_and_make_path
 
@@ -16,37 +12,89 @@ COLOR_CTRLSIGNAL = {'color': 'magenta'}
 COLOR_SETPOINT = {'linestyle': 'dashed', 'color': 'red'}
 
 
-def plot(dict_of_y_values: Dict[str, list], x_values: (list, np.ndarray), full_save_path: (Path, None),
-         dict_rise_time: (dict, None) = None,
-         yaxis_label: str = TEMPERATURE_LABEL, n_ticks: int = 10, xaxis_label: str = 'Time [Minutes]'):
-    _, ax = plt.subplots()
-    for key, values in dict_of_y_values.items():
-        if dict_rise_time:
-            if any([key in k for k in dict_rise_time.keys()]):
-                key = f"{key.capitalize()}, RiseTime {dict_rise_time[f'T_{key}_Avg']}Min"
-        else:
-            key = key.capitalize()
-        if 'setpoint' in key.lower():
-            plt.plot(x_values, values, label=key, **COLOR_SETPOINT)
-        elif 'floor' in key.lower():
-            plt.plot(x_values, values, label=key, **COLOR_FLOOR)
-        elif 'ctrlsignal' in key.lower():
-            plt.plot(x_values, values, label=key, **COLOR_CTRLSIGNAL)
-        else:
-            plt.plot(x_values, values, label=key)
+def plot_temperatures(df: pd.DataFrame, save_path: (Path, None), n_ticks: int = 10):
+    df = df.rename(columns={name: name.split('T_')[-1].capitalize() for name in df.columns}, inplace=False)
+    ax = df.plot()
+    plt.xlabel('Time [Minutes]')
+    plt.ylabel(TEMPERATURE_LABEL)
+    plt.title('Temperatures')
+    plt.grid()
     ax.xaxis.set_major_locator(plt.MaxNLocator(n_ticks))
     ax.xaxis.set_minor_locator(plt.MaxNLocator(n_ticks))
     ax.yaxis.set_major_locator(plt.MaxNLocator(n_ticks))
     ax.yaxis.set_minor_locator(plt.MaxNLocator(n_ticks))
-    plt.legend()
-    plt.xlabel(xaxis_label)
-    plt.ylabel(yaxis_label)
     plt.tight_layout()
-    plt.grid()
-    if full_save_path:
-        check_and_make_path(full_save_path.parent) if full_save_path else None
-        plt.savefig(full_save_path) if full_save_path else plt.show()
+    plt.show()
+    if save_path:
+        save_path /= 'temperatures.png'
+        check_and_make_path(save_path)
+        plt.savefig(save_path)
         plt.close()
+
+
+def plot_signals(df: pd.DataFrame, save_path: (Path, None), n_ticks: int = 10):
+    ax = df.plot()
+    plt.xlabel('Time [Minutes]')
+    plt.ylabel(TEMPERATURE_LABEL)
+    plt.grid()
+    plt.title('Control signals')
+    ax.xaxis.set_major_locator(plt.MaxNLocator(n_ticks))
+    ax.xaxis.set_minor_locator(plt.MaxNLocator(n_ticks))
+    ax.yaxis.set_major_locator(plt.MaxNLocator(n_ticks))
+    ax.yaxis.set_minor_locator(plt.MaxNLocator(n_ticks))
+    plt.tight_layout()
+    plt.show()
+    if save_path:
+        save_path /= 'ctrl.png'
+        check_and_make_path(save_path)
+        plt.savefig(save_path)
+        plt.close()
+
+
+def plot_oven_records_in_path(path_to_log: Path, path_to_save: (Path, str, None) = None):
+    try:
+        df = get_dataframe(path_to_log)
+        df.index = pd.to_datetime(list(df.index))
+        df.index -= df.index[0]
+        df.index = df.index.total_seconds()
+        df.index /= 60  # seconds -> minutes
+        df_temperatures = df[[T_FLOOR, T_INSULATION, T_CAMERA, T_FPA, T_HOUSING, SETPOINT]]
+        df_signals = df[[CTRLSIGNAL, 'sumErrKi', f'{SIGNALERROR}Kp', SETPOINT]]
+        df_signals = pd.concat([df_signals, -df['dInputKd']], axis=1)
+    except (KeyError, ValueError, RuntimeError, AttributeError, FileNotFoundError, IsADirectoryError, IndexError):
+        return
+    if path_to_save:
+        path_to_save = Path(path_to_save)
+        if path_to_save.is_file():
+            raise TypeError(f'Expected folder for path_to_save, given a file {path_to_save}.')
+        elif not path_to_save.is_dir():
+            path_to_save.mkdir(parents=True)
+
+    plot_temperatures(df=df_temperatures, save_path=path_to_save, n_ticks=10)
+    plot_signals(df=df_signals, save_path=path_to_save, n_ticks=10)
+
+    # double = partial(plot_double_sides, df=df, y_values_right_names=('T_floor_Avg', 'setPoint'),
+    #                  y_label_right=TEMPERATURE_LABEL, x_values=list_running_time)
+    # names_list = ['dInput', 'sumErr', f'{SIGNALERROR}']
+    # for name in names_list:
+    #     y_values_left = df[f'{name}_Avg'] if 'dInput' not in name else -df[f'{name}_Avg']
+    #     double(y_label_left=name, y_values_left=y_values_left,
+    #            save_path=(path_to_save / f'{name}.png') if path_to_save else None)
+    # double(y_label_left=CTRLSIGNAL, y_values_left=df[f'{CTRLSIGNAL}_Avg'],
+    #        save_path=(path_to_save / f'ctrl_vs_{T_FLOOR}.png') if path_to_save else None)
+    #
+    # diff = df[SETPOINT] - df[f"{T_FLOOR}_Avg"]
+    # diff[df[SETPOINT].astype('float') <= 0] = 0
+    # df['Diff'] = diff
+    # plot_double_sides(df, x_values=list_running_time,
+    #                   save_path=(path_to_save / 'diff.png') if path_to_save else None,
+    #                   y_label_right=TEMPERATURE_LABEL, y_values_right_names=('Diff',),
+    #                   y_label_left='Control Signal', y_values_left=df[f'{CTRLSIGNAL}_Avg'])
+
+
+def get_dataframe(log_path: (Path, str)) -> pd.DataFrame:
+    df = pd.read_csv(log_path, index_col=DATETIME)
+    return df.rename(columns={name: name.split('_Avg')[0] for name in df.columns}, inplace=False)
 
 
 def plot_double_sides(df, x_values: (list, np.ndarray, pd.DataFrame), save_path: (Path, None),
@@ -96,75 +144,3 @@ def plot_double_sides(df, x_values: (list, np.ndarray, pd.DataFrame), save_path:
         plt.savefig(save_path)
     else:
         plt.show()
-
-
-def plot_oven_records_in_path(path_to_log: Path, path_to_save: (Path, str, None) = None):
-    try:
-        df = get_dataframe(path_to_log)
-        list_running_time = make_runtime_seconds_list(df)
-    except (KeyError, ValueError, RuntimeError, AttributeError, FileNotFoundError, IsADirectoryError, IndexError):
-        return
-
-    names_list = [name.split('_')[1] for name in list(df.columns) if 'T_' in name]
-    dict_of_plots = {name: df[f'T_{name}_Avg'] for name in names_list}
-    dict_of_plots[SETPOINT] = df[SETPOINT]
-    try:
-        dict_of_plots[T_FPA] = df[T_FPA]
-        dict_of_plots[T_HOUSING] = df[T_HOUSING]
-    except KeyError:
-        pass
-    plot(dict_of_y_values=dict_of_plots, x_values=list_running_time, n_ticks=10,
-         yaxis_label=TEMPERATURE_LABEL,
-         full_save_path=(path_to_save / 'temperatures.png') if path_to_save else None)
-
-    names_list = [CTRLSIGNAL, 'dInputKd', 'sumErrKi', f'{SIGNALERROR}Kp']
-    dict_of_plots = {name: df[f'{name}_Avg'] for name in names_list}
-    dict_of_plots['dInputKd'] = -dict_of_plots['dInputKd']  # the controller subtracts dInput
-    dict_of_plots[SETPOINT] = df[SETPOINT]
-    plot(dict_of_y_values=dict_of_plots, x_values=list_running_time, n_ticks=10,
-         yaxis_label='Control Signal',
-         full_save_path=(path_to_save / 'ctrl.png') if path_to_save else None)
-
-    double = partial(plot_double_sides, df=df, y_values_right_names=('T_floor_Avg', 'setPoint'),
-                     y_label_right=TEMPERATURE_LABEL, x_values=list_running_time)
-    names_list = ['dInput', 'sumErr', f'{SIGNALERROR}']
-    for name in names_list:
-        y_values_left = df[f'{name}_Avg'] if 'dInput' not in name else -df[f'{name}_Avg']
-        double(y_label_left=name, y_values_left=y_values_left,
-               save_path=(path_to_save / f'{name}.png') if path_to_save else None)
-    double(y_label_left=CTRLSIGNAL, y_values_left=df[f'{CTRLSIGNAL}_Avg'],
-           save_path=(path_to_save / f'ctrl_vs_{T_FLOOR}.png') if path_to_save else None)
-
-    diff = df[SETPOINT] - df[f"{T_FLOOR}_Avg"]
-    diff[df[SETPOINT].astype('float') <= 0] = 0
-    df['Diff'] = diff
-    plot_double_sides(df, x_values=list_running_time,
-                      save_path=(path_to_save / 'diff.png') if path_to_save else None,
-                      y_label_right=TEMPERATURE_LABEL, y_values_right_names=('Diff',),
-                      y_label_left='Control Signal', y_values_left=df[f'{CTRLSIGNAL}_Avg'])
-
-
-def get_dataframe(log_path: (Path, str)) -> pd.DataFrame:
-    with open(log_path, 'r') as fp:
-        df = pd.DataFrame(csv.reader(fp))
-    col_names = [df[i][0] for i in range(len(df.columns))]
-    if not DATETIME in col_names:
-        col_names = [df[i][1] for i in range(len(df.columns))]
-        df = df[3:]
-        df.index = range(len(df))
-        col_names[0] = DATETIME
-        col_names = {val: key for key, val in enumerate(col_names)}
-    times_list = list(df[0])[1:]
-    df.drop(0, inplace=True)
-    df.rename(columns={key: val for key, val in zip(df.columns, col_names)}, inplace=True)
-    df.pop(DATETIME)
-    df.rename(index={key: val for key, val in zip(df.index, times_list)}, inplace=True)
-    df.rename(columns={name: f"{name}_Avg" for name in col_names if 'T_' in name and 'Avg' not in name}, inplace=True)
-    return df.astype('float')
-
-
-def make_runtime_seconds_list(df) -> np.ndarray:
-    times_list = list(map(lambda x: to_datetime(x), df.index))
-    times_list = list(map(lambda x: x - times_list[0], times_list))
-    times_list = list(map(lambda x: int(x.total_seconds()), times_list))
-    return np.array(times_list) / 60
