@@ -58,7 +58,7 @@ def load_np_to_dict(path_to_load: Path) -> Tuple[str, np.ndarray]:
     return path_to_load.stem, np.load(str(path_to_load))
 
 
-def load_files_to_mem(path_to_load: (str, Path)) -> Tuple[List[Tuple[Path, np.ndarray]], np.ndarray]:
+def load_files_to_mem(path_to_load: (str, Path)) -> list:
     path_list = list(filter(lambda x: 'mask' not in str(x), Path(path_to_load).rglob('*.npy')))
     with Pool(cpu_count()) as pool:
         list_files = list(pool.imap(load_np_to_dict, path_list))
@@ -128,6 +128,7 @@ def plot_3d(values_list, full_save_path: (str, Path, None), xaxis_label: str, ya
     fig = plt.figure()
     ax = fig.add_subplot(111, projection='3d')
     plotter = ax.scatter if use_scatter else plot
+    # noinspection PyArgumentList
     plotter(x, y, z, cmap='viridis')
     ax.set_xlabel(xaxis_label)
     ax.set_ylabel(yaxis_label)
