@@ -1,15 +1,16 @@
-import csv
 import multiprocessing as mp
 import threading as th
 from pathlib import Path
 from time import sleep, time_ns
 
+import pandas as pd
 from serial import SerialException, SerialTimeoutException
 
 from devices import DeviceAbstract
 from devices.Oven.utils import get_last_measurements
 from utils.constants import *
 from utils.logger import make_logging_handlers
+from utils.misc import get_time
 
 OVEN_RECORDS_FILENAME = 'oven_records.csv'
 
@@ -139,26 +140,19 @@ class OvenCtrl(DeviceAbstract):
         oven_keys = [t['FieldName'].decode() for t in oven_keys]
         oven_keys.insert(0, DATETIME)
         oven_keys.append(T_FPA), oven_keys.append(T_HOUSING)
-        with open(self._records_path, 'w') as fp_csv:
-            writer_csv = csv.writer(fp_csv)
-            writer_csv.writerow(oven_keys)
-        keys_to_fix = [CTRLSIGNAL, 'dInputKd', 'sumErrKi', f'{SIGNALERROR}Kp', 'dInput', 'sumErr', f'{SIGNALERROR}']
+        df = pd.DataFrame(columns=oven_keys)
+        df = df.set_index(DATETIME)
 
         while self._flag_run:
             self._semaphore_collect.acquire()
             if not (records := get_last_measurements(self._oven)):
                 continue
+            records[DATETIME] = get_time()  # update inaccurate oven time
             records[T_FPA] = float(self._temperatures[T_FPA])
             records[T_HOUSING] = float(self._temperatures[T_HOUSING])
-            records = {key: val for key, val in records.items() if key in oven_keys}
-            for key in keys_to_fix:
-                try:
-                    records[f"{key}_Avg"] = 0 if records[SETPOINT] <= 0 else records[f"{key}_Avg"]
-                except (IndexError, KeyError, TypeError):
-                    pass
-            with open(self._records_path, 'a') as fp_csv:
-                writer_csv = csv.writer(fp_csv)
-                writer_csv.writerow([records[key] for key in oven_keys])
+            records = pd.DataFrame(records, index=[records.pop(DATETIME)])
+            df = pd.concat([df, pd.DataFrame(records)], ignore_index=False).drop_duplicates().sort_values('RecNbr')
+            df.to_csv(self._records_path, index_label=DATETIME)
             self._oven.log.debug("Added a line to the oven logs.")
 
     def _th_setter_setpoint(self):
