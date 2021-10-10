@@ -6,7 +6,7 @@ from queue import SimpleQueue, Empty
 from time import time_ns, sleep
 
 import utils.constants as const
-from utils.logger import make_logger, make_device_logging_handler, make_logging_handlers
+from utils.logger import make_logger, make_logging_handlers
 from utils.misc import SyncFlag
 
 TIMEOUT_IN_SECONDS = 3

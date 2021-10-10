@@ -1,5 +1,4 @@
 import csv
-import ctypes
 import multiprocessing as mp
 import threading as th
 from pathlib import Path
@@ -11,7 +10,6 @@ from devices import DeviceAbstract
 from devices.Oven.utils import get_last_measurements
 from utils.constants import *
 from utils.logger import make_logging_handlers
-from utils.misc import wait_for_time
 
 OVEN_RECORDS_FILENAME = 'oven_records.csv'
 
@@ -199,5 +197,3 @@ class OvenCtrl(DeviceAbstract):
             self._semaphore_setpoint.release()
         except (ValueError, TypeError, AttributeError, RuntimeError, NameError, KeyError):
             pass
-
-

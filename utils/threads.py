@@ -1,16 +1,13 @@
-import matplotlib.pyplot as plt
-import matplotlib.animation as animation
-import multiprocessing as mp
-import pickle
-from pathlib import Path
-
-import numpy as np
 from collections import deque
-from time import sleep, time_ns
+from pathlib import Path
+from time import sleep
 
+import matplotlib.animation as animation
+import matplotlib.pyplot as plt
+import numpy as np
 from tqdm import tqdm
 
-from devices.Camera.CameraProcess import CameraCtrl, TEMPERATURE_ACQUIRE_FREQUENCY_SECONDS
+from devices.Camera.CameraProcess import CameraCtrl
 from devices.Oven.OvenProcess import OvenCtrl
 from devices.Oven.plots import plot_oven_records_in_path
 from devices.Oven.utils import make_temperature_offset

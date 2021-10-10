@@ -354,3 +354,22 @@ class Tau(CameraAbstract):
             if value == self.ace:
                 self._log.info(f'Set ACE to {value}.')
                 return
+
+    @property
+    def lens_number(self):
+        return self._get_values_without_arguments(ptc.GET_LENS_NUMBER)
+
+    @lens_number.setter
+    def lens_number(self, value: int):
+        if not 1 <= value <= 2:
+            return
+        value -= 1  # the terms of lenses is 0x0001 or 0x0000
+        for _ in range(5):
+            res = self.send_command(command=ptc.SET_LENS_NUMBER, argument=struct.pack('>h', value))
+            try:
+                res = struct.unpack('>h', res)[0]
+            except (TypeError, struct.error, IndexError, RuntimeError, AttributeError):
+                continue
+            if value == res:
+                self._log.info(f'Set Lens number to {value + 1}.')
+                return

@@ -1,7 +1,4 @@
-import multiprocessing as mp
-from collections import deque
 from datetime import datetime, timedelta
-from itertools import islice
 from time import sleep, time_ns
 
 import numpy as np

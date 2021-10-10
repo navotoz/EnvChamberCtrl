@@ -22,6 +22,7 @@ def make_device_logging_handler(name, logging_handlers):
         return logging_handlers + (handler_debug, handler_info,)
     return logging_handlers
 
+
 def make_fmt():
     return logging.Formatter("%(asctime)s %(name)s:%(levelname)s:%(message)s", datefmt='%Y-%m-%d %H:%M:%S')
 

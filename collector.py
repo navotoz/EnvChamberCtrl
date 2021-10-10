@@ -1,10 +1,8 @@
-import multiprocessing as mp
-import argparse
+import signal
 import signal
 import sys
 import threading as th
 from datetime import datetime
-from functools import partial
 from pathlib import Path
 from time import sleep
 
@@ -13,8 +11,8 @@ import yaml
 from devices.Camera import T_FPA, T_HOUSING, INIT_CAMERA_PARAMETERS
 from devices.Oven.OvenProcess import OvenCtrl, OVEN_RECORDS_FILENAME
 from devices.Oven.plots import plot_oven_records_in_path
-from utils.misc import SyncFlag, make_parser
-from utils.threads import set_oven_and_settle, plot_realtime
+from utils.misc import make_parser
+from utils.threads import set_oven_and_settle
 
 sys.path.append(str(Path().cwd().parent))
 
@@ -54,7 +52,6 @@ def th_t_cam_getter():
 
 
 args = make_parser()
-
 
 if __name__ == "__main__":
     signal.signal(signal.SIGINT, _stop)
@@ -112,9 +109,9 @@ if __name__ == "__main__":
 
     # init thread
     list_th = [th.Thread(target=th_t_cam_getter, name='th_cam2oven_temperatures', daemon=True)]
-               # th.Thread(target=mp_plot_realtime, name='th_plot_realtime', daemon=False,
-               #           kwargs=dict(path_to_records=path_to_save / OVEN_RECORDS_FILENAME,
-               #                       event_stop=event_stop))]
+    # th.Thread(target=mp_plot_realtime, name='th_plot_realtime', daemon=False,
+    #           kwargs=dict(path_to_records=path_to_save / OVEN_RECORDS_FILENAME,
+    #                       event_stop=event_stop))]
     [p.start() for p in list_th]
 
     # todo: add realtime plot!
@@ -124,7 +121,7 @@ if __name__ == "__main__":
     dict_meas = dict(camera_params=params.copy(), arguments=args, oven_setpoint=oven_temperature)
     for t_bb in list_t_bb:
         blackbody.temperature = t_bb
-        while not camera.ffc(): # todo: add a check for single temperature ffc
+        while not camera.ffc():  # todo: add a check for single temperature ffc
             continue
         sleep(0.5)  # clears the buffer after the FFC
         for _ in tqdm(range(n_images), postfix=f'BlackBody {t_bb}C'):
