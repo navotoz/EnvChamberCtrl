@@ -123,6 +123,7 @@ def make_parser():
                         help=f"How many BlackBody stops between blackbody_max to blackbody_min.")
     parser.add_argument('--blackbody_max', help=f"Maximal temperature of the BlackBody in C.", type=int, default=70)
     parser.add_argument('--blackbody_min', help=f"Minimal temperature of the BlackBody in C.", type=int, default=20)
+    parser.add_argument('--blackbody_dummy', help=f"Uses a dummy BlackBody.", action='store_true')
 
     # oven
     parser.add_argument('--oven_temperature', help=f"What Oven temperatures will be set.", type=int, required=True)
