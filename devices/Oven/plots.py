@@ -47,16 +47,15 @@ def plot(dict_of_y_values: Dict[str, list], x_values: (list, np.ndarray), full_s
     plt.ylabel(yaxis_label)
     plt.tight_layout()
     plt.grid()
-    check_and_make_path(full_save_path.parent) if full_save_path else None
-    plt.savefig(full_save_path) if full_save_path else plt.show()
-    plt.close()
+    if full_save_path:
+        check_and_make_path(full_save_path.parent) if full_save_path else None
+        plt.savefig(full_save_path) if full_save_path else plt.show()
+        plt.close()
 
 
 def plot_double_sides(df, x_values: (list, np.ndarray, pd.DataFrame), save_path: (Path, None),
                       y_values_left: (np.ndarray, pd.DataFrame), y_values_right_names: tuple,
                       y_label_left: str, y_label_right: str, x_label: str = 'Time [Minutes]') -> None:
-    if isinstance(save_path, str):
-        save_path = Path(save_path)
     fig, ax = plt.subplots()
     color_left = 'red'
     plt.plot(x_values, y_values_left, label=y_label_left.capitalize(), color=color_left)
@@ -94,12 +93,15 @@ def plot_double_sides(df, x_values: (list, np.ndarray, pd.DataFrame), save_path:
     fig.legend()
     plt.tight_layout()
     plt.grid()
-    check_and_make_path(save_path.parent) if save_path else None
-    plt.savefig(save_path) if save_path else plt.show()
-    plt.close()
+    if save_path:
+        if isinstance(save_path, str):
+            save_path = Path(save_path)
+        check_and_make_path(save_path.parent) if save_path else None
+        plt.savefig(save_path) if save_path else plt.show()
+        plt.close()
 
 
-def plot_oven_records_in_path(path_to_log: Path, path_to_save: Path):
+def plot_oven_records_in_path(path_to_log: Path, path_to_save: (Path, str, None) = None):
     try:
         df = get_dataframe(path_to_log)
         list_running_time = make_runtime_seconds_list(df) / 60
@@ -115,28 +117,32 @@ def plot_oven_records_in_path(path_to_log: Path, path_to_save: Path):
     except KeyError:
         pass
     plot(dict_of_y_values=dict_of_plots, x_values=list_running_time, n_ticks=10,
-         yaxis_label=TEMPERATURE_LABEL, full_save_path=path_to_save / 'temperatures.png')
+         yaxis_label=TEMPERATURE_LABEL,
+         full_save_path=(path_to_save / 'temperatures.png') if path_to_save else None)
 
     names_list = [CTRLSIGNAL, 'dInputKd', 'sumErrKi', f'{SIGNALERROR}Kp']
     dict_of_plots = {name: df[f'{name}_Avg'] for name in names_list}
     dict_of_plots['dInputKd'] = -dict_of_plots['dInputKd']  # the controller subtracts dInput
     dict_of_plots[SETPOINT] = df[SETPOINT]
     plot(dict_of_y_values=dict_of_plots, x_values=list_running_time, n_ticks=10,
-         yaxis_label='Control Signal', full_save_path=path_to_save / 'ctrl.png')
+         yaxis_label='Control Signal',
+         full_save_path=(path_to_save / 'ctrl.png') if path_to_save else None)
 
     double = partial(plot_double_sides, df=df, y_values_right_names=('T_floor_Avg', 'setPoint'),
                      y_label_right=TEMPERATURE_LABEL, x_values=list_running_time)
     names_list = ['dInput', 'sumErr', f'{SIGNALERROR}']
     for name in names_list:
         y_values_left = df[f'{name}_Avg'] if 'dInput' not in name else -df[f'{name}_Avg']
-        double(y_label_left=name, y_values_left=y_values_left, save_path=path_to_save / f'{name}.png')
+        double(y_label_left=name, y_values_left=y_values_left,
+               save_path=(path_to_save / f'{name}.png') if path_to_save else None)
     double(y_label_left=CTRLSIGNAL, y_values_left=df[f'{CTRLSIGNAL}_Avg'],
-           save_path=path_to_save / f'ctrl_vs_{T_FLOOR}.png')
+           save_path=(path_to_save / f'ctrl_vs_{T_FLOOR}.png') if path_to_save else None)
 
     diff = df[SETPOINT] - df[f"{T_FLOOR}_Avg"]
     diff[df[SETPOINT].astype('float') <= 0] = 0
     df['Diff'] = diff
-    plot_double_sides(df, x_values=list_running_time, save_path=path_to_save / 'diff.png',
+    plot_double_sides(df, x_values=list_running_time,
+                      save_path=(path_to_save / 'diff.png') if path_to_save else None,
                       y_label_right=TEMPERATURE_LABEL, y_values_right_names=('Diff',),
                       y_label_left='Control Signal', y_values_left=df[f'{CTRLSIGNAL}_Avg'])
 
