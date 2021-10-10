@@ -192,7 +192,6 @@ class BlackBodyThread(th.Thread):
         self._logging_handlers = make_logging_handlers(logfile_path=logfile_path)
         self._log_temperature = make_logger(f'{const.BLACKBODY_NAME}Temperatures',
                                             make_logging_handlers(output_folder_path / 'temperatures.txt', False))
-        self._blackbody_type = const.DEVICE_DUMMY
 
     def run(self):
         self._workers_dict['conn'] = th.Thread(target=self._th_conn, name='bb_conn')
@@ -202,7 +201,6 @@ class BlackBodyThread(th.Thread):
         while self._flag_run:
             try:
                 self._blackbody = BlackBody(logging_handlers=self._logging_handlers)
-                self._blackbody_type = const.DEVICE_REAL
                 self._event_is_connected.set()
                 return
             except (RuntimeError, BrokenPipeError):
@@ -229,3 +227,27 @@ class BlackBodyThread(th.Thread):
             self._blackbody.__del__()
         except (RuntimeError, OSError, ValueError, IOError, AttributeError):
             pass
+
+
+class BlackBodyDummyThread:
+    def __init__(self):
+        super().__init__()
+        self._lock_access = th.Lock()
+        self._temperature = 0.0
+
+    @property
+    def temperature(self) -> (float, int):
+        with self._lock_access:
+            return self._temperature
+
+    @temperature.setter
+    def temperature(self, temperature_to_set: (int, float)):
+        with self._lock_access:
+            self._temperature = temperature_to_set
+
+    @property
+    def is_connected(self) -> bool:
+        return True
+
+    def terminate(self):
+        pass
