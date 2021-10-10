@@ -1,9 +1,6 @@
 import csv
 from functools import partial
 from pathlib import Path
-from threading import Thread
-from tkinter import Frame
-from tkinter.filedialog import askdirectory
 from typing import Dict
 
 import numpy as np
@@ -11,7 +8,6 @@ import pandas as pd
 from matplotlib import pyplot as plt
 
 from devices.Oven.utils import to_datetime
-from utils.analyze import plot_images_cmp
 from utils.constants import *
 from utils.misc import check_and_make_path
 
@@ -96,15 +92,16 @@ def plot_double_sides(df, x_values: (list, np.ndarray, pd.DataFrame), save_path:
     if save_path:
         if isinstance(save_path, str):
             save_path = Path(save_path)
-        check_and_make_path(save_path.parent) if save_path else None
-        plt.savefig(save_path) if save_path else plt.show()
-        plt.close()
+        check_and_make_path(save_path.parent)
+        plt.savefig(save_path)
+    else:
+        plt.show()
 
 
 def plot_oven_records_in_path(path_to_log: Path, path_to_save: (Path, str, None) = None):
     try:
         df = get_dataframe(path_to_log)
-        list_running_time = make_runtime_seconds_list(df) / 60
+        list_running_time = make_runtime_seconds_list(df)
     except (KeyError, ValueError, RuntimeError, AttributeError, FileNotFoundError, IsADirectoryError, IndexError):
         return
 
@@ -170,22 +167,4 @@ def make_runtime_seconds_list(df) -> np.ndarray:
     times_list = list(map(lambda x: to_datetime(x), df.index))
     times_list = list(map(lambda x: x - times_list[0], times_list))
     times_list = list(map(lambda x: int(x.total_seconds()), times_list))
-    return np.array(times_list)
-
-
-def plot_btn_func(frame_button: Frame):
-    check_and_make_path(Path(frame_button.getvar(EXPERIMENT_SAVE_PATH)))
-    path_to_experiment = askdirectory(initialdir=frame_button.getvar(EXPERIMENT_SAVE_PATH),
-                                      title='Choose experiment path')
-    if not path_to_experiment:
-        path_to_experiment = Path().cwd()
-    path_to_experiment = Path(path_to_experiment)
-
-    # oven logs
-    for path in path_to_experiment.glob('*.csv'):
-        Thread(target=plot_oven_records_in_path, name=f'th_plot_btn_oven_{path.stem}', daemon=True,
-               args=(path, path_to_experiment / PLOTS_PATH / 'oven' / path.stem,)).start()
-
-    # images logs
-    Thread(target=plot_images_cmp, name='th_plot_btn_images', daemon=True,
-           args=(path_to_experiment, path_to_experiment / PLOTS_PATH / 'camera',)).start()
+    return np.array(times_list) / 60
