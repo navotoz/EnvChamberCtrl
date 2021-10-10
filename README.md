@@ -49,7 +49,7 @@ The server is run using python 3.8 with requirements detailed in requirements.tx
    the secondary network card on the PC. In order to use the BlackBody, both it and the PC should be on the same
    network *domain*, meaning that PC address should look like
    `[BlackBody].[BlackBody].[BlackBody].[DIFFERENT THAN THE BLACKBODY]`
-   The same digits for the first three blocks in the IP, and the last block **different** than the BlackBody. Currently
+   The same digits for the first three blocks in the IP, and the last block **different** than the BlackBody. Currently,
    the Blackbody address is `10.26.91.56`, so set the IP of the PC to `10.26.91.55`.
 1. The oven is controlled via *Loggernet*, a proprietary software by *Campbell scientific*. Install **VirtualBox**, **
    VirtualBox Extension Pack** and load the image **win10_loggernet**. These are all found in the Devices->Campbell->
@@ -95,7 +95,7 @@ Each device in the GUI window has a radiobox with "Real", "Dummy" and "Off" labe
     1. Set the **setPoint** in the *NumDisplay* to the desired temperature.
     1. **Notice** that the switch on the front of the oven must be ON to enable the heating.
     1. Wait for the settling of the temperatures.
-1. Set the number of minimal minutes to wait between consecutive experiments on the top-left corner.
+1. Set the number of minimal minutes to wait between consecutive experiments in the top-left corner.
 1. Press "Start".
 1. A progress bar is updated throughout the experiment.
 
