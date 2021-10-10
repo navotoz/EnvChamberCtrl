@@ -1,3 +1,4 @@
+import multiprocessing as mp
 import argparse
 import signal
 import sys
@@ -10,9 +11,10 @@ from time import sleep
 import yaml
 
 from devices.Camera import T_FPA, T_HOUSING, INIT_CAMERA_PARAMETERS
-from devices.Oven.OvenProcess import OvenCtrl
+from devices.Oven.OvenProcess import OvenCtrl, OVEN_RECORDS_FILENAME
+from devices.Oven.plots import plot_oven_records_in_path
 from utils.misc import SyncFlag, make_parser
-from utils.threads import set_oven_and_settle
+from utils.threads import set_oven_and_settle, plot_realtime
 
 sys.path.append(str(Path().cwd().parent))
 
@@ -21,11 +23,11 @@ from tqdm import tqdm
 
 import pickle
 
-from devices.BlackBodyCtrl import BlackBodyThread
+from devices.BlackBodyCtrl import BlackBodyThread, BlackBodyDummyThread
 from devices.Camera.CameraProcess import CameraCtrl, TEMPERATURE_ACQUIRE_FREQUENCY_SECONDS
 
 
-def _stop() -> None:
+def _stop(a, b, **kwargs) -> None:
     try:
         camera.terminate()
         print('Camera terminated.', flush=True)
@@ -38,9 +40,11 @@ def _stop() -> None:
         pass
     try:
         oven.terminate()
+        oven.join()  # allows the last records to be saved
         print('Oven terminated.', flush=True)
     except (ValueError, TypeError, AttributeError, RuntimeError, NameError, KeyError, AssertionError):
         pass
+    plot_oven_records_in_path(path_to_log=path_to_save, path_to_save=path_to_save / 'figures')
 
 
 def th_t_cam_getter():
@@ -80,23 +84,40 @@ if __name__ == "__main__":
     print()
 
     # init devices
-    oven = OvenCtrl(logfile_path=path_to_save / 'logs' / 'oven.txt', output_path=path_to_save)
-    oven.start()
+    if not args.blackbody_dummy:
+        blackbody = BlackBodyThread(logfile_path=path_to_save / 'logs' / 'blackbody.txt',
+                                    output_folder_path=path_to_save)
+        blackbody.start()
+    else:
+        blackbody = BlackBodyDummyThread()
     camera = CameraCtrl(camera_parameters=params)
     camera.start()
-    blackbody = BlackBodyThread(logfile_path=path_to_save / 'logs' / 'blackbody.txt', output_folder_path=path_to_save)
-    blackbody.start()
+    oven = OvenCtrl(logfile_path=path_to_save / 'logs' / 'oven.txt', output_path=path_to_save)
+    oven.start()
 
     # wait for the devices to start
-    while not oven.is_connected or not camera.is_connected or not blackbody.is_connected:
+    sleep(1)
+    with tqdm(desc="Waiting for devices to connect.") as progressbar:
+        while not oven.is_connected or not camera.is_connected or not blackbody.is_connected:
+            progressbar.set_postfix_str(f"BlackBody {'Connected' if blackbody.is_connected else 'Waiting'}, "
+                                        f"Oven {'Connected' if oven.is_connected else 'Waiting'}, "
+                                        f"Camera {'Connected' if camera.is_connected else 'Waiting'}")
+            progressbar.update()
+            sleep(1)
+    print('Devices Connected.', flush=True)
+
+    # wait for the records file to be created
+    while not (path_to_save / OVEN_RECORDS_FILENAME).is_file():
         sleep(1)
 
     # init thread
-    list_th = [th.Thread(target=th_t_cam_getter, name='th_cam2oven_temperatures', daemon=True),
-               th.Thread(target=th_plot_realtime, name='th_plot_realtime', daemon=False,
-                         kwargs=dict())]
-    wait_for_threads_to_start...
+    list_th = [th.Thread(target=th_t_cam_getter, name='th_cam2oven_temperatures', daemon=True)]
+               # th.Thread(target=mp_plot_realtime, name='th_plot_realtime', daemon=False,
+               #           kwargs=dict(path_to_records=path_to_save / OVEN_RECORDS_FILENAME,
+               #                       event_stop=event_stop))]
+    [p.start() for p in list_th]
 
+    # todo: add realtime plot!
 
     # measurements
     set_oven_and_settle(setpoint=oven_temperature, settling_time_minutes=settling_time, oven=oven, camera=camera)
@@ -111,4 +132,4 @@ if __name__ == "__main__":
             dict_meas.setdefault(T_FPA, {}).setdefault(t_bb, []).append(camera.fpa)
             dict_meas.setdefault(T_HOUSING, {}).setdefault(t_bb, []).append(camera.housing)
     pickle.dump(dict_meas, open(str(path_to_save / f'fpa_{int(camera.fpa * 100):d}.pkl'), 'wb'))
-    _stop()
+    _stop(None, None)

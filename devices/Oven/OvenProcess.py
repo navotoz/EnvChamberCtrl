@@ -57,14 +57,20 @@ class OvenCtrl(DeviceAbstract):
 
         self._logging_handlers = make_logging_handlers(logfile_path=logfile_path)
         _mp_manager = mp.Manager()
-        self._temperatures = _mp_manager.dict().fromkeys([T_FLOOR, T_INSULATION, T_CAMERA, T_FPA, T_HOUSING,
-                                                          SIGNALERROR, SETPOINT], 0.0)
+        self._temperatures = _mp_manager.dict()
+        self._temperatures[T_FLOOR] = 0.0
+        self._temperatures[T_INSULATION] = 0.0
+        self._temperatures[T_CAMERA] = 0.0
+        self._temperatures[T_FPA] = 0.0
+        self._temperatures[T_HOUSING] = 0.0
+        self._temperatures[SIGNALERROR] = 0.0
+        self._temperatures[SETPOINT] = 0.0
 
     def _run(self):
         self._workers_dict['conn'] = th.Thread(target=self._th_connect, name='oven_conn', daemon=True)
         self._workers_dict['getter'] = th.Thread(target=self._th_getter, name='oven_getter', daemon=True)
         self._workers_dict['collector'] = th.Thread(target=self._th_collect_records, name='oven_collect', daemon=False)
-        self._workers_dict['timer'] = th.Thread(target=self._th_timer, name='oven_timer', daemon=False)
+        self._workers_dict['timer'] = th.Thread(target=self._th_timer, name='oven_timer', daemon=True)
         self._workers_dict['setter_setpoint'] = th.Thread(target=self._th_setter_setpoint,
                                                           name='oven_setter_setpoint', daemon=True)
 
@@ -123,7 +129,7 @@ class OvenCtrl(DeviceAbstract):
         self._event_connected.wait()
         timer = time_ns()
         while True:
-            if time_ns() - timer >= OVEN_LOG_TIME_SECONDS:
+            if time_ns() - timer >= OVEN_LOG_TIME_SECONDS * 1e9:
                 self._semaphore_collect.release()
                 timer = time_ns()
             sleep(3)
@@ -186,11 +192,12 @@ class OvenCtrl(DeviceAbstract):
         except (ValueError, TypeError, AttributeError, RuntimeError, NameError, KeyError):
             pass
         try:
-            self._semaphore_setpoint.release()
-        except (ValueError, TypeError, AttributeError, RuntimeError, NameError, KeyError):
-            pass
-        try:
             self._semaphore_collect.release()
         except (ValueError, TypeError, AttributeError, RuntimeError, NameError, KeyError):
             pass
+        try:
+            self._semaphore_setpoint.release()
+        except (ValueError, TypeError, AttributeError, RuntimeError, NameError, KeyError):
+            pass
+
 
