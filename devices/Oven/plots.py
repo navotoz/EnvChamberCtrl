@@ -18,16 +18,17 @@ def plot_oven_records_in_path(idx, *, fig: plt.Figure, ax: plt.Subplot, path_to_
         df.index = df.index.total_seconds()
         df.index /= 60  # seconds -> minutes
         df_t = df[[T_FLOOR, T_INSULATION, T_CAMERA, T_FPA, T_HOUSING, SETPOINT]]
+        df_t = df_t[df_t.fpa != 0.0]
+        df_t = df_t[df_t.housing != 0.0]
     except (KeyError, ValueError, RuntimeError, AttributeError, FileNotFoundError, IsADirectoryError, IndexError):
         return
 
     ax.cla()
     df_t = df_t.rename(columns={name: name.split('T_')[-1].capitalize() for name in df_t.columns}, inplace=False)
-    ax.plot(df_t)
+    ax.plot(df_t, label=df_t.columns)
     fig.legend()
     ax.set_xlabel('Time [Minutes]')
     ax.set_ylabel(TEMPERATURE_LABEL)
-    ax.set_title('Temperatures')
     ax.xaxis.set_major_locator(plt.MaxNLocator(n_ticks))
     ax.xaxis.set_minor_locator(plt.MaxNLocator(n_ticks))
     ax.yaxis.set_major_locator(plt.MaxNLocator(n_ticks))
