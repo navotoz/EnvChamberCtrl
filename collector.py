@@ -4,6 +4,7 @@ import sys
 import threading as th
 from datetime import datetime
 from functools import partial
+from multiprocessing import Process
 from pathlib import Path
 from time import sleep
 
@@ -16,9 +17,8 @@ from tqdm import tqdm
 from devices.BlackBodyCtrl import BlackBodyThread, BlackBodyDummyThread
 from devices.Camera import T_FPA, T_HOUSING, INIT_CAMERA_PARAMETERS
 from devices.Camera.CameraProcess import CameraCtrl, TEMPERATURE_ACQUIRE_FREQUENCY_SECONDS
-from devices.Oven.OvenProcess import OvenCtrl, OVEN_RECORDS_FILENAME
+from devices.Oven.OvenProcess import OvenCtrl, OVEN_RECORDS_FILENAME, set_oven_and_settle
 from devices.Oven.plots import plot_oven_records_in_path
-from devices.Oven.utils import set_oven_and_settle
 from utils.constants import OVEN_LOG_TIME_SECONDS
 from utils.misc import make_parser
 
@@ -48,6 +48,14 @@ def th_t_cam_getter():
     while True:
         oven.set_camera_temperatures(fpa=camera.fpa, housing=camera.housing)
         sleep(TEMPERATURE_ACQUIRE_FREQUENCY_SECONDS)
+
+
+def mp_rt_plot():
+    fig = plt.figure(figsize=(12, 6))
+    ax = plt.subplot()
+    plot = partial(plot_oven_records_in_path, fig=fig, ax=ax, path_to_log=path_to_save / OVEN_RECORDS_FILENAME)
+    ani = FuncAnimation(fig, plot, interval=OVEN_LOG_TIME_SECONDS * 1e3)
+    plt.show()
 
 
 args = make_parser()
@@ -112,11 +120,8 @@ if __name__ == "__main__":
     th_cam_getter.start()
 
     # realtime plot of temperatures
-    fig = plt.figure(figsize=(12, 6))
-    ax = plt.subplot()
-    plot = partial(plot_oven_records_in_path, fig=fig, ax=ax, path_to_log=path_to_save / OVEN_RECORDS_FILENAME)
-    ani = FuncAnimation(fig, plot, interval=OVEN_LOG_TIME_SECONDS * 1e3)
-    plt.show()
+    mp_plot = Process(target=mp_rt_plot, name='mp_realtime_plot', daemon=True)
+    mp_plot.start()
 
     # measurements
     set_oven_and_settle(setpoint=oven_temperature, settling_time_minutes=settling_time, oven=oven, camera=camera)
