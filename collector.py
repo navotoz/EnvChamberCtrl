@@ -45,8 +45,13 @@ def _stop(a, b, **kwargs) -> None:
 
 
 def th_t_cam_getter():
+    flag_ffc = False
     while True:
-        oven.set_camera_temperatures(fpa=camera.fpa, housing=camera.housing)
+        fpa = camera.fpa
+        oven.set_camera_temperatures(fpa=fpa, housing=camera.housing)
+        if not flag_ffc and fpa >= ffc_temperature:
+            if flag_ffc := camera.ffc():
+                print(f'FFC done at FPA {fpa}C')
         sleep(TEMPERATURE_ACQUIRE_FREQUENCY_SECONDS)
 
 
@@ -85,7 +90,7 @@ if __name__ == "__main__":
     if ffc_temperature == 0:
         print(f'Perform FFC before every measurement.')
     else:
-        print(f'Perform FFC at camera temperature {ffc_temperature}C.')
+        print(f'Perform FFC at FPA temperature {ffc_temperature}C.')
     print()
 
     # init devices
@@ -128,8 +133,8 @@ if __name__ == "__main__":
     dict_meas = dict(camera_params=params.copy(), arguments=args, oven_setpoint=oven_temperature)
     for t_bb in list_t_bb:
         blackbody.temperature = t_bb
-        while not camera.ffc():  # todo: add a check for single temperature ffc
-            continue
+        while not ffc_temperature and not camera.ffc():  # if flag --ffc is given, will not do ffc here
+            sleep(0.5)
         sleep(0.5)  # clears the buffer after the FFC
         for _ in tqdm(range(n_images), postfix=f'BlackBody {t_bb}C'):
             dict_meas.setdefault('measurements', {}).setdefault(t_bb, []).append(camera.image)
