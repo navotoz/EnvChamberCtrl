@@ -108,21 +108,21 @@ def make_parser():
                                                  'measurements of the BlackBody at different setpoints commence.'
                                                  'The images are saved as a dict in a pickle file.')
     # general
-    parser.add_argument('--path', help="The folder to save the results. Create folder if invalid.",
+    parser.add_argument('--path', help="The folder to save the results. Creates folder if invalid.",
                         default='measurements')
     parser.add_argument('--n_images', help="The number of images to capture for each point.", default=3000, type=int)
 
     # camera
-    parser.add_argument('--ffc', type=int, default=0,
+    parser.add_argument('--ffc', type=int, default=25, required=True,
                         help=f"The camera performs FFC before every stop if arg is 0, else at the given temperature.")
     parser.add_argument('--tlinear', help=f"The grey levels are linear to the temperature as: 0.04 * t - 273.15.",
                         action='store_true')
 
     # blackbody
-    parser.add_argument('--blackbody_stops', type=int, default=11,
+    parser.add_argument('--blackbody_stops', type=int, default=13,
                         help=f"How many BlackBody stops between blackbody_max to blackbody_min.")
-    parser.add_argument('--blackbody_max', help=f"Maximal temperature of the BlackBody in C.", type=int, default=70)
-    parser.add_argument('--blackbody_min', help=f"Minimal temperature of the BlackBody in C.", type=int, default=20)
+    parser.add_argument('--blackbody_max', help=f"Maximal temperature of the BlackBody in C.", type=int, default=75)
+    parser.add_argument('--blackbody_min', help=f"Minimal temperature of the BlackBody in C.", type=int, default=15)
     parser.add_argument('--blackbody_dummy', help=f"Uses a dummy BlackBody.", action='store_true')
 
     # oven

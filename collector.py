@@ -73,7 +73,9 @@ if __name__ == "__main__":
 
     # save run parameters
     path_to_save = Path(args.path) / datetime.now().strftime("%Y%m%d_h%Hm%Ms%S")
-    if not path_to_save.is_dir():
+    if path_to_save.is_file():
+        raise TypeError(f'Expected folder for path_to_save, given a file {path_to_save}.')
+    elif not path_to_save.is_dir():
         path_to_save.mkdir(parents=True)
     with open(str(path_to_save / 'camera_params.yaml'), 'w') as fp:
         yaml.safe_dump(params, stream=fp, default_flow_style=False)
@@ -140,16 +142,11 @@ if __name__ == "__main__":
             dict_meas.setdefault('measurements', {}).setdefault(t_bb, []).append(camera.image)
             dict_meas.setdefault(T_FPA, {}).setdefault(t_bb, []).append(camera.fpa)
             dict_meas.setdefault(T_HOUSING, {}).setdefault(t_bb, []).append(camera.housing)
-    pickle.dump(dict_meas, open(str(path_to_save / f'fpa_{int(camera.fpa * 100):d}.pkl'), 'wb'))
+        pickle.dump(dict_meas, open(str(path_to_save / f'fpa_{int(camera.fpa * 100):d}.pkl'), 'wb'))
 
     # save temperature plot
     fig, ax = plt.subplots()
     plot_oven_records_in_path(idx=0, fig=fig, ax=ax, path_to_log=path_to_save / OVEN_RECORDS_FILENAME)
-    path_to_save = Path(path_to_save)
-    if path_to_save.is_file():
-        raise TypeError(f'Expected folder for path_to_save, given a file {path_to_save}.')
-    elif not path_to_save.is_dir():
-        path_to_save.mkdir(parents=True)
     plt.savefig(path_to_save / 'temperature.png')
 
     _stop(None, None)

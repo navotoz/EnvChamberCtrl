@@ -16,7 +16,7 @@ WIDTH_IMAGE_TAU2 = 336
 
 INIT_CAMERA_PARAMETERS = dict(
     lens_number=2,
-    ffc_mode='manual',
+    ffc_mode='external',
     ffc_period=0,
     isotherm=0x0000,
     dde=0x0000,
