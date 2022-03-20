@@ -16,3 +16,4 @@
 *.cr1
 /measurements/
 */measurements/
+*.pyc

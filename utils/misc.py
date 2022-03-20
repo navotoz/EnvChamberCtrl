@@ -126,6 +126,7 @@ def make_parser():
     parser.add_argument('--blackbody_dummy', help=f"Uses a dummy BlackBody.", action='store_true')
 
     # oven
+    parser.add_argument('--oven_dummy', help=f"The oven is not used.", action='store_true', required=False)
     parser.add_argument('--oven_temperature', help=f"What Oven temperatures will be set.", type=int, required=True)
     parser.add_argument('--settling_time', help=f"The time in Minutes to wait for the camera temperature to settle"
                                                 f" in an Oven setpoint before measurement.", type=int, default=30)

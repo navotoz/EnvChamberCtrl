@@ -14,10 +14,13 @@ import yaml
 from matplotlib.animation import FuncAnimation
 from tqdm import tqdm
 
-from devices.BlackBodyCtrl import BlackBodyThread, BlackBodyDummyThread
-from devices.Camera import T_FPA, T_HOUSING, INIT_CAMERA_PARAMETERS
-from devices.Camera.CameraProcess import CameraCtrl, TEMPERATURE_ACQUIRE_FREQUENCY_SECONDS
-from devices.Oven.OvenProcess import OvenCtrl, OVEN_RECORDS_FILENAME, set_oven_and_settle
+from devices.BlackBodyCtrl import BlackBodyDummyThread, BlackBodyThread
+from devices.Camera import INIT_CAMERA_PARAMETERS, T_FPA, T_HOUSING
+from devices.Camera.CameraProcess import (
+    TEMPERATURE_ACQUIRE_FREQUENCY_SECONDS, CameraCtrl)
+from devices.Oven.DummyOven import DummyOven
+from devices.Oven.OvenProcess import (OVEN_RECORDS_FILENAME, OvenCtrl,
+                                      set_oven_and_settle)
 from devices.Oven.plots import plot_oven_records_in_path
 from utils.constants import OVEN_LOG_TIME_SECONDS
 from utils.misc import make_parser
@@ -104,8 +107,12 @@ if __name__ == "__main__":
         blackbody = BlackBodyDummyThread()
     camera = CameraCtrl(camera_parameters=params)
     camera.start()
-    oven = OvenCtrl(logfile_path=path_to_save / 'logs' / 'oven.txt', output_path=path_to_save)
-    oven.start()
+
+    if not args.oven_dummy:
+        oven = OvenCtrl(logfile_path=path_to_save / 'logs' / 'oven.txt', output_path=path_to_save)
+        oven.start()
+    else:
+        oven = DummyOven()
 
     # wait for the devices to start
     sleep(1)
@@ -131,7 +138,8 @@ if __name__ == "__main__":
     mp_plot.start()
 
     # measurements
-    set_oven_and_settle(setpoint=oven_temperature, settling_time_minutes=settling_time, oven=oven, camera=camera)
+    if not args.oven_dummy:
+        set_oven_and_settle(setpoint=oven_temperature, settling_time_minutes=settling_time, oven=oven, camera=camera)
     dict_meas = dict(camera_params=params.copy(), arguments=args, oven_setpoint=oven_temperature)
     for t_bb in list_t_bb:
         blackbody.temperature = t_bb
@@ -145,8 +153,9 @@ if __name__ == "__main__":
         pickle.dump(dict_meas, open(str(path_to_save / f'fpa_{int(camera.fpa * 100):d}.pkl'), 'wb'))
 
     # save temperature plot
-    fig, ax = plt.subplots()
-    plot_oven_records_in_path(idx=0, fig=fig, ax=ax, path_to_log=path_to_save / OVEN_RECORDS_FILENAME)
-    plt.savefig(path_to_save / 'temperature.png')
+    if not args.oven_dummy:
+        fig, ax = plt.subplots()
+        plot_oven_records_in_path(idx=0, fig=fig, ax=ax, path_to_log=path_to_save / OVEN_RECORDS_FILENAME)
+        plt.savefig(path_to_save / 'temperature.png')
 
     _stop(None, None)
