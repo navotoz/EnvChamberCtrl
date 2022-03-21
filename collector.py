@@ -65,8 +65,9 @@ def mp_realttime_plot():
     ani = FuncAnimation(fig, plot, interval=OVEN_LOG_TIME_SECONDS * 1e3)
     plt.show()
 
-# TODO: check if camera fpa and housing is in C or 100C. Change the bb_list saving accordingly. Change filename accordingly. Change the oven settling function accordingly
+
 args = make_parser()
+
 
 if __name__ == "__main__":
     signal.signal(signal.SIGINT, _stop)
@@ -137,18 +138,19 @@ if __name__ == "__main__":
     # measurements
     if oven_temperature != 0:
         set_oven_and_settle(setpoint=oven_temperature, settling_time_minutes=settling_time, oven=oven, camera=camera)
-    dict_meas = dict(camera_params=params.copy(), arguments=vars(args), oven_setpoint=oven_temperature, blackbody=list_t_bb)
-    filename = f"{now}_fpa_{int(camera.fpa * 100):d}.pkl"
+    dict_meas = dict(camera_params=params.copy(), arguments=vars(args), oven_setpoint=oven_temperature)
+    filename = f"{now}_fpa_{int(camera.fpa):d}.pkl"
     for t_bb in list_t_bb:
         blackbody.temperature = t_bb
         while not ffc_temperature and not camera.ffc():  # if flag --ffc is given, will not do ffc here
             sleep(0.5)
         sleep(0.5)  # clears the buffer after the FFC
-        for _ in tqdm(range(n_images), postfix=f'BlackBody {t_bb}C'):
+        t_bb *= 100
+        for _ in tqdm(range(n_images), postfix=f'BlackBody {t_bb / 100}C'):
             dict_meas.setdefault('frames', {}).setdefault(t_bb, []).append(camera.image)
             dict_meas.setdefault(T_FPA, {}).setdefault(t_bb, []).append(camera.fpa)
             dict_meas.setdefault(T_HOUSING, {}).setdefault(t_bb, []).append(camera.housing)
-        pickle.dump(dict_meas, open(str(path_to_save / filename), 'wb'))  # saves inside loop, to prevent total loss in a failure during the run
+        pickle.dump(dict_meas, open(str(path_to_save / filename), 'wb'))  # prevents total loss in case of failure
 
     # save temperature plot
     if oven_temperature != 0:

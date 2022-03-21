@@ -23,3 +23,9 @@ class DummyOven:
 
     def temperature(self, name: str) -> int:
         return 5000
+
+    def terminate(self):
+        pass
+
+    def join(self):
+        pass
