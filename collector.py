@@ -58,14 +58,14 @@ def th_t_cam_getter():
         sleep(TEMPERATURE_ACQUIRE_FREQUENCY_SECONDS)
 
 
-def mp_rt_plot():
+def mp_realttime_plot():
     fig = plt.figure(figsize=(12, 6))
     ax = plt.subplot()
     plot = partial(plot_oven_records_in_path, fig=fig, ax=ax, path_to_log=path_to_save / OVEN_RECORDS_FILENAME)
     ani = FuncAnimation(fig, plot, interval=OVEN_LOG_TIME_SECONDS * 1e3)
     plt.show()
 
-
+# TODO: check if camera fpa and housing is in C or 100C. Change the bb_list saving accordingly. Change filename accordingly. Change the oven settling function accordingly
 args = make_parser()
 
 if __name__ == "__main__":
@@ -75,7 +75,8 @@ if __name__ == "__main__":
     params['tlinear'] = int(args.tlinear)
 
     # save run parameters
-    path_to_save = Path(args.path) / datetime.now().strftime("%Y%m%d_h%Hm%Ms%S")
+    now = datetime.now().strftime("%Y%m%d_h%Hm%Ms%S")
+    path_to_save = Path(args.path) / now
     if path_to_save.is_file():
         raise TypeError(f'Expected folder for path_to_save, given a file {path_to_save}.')
     elif not path_to_save.is_dir():
@@ -89,26 +90,22 @@ if __name__ == "__main__":
     n_images, oven_temperature, settling_time = args.n_images, args.oven_temperature, args.settling_time
     ffc_temperature = args.ffc
     list_t_bb = np.linspace(start=args.blackbody_min, stop=args.blackbody_max, num=args.blackbody_stops, dtype=int)
-    print()
-    print(f'BlackBody temperatures: {list_t_bb}C.')
-    print(f'Settling time: {settling_time} minutes.')
+    print(f'\nBlackBody temperatures: {list_t_bb}C.\nSettling time: {settling_time} minutes.', flush=True)
     if ffc_temperature == 0:
-        print(f'Perform FFC before every measurement.')
+        print(f'Perform FFC before every measurement.\n', flush=True)
     else:
-        print(f'Perform FFC at FPA temperature {ffc_temperature}C.')
-    print()
+        print(f'Perform FFC at FPA temperature {ffc_temperature}C.\n', flush=True)
 
     # init devices
     if not args.blackbody_dummy:
-        blackbody = BlackBodyThread(logfile_path=path_to_save / 'logs' / 'blackbody.txt',
-                                    output_folder_path=path_to_save)
+        blackbody = BlackBodyThread(logfile_path=path_to_save / 'logs' / 'blackbody.txt', output_folder_path=path_to_save)
         blackbody.start()
     else:
         blackbody = BlackBodyDummyThread()
     camera = CameraCtrl(camera_parameters=params)
     camera.start()
 
-    if not args.oven_dummy:
+    if oven_temperature != 0:
         oven = OvenCtrl(logfile_path=path_to_save / 'logs' / 'oven.txt', output_path=path_to_save)
         oven.start()
     else:
@@ -126,7 +123,7 @@ if __name__ == "__main__":
     print('Devices Connected.', flush=True)
 
     # wait for the records file to be created
-    while not (path_to_save / OVEN_RECORDS_FILENAME).is_file():
+    while oven_temperature != 0 and not (path_to_save / OVEN_RECORDS_FILENAME).is_file():
         sleep(1)
 
     # init thread
@@ -134,26 +131,27 @@ if __name__ == "__main__":
     th_cam_getter.start()
 
     # realtime plot of temperatures
-    mp_plot = Process(target=mp_rt_plot, name='mp_realtime_plot', daemon=True)
-    mp_plot.start()
+    mp_plot = Process(target=mp_realttime_plot, name='mp_realtime_plot', daemon=True)
+    mp_plot.start() if oven_temperature != 0 else None
 
     # measurements
-    if not args.oven_dummy:
+    if oven_temperature != 0:
         set_oven_and_settle(setpoint=oven_temperature, settling_time_minutes=settling_time, oven=oven, camera=camera)
-    dict_meas = dict(camera_params=params.copy(), arguments=args, oven_setpoint=oven_temperature)
+    dict_meas = dict(camera_params=params.copy(), arguments=vars(args), oven_setpoint=oven_temperature, blackbody=list_t_bb)
+    filename = f"{now}_fpa_{int(camera.fpa * 100):d}.pkl"
     for t_bb in list_t_bb:
         blackbody.temperature = t_bb
         while not ffc_temperature and not camera.ffc():  # if flag --ffc is given, will not do ffc here
             sleep(0.5)
         sleep(0.5)  # clears the buffer after the FFC
         for _ in tqdm(range(n_images), postfix=f'BlackBody {t_bb}C'):
-            dict_meas.setdefault('measurements', {}).setdefault(t_bb, []).append(camera.image)
+            dict_meas.setdefault('frames', {}).setdefault(t_bb, []).append(camera.image)
             dict_meas.setdefault(T_FPA, {}).setdefault(t_bb, []).append(camera.fpa)
             dict_meas.setdefault(T_HOUSING, {}).setdefault(t_bb, []).append(camera.housing)
-        pickle.dump(dict_meas, open(str(path_to_save / f'fpa_{int(camera.fpa * 100):d}.pkl'), 'wb'))
+        pickle.dump(dict_meas, open(str(path_to_save / filename), 'wb'))  # saves inside loop, to prevent total loss in a failure during the run
 
     # save temperature plot
-    if not args.oven_dummy:
+    if oven_temperature != 0:
         fig, ax = plt.subplots()
         plot_oven_records_in_path(idx=0, fig=fig, ax=ax, path_to_log=path_to_save / OVEN_RECORDS_FILENAME)
         plt.savefig(path_to_save / 'temperature.png')

@@ -17,3 +17,4 @@
 /measurements/
 */measurements/
 *.pyc
+/.vscode/
