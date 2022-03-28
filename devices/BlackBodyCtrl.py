@@ -108,7 +108,7 @@ class BlackBody:
         return float(res) if res else None
 
     @temperature.setter
-    def temperature(self, temperature_to_set: (float, int), wait_for_stable_temperature: bool = True):
+    def temperature(self, temperature_to_set: (float, int), *, wait_for_stable_temperature: bool = True):
         """
         Temperature setter. Sends the given temperature to the BlackBody,
         and waits until the BlackBody stabilizes to it.
