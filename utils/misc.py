@@ -113,7 +113,7 @@ def make_parser():
     parser.add_argument('--n_images', help="The number of images to capture for each point.", default=3000, type=int)
 
     # camera
-    parser.add_argument('--ffc', type=int, default=25, required=True,
+    parser.add_argument('--ffc', type=int, default=0, required=True,
                         help=f"The camera performs FFC before every stop if arg is 0, else at the given temperature.")
     parser.add_argument('--tlinear', help=f"The grey levels are linear to the temperature as: 0.04 * t - 273.15.",
                         action='store_true')
@@ -126,7 +126,8 @@ def make_parser():
     parser.add_argument('--blackbody_dummy', help=f"Uses a dummy BlackBody.", action='store_true')
 
     # oven
-    parser.add_argument('--oven_temperature', help=f"What Oven temperatures will be set.\nIf 0 than oven will be dummy.", type=int, required=True)
+    parser.add_argument('--oven_temperature', type=int, required=True,
+                        help=f"What Oven temperatures will be set.\nIf 0 than oven will be dummy.")
     parser.add_argument('--settling_time', help=f"The time in Minutes to wait for the camera temperature to settle"
                                                 f" in an Oven setpoint before measurement.", type=int, default=30)
     return parser.parse_args()

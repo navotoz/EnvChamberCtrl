@@ -142,7 +142,7 @@ if __name__ == "__main__":
     filename = f"{now}_fpa_{int(camera.fpa):d}.pkl"
     for t_bb in list_t_bb:
         blackbody.temperature = t_bb
-        while not ffc_temperature and not camera.ffc():  # if flag --ffc is given, will not do ffc here
+        while ffc_temperature == 0 and not camera.ffc():  # if flag --ffc is given, will not do ffc here
             sleep(0.5)
         sleep(0.5)  # clears the buffer after the FFC
         t_bb *= 100
