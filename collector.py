@@ -23,7 +23,7 @@ from devices.Oven.OvenProcess import (OVEN_RECORDS_FILENAME, OvenCtrl,
                                       set_oven_and_settle)
 from devices.Oven.plots import plot_oven_records_in_path
 from utils.constants import OVEN_LOG_TIME_SECONDS
-from utils.misc import make_parser
+from utils.misc import make_parser, tqdm_waiting
 
 sys.path.append(str(Path().cwd().parent))
 
@@ -142,9 +142,10 @@ if __name__ == "__main__":
     filename = f"{now}_fpa_{int(camera.fpa):d}.pkl"
     for t_bb in list_t_bb:
         blackbody.temperature = t_bb
-        while ffc_temperature == 0 and not camera.ffc():  # if flag --ffc is given, will not do ffc here
+        while ffc_temperature == 0 and not camera.ffc():  # do ffc only if --ffc == 0
             sleep(0.5)
         sleep(0.5)  # clears the buffer after the FFC
+        tqdm_waiting(time_to_wait_seconds=3 * 60, postfix='Settle camera to the blackbody temperature')
         t_bb *= 100
         for _ in tqdm(range(n_images), postfix=f'BlackBody {t_bb / 100}C'):
             dict_meas.setdefault('frames', {}).setdefault(t_bb, []).append(camera.image)
