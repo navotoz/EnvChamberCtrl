@@ -111,6 +111,7 @@ def make_parser():
     parser.add_argument('--path', help="The folder to save the results. Creates folder if invalid.",
                         default='measurements')
     parser.add_argument('--n_images', help="The number of images to capture for each point.", default=3000, type=int)
+    parser.add_argument('--filename', help="The name of the measurements file", default='', type=str)
 
     # camera
     parser.add_argument('--ffc', type=int, default=0, required=True,
