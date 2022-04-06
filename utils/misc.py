@@ -1,13 +1,21 @@
 import argparse
 from datetime import datetime
+from functools import partial
 from multiprocessing import Event
 from pathlib import Path
 from time import time_ns, sleep
+from typing import Tuple
 
 import matplotlib.pyplot as plt
 import numpy as np
+import yaml
 from PIL import Image
+from matplotlib.animation import FuncAnimation
 from tqdm import tqdm
+
+from devices.Oven.OvenProcess import OVEN_RECORDS_FILENAME
+from devices.Oven.plots import plot_oven_records_in_path
+from utils.constants import OVEN_LOG_TIME_SECONDS
 
 
 def mean(values: (list, tuple, np.ndarray, float)) -> float:
@@ -100,7 +108,7 @@ def save_average_from_images(path: (Path, str), suffix: str = 'npy'):
             normalize_image(avg).save(str(dir_path / 'average.jpeg'), format='jpeg')
 
 
-def make_parser():
+def args_const_fpa():
     parser = argparse.ArgumentParser(description='Measures multiple images of the BlackBody at different setpoints, '
                                                  'at a predefined camera temperature.'
                                                  'The Oven temperature is first settled at the predefined temperature, '
@@ -134,6 +142,52 @@ def make_parser():
     return parser.parse_args()
 
 
+def args_const_tbb():
+    parser = argparse.ArgumentParser(description='Set the oven to the highest temperature possible and measure a '
+                                                 'constant Blackbody temperature. '
+                                                 'The images are saved as a dict in a pickle file.')
+    # general
+    parser.add_argument('--path', help="The folder to save the results. Creates folder if invalid.",
+                        default='measurements')
+    parser.add_argument('--filename', help="The name of the measurements file", default='', type=str)
+
+    # camera
+    parser.add_argument('--tlinear', help=f"The grey levels are linear to the temperature as: 0.04 * t - 273.15.",
+                        action='store_true')
+    parser.add_argument('--rate', help=f"The rate in Hz. The maximal value is 60Hz", type=int,
+                        required=True, default=60)
+    parser.add_argument('--limit_fpa', help='The maximal allowed value for the FPA temperate.'
+                                            'Should adhere to FLIR specs, which are at most 65C.', default=55)
+
+    # blackbody
+    parser.add_argument('--blackbody', type=int, required=True,
+                        help=f"A constant Blackbody temperature to set, in Celsius.")
+
+    return parser.parse_args()
+
+
 def tqdm_waiting(time_to_wait_seconds: int, postfix: str):
     for _ in tqdm(range(time_to_wait_seconds), total=time_to_wait_seconds, leave=True, postfix=postfix):
         sleep(1)
+
+
+def mp_realttime_plot(path_to_save: Path):
+    fig = plt.figure(figsize=(12, 6))
+    ax = plt.subplot()
+    plot = partial(plot_oven_records_in_path, fig=fig, ax=ax, path_to_log=path_to_save / OVEN_RECORDS_FILENAME)
+    ani = FuncAnimation(fig, plot, interval=OVEN_LOG_TIME_SECONDS * 1e3)
+    plt.show()
+
+
+def save_run_parameters(path: str, params: dict, args: argparse.Namespace) -> Tuple[Path, str]:
+    now = datetime.now().strftime("%Y%m%d_h%Hm%Ms%S")
+    path_to_save = Path(path) / now
+    if path_to_save.is_file():
+        raise TypeError(f'Expected folder for path_to_save, given a file {path_to_save}.')
+    elif not path_to_save.is_dir():
+        path_to_save.mkdir(parents=True)
+    with open(str(path_to_save / 'camera_params.yaml'), 'w') as fp:
+        yaml.safe_dump(params, stream=fp, default_flow_style=False)
+    with open(str(path_to_save / 'arguments.yaml'), 'w') as fp:
+        yaml.safe_dump(vars(args), stream=fp, default_flow_style=False)
+    return path_to_save, now
