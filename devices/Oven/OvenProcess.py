@@ -231,8 +231,8 @@ def set_oven_and_settle(setpoint: (float, int), settling_time_minutes: int, oven
     with tqdm(desc=f'Wait for settling {settling_time_minutes} Minutes') as progressbar:
         while n_minutes_settled < settling_time_minutes:
             queue_temperatures.append(camera.fpa)
-            dt = np.abs(np.max(np.diff(queue_temperatures)))
-            if dt > 10:  # check if mean diff between FPA temperatures is bigger than 0.1C
+            dt = np.max(np.abs(np.diff(queue_temperatures)))
+            if dt > 10:  # check if max diff between FPA temperatures is bigger than 0.1C
                 n_minutes_settled = 0
                 progressbar.refresh()
                 progressbar.reset()
