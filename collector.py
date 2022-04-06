@@ -99,7 +99,8 @@ if __name__ == "__main__":
 
     # init devices
     if not args.blackbody_dummy:
-        blackbody = BlackBodyThread(logfile_path=path_to_save / 'logs' / 'blackbody.txt', output_folder_path=path_to_save)
+        blackbody = BlackBodyThread(logfile_path=path_to_save / 'logs' / 'blackbody.txt',
+                                    output_folder_path=path_to_save)
         blackbody.start()
     else:
         blackbody = BlackBodyDummyThread()
@@ -115,9 +116,8 @@ if __name__ == "__main__":
     # wait for the devices to start
     sleep(1)
     with tqdm(desc="Waiting for devices to connect.") as progressbar:
-        while not oven.is_connected or not camera.is_connected or not blackbody.is_connected:
-            progressbar.set_postfix_str(f"BlackBody {'Connected' if blackbody.is_connected else 'Waiting'}, "
-                                        f"Oven {'Connected' if oven.is_connected else 'Waiting'}, "
+        while not oven.is_connected or not camera.is_connected:
+            progressbar.set_postfix_str(f"Oven {'Connected' if oven.is_connected else 'Waiting'}, "
                                         f"Camera {'Connected' if camera.is_connected else 'Waiting'}")
             progressbar.update()
             sleep(1)
@@ -140,18 +140,20 @@ if __name__ == "__main__":
         set_oven_and_settle(setpoint=oven_temperature, settling_time_minutes=settling_time, oven=oven, camera=camera)
     dict_meas = dict(camera_params=params.copy(), arguments=vars(args), oven_setpoint=oven_temperature)
     filename = f"{now}_fpa_{int(camera.fpa):d}.pkl" if not args.filename else Path(args.filename).with_suffix('.pkl')
+    if abs(blackbody.temperature - list_t_bb[-1]) < abs(blackbody.temperature - list_t_bb[0]):
+        list_t_bb = list(reversed(list_t_bb))
     for t_bb in list_t_bb:
         blackbody.temperature = t_bb
         while ffc_temperature == 0 and not camera.ffc():  # do ffc only if --ffc == 0
             sleep(0.5)
         sleep(0.5)  # clears the buffer after the FFC
-        tqdm_waiting(time_to_wait_seconds=3 * 60, postfix='Settle camera to the blackbody temperature')
+        tqdm_waiting(time_to_wait_seconds=2 * 60, postfix='Settle camera to the blackbody temperature')
         t_bb *= 100
         for _ in tqdm(range(n_images), postfix=f'BlackBody {t_bb / 100}C'):
             dict_meas.setdefault('frames', {}).setdefault(t_bb, []).append(camera.image)
             dict_meas.setdefault(T_FPA, {}).setdefault(t_bb, []).append(camera.fpa)
             dict_meas.setdefault(T_HOUSING, {}).setdefault(t_bb, []).append(camera.housing)
-        pickle.dump(dict_meas, open(str(path_to_save / filename), 'wb'))  # prevents total loss in case of failure
+    pickle.dump(dict_meas, open(str(path_to_save / filename), 'wb'))
 
     # save temperature plot
     if oven_temperature != 0:
