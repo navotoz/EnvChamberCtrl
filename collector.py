@@ -140,8 +140,11 @@ if __name__ == "__main__":
         set_oven_and_settle(setpoint=oven_temperature, settling_time_minutes=settling_time, oven=oven, camera=camera)
     dict_meas = dict(camera_params=params.copy(), arguments=vars(args), oven_setpoint=oven_temperature)
     filename = f"{now}_fpa_{int(camera.fpa):d}.pkl" if not args.filename else Path(args.filename).with_suffix('.pkl')
-    if abs(blackbody.temperature - list_t_bb[-1]) < abs(blackbody.temperature - list_t_bb[0]):
-        list_t_bb = list(reversed(list_t_bb))
+    try:
+        if abs(blackbody.temperature - list_t_bb[-1]) < abs(blackbody.temperature - list_t_bb[0]):
+            list_t_bb = list(reversed(list_t_bb))
+    except TypeError:
+        pass
     for t_bb in list_t_bb:
         blackbody.temperature = t_bb
         while ffc_temperature == 0 and not camera.ffc():  # do ffc only if --ffc == 0
