@@ -123,7 +123,7 @@ class BlackBody:
 
     def _wait_for_stable_temperature(self):
         """
-        An busy-waiting loop for the temperature in the BlackBody to settle.
+        A busy-waiting loop for the temperature in the BlackBody to settle.
         Repeatedly pools the BB until "Stable" is received.
         Upon receiving the "Stable" signal, logs the results and finishes the function without returning a value.
         """
@@ -196,6 +196,8 @@ class BlackBodyThread(th.Thread):
     def run(self):
         self._workers_dict['conn'] = th.Thread(target=self._th_conn, name='bb_conn')
         self._workers_dict['conn'].start()
+        self._workers_dict['logger'] = th.Thread(target=self._th_logger, name='bb_log')
+        self._workers_dict['logger'].start()
 
     def _th_conn(self):
         while self._flag_run:
@@ -206,6 +208,13 @@ class BlackBodyThread(th.Thread):
             except (RuntimeError, BrokenPipeError):
                 pass
             sleep(3)
+
+    def _th_logger(self):
+        self._event_is_connected.wait()
+        while self._flag_run:
+            if self._event_is_connected.is_set():
+                self._log_temperature.info(self.temperature)
+            sleep(10)
 
     @property
     def temperature(self) -> (float, int):
@@ -224,13 +233,21 @@ class BlackBodyThread(th.Thread):
 
     def terminate(self):
         try:
+            self._flag_run.set(False)
+        except (ValueError, TypeError, AttributeError, RuntimeError, NameError, KeyError, AssertionError):
+            pass
+        try:
+            self._event_is_connected.clear()
+        except (ValueError, TypeError, AttributeError, RuntimeError, NameError, KeyError, AssertionError):
+            pass
+        try:
             self._blackbody.__del__()
         except (RuntimeError, OSError, ValueError, IOError, AttributeError):
             pass
 
 
 class BlackBodyDummyThread:
-    def __init__(self):
+    def __init__(self) -> None:
         super().__init__()
         self._lock_access = th.Lock()
         self._temperature = 0.0
