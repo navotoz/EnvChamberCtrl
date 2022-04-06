@@ -114,16 +114,16 @@ def make_parser():
     parser.add_argument('--filename', help="The name of the measurements file", default='', type=str)
 
     # camera
-    parser.add_argument('--ffc', type=int, default=0, required=True,
+    parser.add_argument('--ffc', type=int, required=True,
                         help=f"The camera performs FFC before every stop if arg is 0, else at the given temperature.")
     parser.add_argument('--tlinear', help=f"The grey levels are linear to the temperature as: 0.04 * t - 273.15.",
                         action='store_true')
 
     # blackbody
-    parser.add_argument('--blackbody_stops', type=int, default=16,
+    parser.add_argument('--blackbody_stops', type=int, default=18,
                         help=f"How many BlackBody stops between blackbody_max to blackbody_min.")
-    parser.add_argument('--blackbody_max', help=f"Maximal temperature of the BlackBody in C.", type=int, default=75)
-    parser.add_argument('--blackbody_min', help=f"Minimal temperature of the BlackBody in C.", type=int, default=15)
+    parser.add_argument('--blackbody_max', help=f"Maximal temperature of the BlackBody in C.", type=int, default=80)
+    parser.add_argument('--blackbody_min', help=f"Minimal temperature of the BlackBody in C.", type=int, default=10)
     parser.add_argument('--blackbody_dummy', help=f"Uses a dummy BlackBody.", action='store_true')
 
     # oven
