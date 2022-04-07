@@ -14,8 +14,8 @@ from devices.Camera import INIT_CAMERA_PARAMETERS, T_FPA, T_HOUSING
 from devices.Camera.CameraProcess import (
     TEMPERATURE_ACQUIRE_FREQUENCY_SECONDS, CameraCtrl)
 from devices.Oven.OvenProcess import (OVEN_RECORDS_FILENAME, OvenCtrl)
-from devices.Oven.plots import plot_oven_records_in_path
-from utils.misc import args_const_tbb, mp_realttime_plot, save_run_parameters
+from devices.Oven.plots import plot_oven_records_in_path, mp_realttime_plot
+from utils.misc import args_const_tbb, save_run_parameters
 
 sys.path.append(str(Path().cwd().parent))
 
@@ -60,6 +60,9 @@ if __name__ == "__main__":
     params['ffc_mode'] = 'auto'
     params['ffc_period'] = 1800  # automatic FFC every 30 seconds
     rate_sleep_value = 1 / (args.rate if args.rate < 60 else 120)
+    limit_fpa = args.limit_fpa
+    print(f'Maximal FPA {limit_fpa}C')
+    limit_fpa *= 100  # C -> 100C, same as camera.fpa
     path_to_save, now = save_run_parameters(args.path, params, args)
 
     # init devices
@@ -104,9 +107,9 @@ if __name__ == "__main__":
 
     blackbody.temperature = t_bb  # set the blackbody to the constant temperature
     with tqdm() as progressbar:
-        while camera.fpa < args.limit_fpa:
+        while (fpa := camera.fpa) < limit_fpa:
             dict_meas.setdefault('frames', {}).setdefault(t_bb, []).append(camera.image)
-            dict_meas.setdefault(T_FPA, {}).setdefault(t_bb, []).append(camera.fpa)
+            dict_meas.setdefault(T_FPA, {}).setdefault(t_bb, []).append(fpa)
             dict_meas.setdefault(T_HOUSING, {}).setdefault(t_bb, []).append(camera.housing)
             sleep(rate_sleep_value)  # limits the Hz of the camera
             progressbar.update()

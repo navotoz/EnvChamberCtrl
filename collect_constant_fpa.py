@@ -17,8 +17,8 @@ from devices.Camera.CameraProcess import (
 from devices.Oven.DummyOven import DummyOven
 from devices.Oven.OvenProcess import (OVEN_RECORDS_FILENAME, OvenCtrl,
                                       set_oven_and_settle)
-from devices.Oven.plots import plot_oven_records_in_path
-from utils.misc import args_const_fpa, tqdm_waiting, mp_realttime_plot, save_run_parameters
+from devices.Oven.plots import plot_oven_records_in_path, mp_realttime_plot
+from utils.misc import args_const_fpa, tqdm_waiting, save_run_parameters
 
 sys.path.append(str(Path().cwd().parent))
 

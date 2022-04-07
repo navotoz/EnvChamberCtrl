@@ -1,6 +1,5 @@
 import argparse
 from datetime import datetime
-from functools import partial
 from multiprocessing import Event
 from pathlib import Path
 from time import time_ns, sleep
@@ -10,12 +9,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import yaml
 from PIL import Image
-from matplotlib.animation import FuncAnimation
 from tqdm import tqdm
-
-from devices.Oven.OvenProcess import OVEN_RECORDS_FILENAME
-from devices.Oven.plots import plot_oven_records_in_path
-from utils.constants import OVEN_LOG_TIME_SECONDS
 
 
 def mean(values: (list, tuple, np.ndarray, float)) -> float:
@@ -169,14 +163,6 @@ def args_const_tbb():
 def tqdm_waiting(time_to_wait_seconds: int, postfix: str):
     for _ in tqdm(range(time_to_wait_seconds), total=time_to_wait_seconds, leave=True, postfix=postfix):
         sleep(1)
-
-
-def mp_realttime_plot(path_to_save: Path):
-    fig = plt.figure(figsize=(12, 6))
-    ax = plt.subplot()
-    plot = partial(plot_oven_records_in_path, fig=fig, ax=ax, path_to_log=path_to_save / OVEN_RECORDS_FILENAME)
-    ani = FuncAnimation(fig, plot, interval=OVEN_LOG_TIME_SECONDS * 1e3)
-    plt.show()
 
 
 def save_run_parameters(path: str, params: dict, args: argparse.Namespace) -> Tuple[Path, str]:

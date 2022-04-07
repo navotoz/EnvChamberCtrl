@@ -1,9 +1,13 @@
+from functools import partial
 from pathlib import Path
 
 import pandas as pd
 from matplotlib import pyplot as plt
+from matplotlib.animation import FuncAnimation
 
+from devices.Oven.OvenProcess import OVEN_RECORDS_FILENAME
 from utils.constants import *
+from utils.constants import OVEN_LOG_TIME_SECONDS
 
 COLOR_FLOOR = {'color': 'blue'}
 COLOR_CTRLSIGNAL = {'color': 'magenta'}
@@ -41,3 +45,11 @@ def plot_oven_records_in_path(idx, *, fig: plt.Figure, ax: plt.Subplot, path_to_
 def get_dataframe(log_path: (Path, str)) -> pd.DataFrame:
     df = pd.read_csv(log_path, index_col=DATETIME)
     return df.rename(columns={name: name.split('_Avg')[0] for name in df.columns}, inplace=False)
+
+
+def mp_realttime_plot(path_to_save: Path):
+    fig = plt.figure(figsize=(12, 6))
+    ax = plt.subplot()
+    plot = partial(plot_oven_records_in_path, fig=fig, ax=ax, path_to_log=path_to_save / OVEN_RECORDS_FILENAME)
+    ani = FuncAnimation(fig, plot, interval=OVEN_LOG_TIME_SECONDS * 1e3)
+    plt.show()
