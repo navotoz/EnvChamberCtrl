@@ -46,7 +46,10 @@ def _stop(a, b, **kwargs) -> None:
 def th_t_cam_getter():
     while True:
         fpa = camera.fpa
-        oven.set_camera_temperatures(fpa=fpa, housing=camera.housing)
+        try:
+            oven.set_camera_temperatures(fpa=fpa, housing=camera.housing)
+        except (BrokenPipeError, ValueError, TypeError, AttributeError, RuntimeError):
+            pass
         sleep(TEMPERATURE_ACQUIRE_FREQUENCY_SECONDS)
 
 
@@ -101,7 +104,7 @@ if __name__ == "__main__":
 
     # measurements
     t_bb = args.blackbody
-    oven.setpoint = 110  # the Soft limit of the oven is 120C, but 110C sounds more reasonable
+    oven.setpoint = 120  # the Soft limit of the oven is 120C
     dict_meas = dict(camera_params=params.copy(), arguments=vars(args), blackbody=t_bb)
     filename = f"{now}_bb_{int(100 * t_bb):d}.pkl" if not args.filename else Path(args.filename).with_suffix('.pkl')
 
