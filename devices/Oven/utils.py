@@ -46,4 +46,4 @@ def make_temperature_offset(t_next: float, t_oven: float, t_cam: float) -> float
     # empirically, MAX_TEMPERATURE_LINEAR_RISE is very slow to get to - around 75C
     if t_next + offset >= MAX_TEMPERATURE_LINEAR_RISE:
         offset = MAX_TEMPERATURE_LINEAR_RISE - t_next
-    return offset
+    return max(0, offset) if offset is not None else 0
