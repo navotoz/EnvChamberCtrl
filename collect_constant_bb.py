@@ -101,7 +101,7 @@ if __name__ == "__main__":
 
     # measurements
     t_bb = args.blackbody
-    oven.setpoint = 120  # the maximal temperature of the oven, in Celsius
+    oven.setpoint = 110  # the Soft limit of the oven is 120C, but 110C sounds more reasonable
     dict_meas = dict(camera_params=params.copy(), arguments=vars(args), blackbody=t_bb)
     filename = f"{now}_bb_{int(100 * t_bb):d}.pkl" if not args.filename else Path(args.filename).with_suffix('.pkl')
 
