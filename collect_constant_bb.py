@@ -111,9 +111,9 @@ if __name__ == "__main__":
     blackbody.temperature = t_bb  # set the blackbody to the constant temperature
     with tqdm() as progressbar:
         while (fpa := camera.fpa) < limit_fpa:
-            dict_meas.setdefault('frames', {}).setdefault(t_bb, []).append(camera.image)
-            dict_meas.setdefault(T_FPA, {}).setdefault(t_bb, []).append(fpa)
-            dict_meas.setdefault(T_HOUSING, {}).setdefault(t_bb, []).append(camera.housing)
+            dict_meas.setdefault('frames', []).append(camera.image)
+            dict_meas.setdefault(T_FPA, []).append(fpa)
+            dict_meas.setdefault(T_HOUSING, []).append(camera.housing)
             sleep(rate_sleep_value)  # limits the Hz of the camera
             progressbar.update()
     oven.setpoint = 0  # turn the oven off
