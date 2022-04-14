@@ -115,6 +115,7 @@ if __name__ == "__main__":
             dict_meas.setdefault(T_FPA, []).append(fpa)
             dict_meas.setdefault(T_HOUSING, []).append(camera.housing)
             sleep(rate_sleep_value)  # limits the Hz of the camera
+            progressbar.set_postfix_str(f'FPA {fpa / 100}C')
             progressbar.update()
     oven.setpoint = 0  # turn the oven off
     pickle.dump(dict_meas, open(str(path_to_save / filename), 'wb'))
