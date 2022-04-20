@@ -124,5 +124,3 @@ if __name__ == "__main__":
     fig, ax = plt.subplots()
     plot_oven_records_in_path(idx=0, fig=fig, ax=ax, path_to_log=path_to_save / OVEN_RECORDS_FILENAME)
     plt.savefig(path_to_save / 'temperature.png')
-
-    _stop(None, None)
