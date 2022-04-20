@@ -10,6 +10,8 @@ import numpy as np
 import yaml
 from PIL import Image
 from tqdm import tqdm
+import matplotlib as mpl
+
 
 
 def mean(values: (list, tuple, np.ndarray, float)) -> float:
@@ -53,7 +55,7 @@ def wait_for_time(func, wait_time_in_sec: float = 1):
 def get_time() -> datetime.time: return datetime.now().replace(microsecond=0)
 
 
-def normalize_image(image: np.ndarray) -> Image.Image:
+def normalize_image(image: np.ndarray, cmap = mpl.cm.get_cmap('coolwarm')) -> Image.Image:
     if image.dtype == np.bool:
         return Image.fromarray(image.astype('uint8') * 255)
     image = image.astype('float32')
@@ -63,7 +65,8 @@ def normalize_image(image: np.ndarray) -> Image.Image:
     image[mask] -= image[mask].min()
     image[mask] = image[mask] / image[mask].max()
     image[~mask] = 0
-    image *= 255
+    image = cmap(image)
+    image = np.uint8(255 * image)
     return Image.fromarray(image.astype('uint8'))
 
 
