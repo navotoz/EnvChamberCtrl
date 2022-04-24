@@ -78,7 +78,7 @@ class CameraCtrl(DeviceAbstract):
             with self._lock_camera:
                 try:
                     self._camera = Tau2Grabber(logging_handlers=handlers)
-                    self._camera.set_params_by_dict(self._camera_params)
+                    self._camera.set_params_by_dict(self._camera_params) if self._camera_params is not None else None
                     self._getter_temperature(T_FPA)
                     self._getter_temperature(T_HOUSING)
                     self._event_connected.set()
