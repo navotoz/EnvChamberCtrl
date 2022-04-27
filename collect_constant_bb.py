@@ -119,8 +119,12 @@ if __name__ == "__main__":
             progressbar.update()
     oven.setpoint = 0  # turn the oven off
     pickle.dump(dict_meas, open(str(path_to_save / filename), 'wb'))
+    print('Experiment Ended', flush=True)
 
     # save temperature plot
     fig, ax = plt.subplots()
     plot_oven_records_in_path(idx=0, fig=fig, ax=ax, path_to_log=path_to_save / OVEN_RECORDS_FILENAME)
     plt.savefig(path_to_save / 'temperature.png')
+
+    _stop(None, None)
+    exit()
