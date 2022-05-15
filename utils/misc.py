@@ -163,6 +163,34 @@ def args_const_tbb():
     return parser.parse_args()
 
 
+def args_var_bb_fpa():
+    parser = argparse.ArgumentParser(description='Set the oven to the highest temperature possible and cycle '
+                                                 'the Blackbody to different Tbb.'
+                                                 'The images are saved as a dict in a pickle file.')
+    # general
+    parser.add_argument('--path', help="The folder to save the results. Creates folder if invalid.",
+                        default='measurements')
+    parser.add_argument('--filename', help="The name of the measurements file", default='', type=str)
+
+    # camera
+    parser.add_argument('--tlinear', help=f"The grey levels are linear to the temperature as: 0.04 * t - 273.15.",
+                        action='store_true')
+    parser.add_argument('--limit_fpa', help='The maximal allowed value for the FPA temperate.'
+                                            'Should adhere to FLIR specs, which are at most 65C.', default=55)
+
+    # blackbody
+    parser.add_argument('--blackbody_max', type=int, required=True,
+                        help=f"The maximal value of the Blackbody in Celsius")
+    parser.add_argument('--blackbody_min', type=int, required=True,
+                        help=f"The minimal value of the Blackbody in Celsius")
+    parser.add_argument('--blackbody_increments', type=float, required=True,
+                    help=f"The increments in the Blackbody temperature. Allowed values [0.1, 10] C")
+    parser.add_argument('--blackbody_time_at_stop', type=float, required=True, 
+                    help=f"The time the blackbody spends at each stop point. Allowed values [0.1, 10] Seconds")
+
+    return parser.parse_args()
+
+
 def tqdm_waiting(time_to_wait_seconds: int, postfix: str):
     for _ in tqdm(range(time_to_wait_seconds), total=time_to_wait_seconds, leave=True, postfix=postfix):
         sleep(1)
