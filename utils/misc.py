@@ -185,8 +185,8 @@ def args_var_bb_fpa():
                         help=f"The minimal value of the Blackbody in Celsius")
     parser.add_argument('--blackbody_increments', type=float, required=True,
                     help=f"The increments in the Blackbody temperature. Allowed values [0.1, 10] C")
-    parser.add_argument('--blackbody_time_at_stop', type=float, required=True, 
-                    help=f"The time the blackbody spends at each stop point. Allowed values [0.1, 10] Seconds")
+    parser.add_argument('--n_samples', type=int, required=True, 
+                    help=f"The number of samples to take at each Blackbody stop.")
 
     return parser.parse_args()
 

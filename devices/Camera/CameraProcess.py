@@ -12,7 +12,7 @@ from devices.Camera import CameraAbstract, INIT_CAMERA_PARAMETERS, HEIGHT_IMAGE_
 from devices.Camera.Tau.Tau2Grabber import Tau2Grabber
 from utils.logger import make_logging_handlers
 
-TEMPERATURE_ACQUIRE_FREQUENCY_SECONDS = 1
+TEMPERATURE_ACQUIRE_FREQUENCY_SECONDS = 0.5
 
 
 class CameraCtrl(DeviceAbstract):

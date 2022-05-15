@@ -60,8 +60,8 @@ if __name__ == "__main__":
     args = args_const_tbb()
     if not 0.1 <= args.blackbody_increments <= 10:
         raise ValueError(f'blackbody_increments must be in [0.1, 10], got {args.blackbody_increments}')
-    if not 0.1 <= args.blackbody_time_at_stop <= 10:
-        raise ValueError(f'blackbody_time_at_stop must be in [0.1, 10], got {args.blackbody_time_at_stop}')
+    if args.n_samples <=0:
+        raise ValueError(f'n_samples must be > 0, got {args.n_samples}')
     if not 10 < args.blackbody_max <= 70:
         raise ValueError(f'blackbody_max must be in [10, 70], got {args.blackbody_max}')
     if not 10 <= args.blackbody_min < 70:
@@ -117,7 +117,6 @@ if __name__ == "__main__":
     bb_min = args.blackbody_min
     bb_max = args.blackbody_max
     bb_inc = args.blackbody_increments
-    bb_time_ns = args.blackbody_time_at_stop * 1e9
     bb_temperatures = np.linspace(bb_min, bb_max, int((bb_max - bb_min) / bb_inc)).round(2)
     oven.setpoint = 120  # the Soft limit of the oven is 120C
     dict_meas = dict(camera_params=params.copy(), arguments=vars(args))
@@ -130,7 +129,7 @@ if __name__ == "__main__":
             for bb in bb_temperatures:
                 blackbody.temperature = bb
                 s = time_ns()
-                while (time_ns() - s) < bb_time_ns:
+                for _ in range(args.n_samples):
                     fpa = camera.fpa
                     dict_meas.setdefault('frames', []).append(camera.image)
                     dict_meas.setdefault(T_FPA, []).append(fpa)
