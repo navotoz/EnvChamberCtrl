@@ -120,7 +120,7 @@ if __name__ == "__main__":
     bb_temperatures = np.linspace(bb_min, bb_max, int((bb_max - bb_min) / bb_inc)).round(2)
     oven.setpoint = 120  # the Soft limit of the oven is 120C
     dict_meas = dict(camera_params=params.copy(), arguments=vars(args))
-    filename = f"{now}.pkl" if not args.filename else Path(args.filename).with_suffix('.pkl')
+    filename = f"{now}.pkl" if not args.filename else Path(args.filename).with_suffix('.npz')
     fpa = -float('inf')
     flag_run = True
 
@@ -132,6 +132,7 @@ if __name__ == "__main__":
                 for _ in range(args.n_samples):
                     fpa = camera.fpa
                     dict_meas.setdefault('frames', []).append(camera.image)
+                    dict_meas.setdefault('blackbody', []).append(bb)
                     dict_meas.setdefault(T_FPA, []).append(fpa)
                     dict_meas.setdefault(T_HOUSING, []).append(camera.housing)
                     progressbar.update()
@@ -144,7 +145,11 @@ if __name__ == "__main__":
             bb_temperatures = np.flip(bb_temperatures)
 
     oven.setpoint = 0  # turn the oven off
-    pickle.dump(dict_meas, open(str(path_to_save / filename), 'wb'))
+    np.savez(str(path_to_save / filename), 
+             fpa=np.array(dict_meas[T_FPA]).astype('uint16'),
+             housing=np.array(dict_meas[T_FPA]).astype('uint16'),
+             blackbody=(100 * np.array(dict_meas['blackbody'])).astype('uint16'),
+             frames=np.stack(dict_meas['frames']))
 
     # save temperature plot
     fig, ax = plt.subplots()
