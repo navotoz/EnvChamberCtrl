@@ -114,7 +114,7 @@ if __name__ == "__main__":
     bb_min = args.blackbody_min
     bb_max = args.blackbody_max
     bb_inc = args.blackbody_increments
-    bb_temperatures = np.linspace(bb_min, bb_max, int((bb_max - bb_min) / bb_inc)).round(2)
+    bb_temperatures = np.linspace(bb_min, bb_max, 1 + int((bb_max - bb_min) / bb_inc)).round(2)
 
     print(f'\nEstimated size of data per iteration (256 x 336) shape * 2 bytes * n_samples * stops = '
           f'{256 * 336 * 2 * args.n_samples * len(bb_temperatures) / 2 ** 30} Gb\n', flush=True)
