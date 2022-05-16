@@ -149,9 +149,9 @@ if __name__ == "__main__":
     oven.setpoint = 0  # turn the oven off
     np.savez(str(path_to_save / filename), 
              fpa=np.array(dict_meas[T_FPA]).astype('uint16'),
-             housing=np.array(dict_meas[T_FPA]).astype('uint16'),
+             housing=np.array(dict_meas[T_HOUSING]).astype('uint16'),
              blackbody=(100 * np.array(dict_meas['blackbody'])).astype('uint16'),
-             frames=np.stack(dict_meas['frames']))
+             frames=np.stack(dict_meas['frames']).astype('uint16'))
 
     # save temperature plot
     fig, ax = plt.subplots()
