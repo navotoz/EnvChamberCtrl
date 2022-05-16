@@ -1,21 +1,13 @@
 import signal
 import sys
-import threading as th
-from multiprocessing import Process
 from pathlib import Path
-from time import sleep, time_ns
+from time import sleep
 
-import matplotlib.pyplot as plt
 import numpy as np
 from tqdm import tqdm
 
 from devices.BlackBodyCtrl import BlackBodyThread
-from devices.Camera import INIT_CAMERA_PARAMETERS, T_FPA, T_HOUSING
-from devices.Camera.CameraProcess import (
-    CameraCtrl)
-from devices.Oven.OvenProcess import (OVEN_RECORDS_FILENAME, OvenCtrl)
-from devices.Oven.plots import plot_oven_records_in_path, mp_realttime_plot
-from utils.misc import save_run_parameters, args_meas_bb_times
+from utils.misc import args_meas_bb_times
 
 sys.path.append(str(Path().cwd().parent))
 
