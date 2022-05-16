@@ -1,13 +1,13 @@
+import tkinter as tk
+
 import pyftdi.ftdi
 from PIL import ImageTk
 
 from devices.Camera.Tau.Tau2Grabber import Tau2Grabber
-import tkinter as tk
-
 from utils.misc import normalize_image
 
-HEIGHT_VIEWER = int(2.5*336)
-WIDTH_VIEWER = int(2.5*256)
+HEIGHT_VIEWER = int(2.5 * 336)
+WIDTH_VIEWER = int(2.5 * 256)
 
 
 def closer():
@@ -34,7 +34,7 @@ def th_viewer():
         image_tk = ImageTk.PhotoImage(normalize_image(image).resize(reversed(size_canvas)))
         lmain.image_tk = image_tk
         lmain.configure(image=image_tk)
-    lmain.after(ms=1000//30, func=th_viewer)
+    lmain.after(ms=1000 // 30, func=th_viewer)
 
 
 camera = Tau2Grabber()

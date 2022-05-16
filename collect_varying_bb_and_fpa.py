@@ -1,13 +1,12 @@
-import pickle
 import signal
 import sys
 import threading as th
 from multiprocessing import Process
 from pathlib import Path
 from time import sleep, time_ns
-import numpy as np
 
 import matplotlib.pyplot as plt
+import numpy as np
 from tqdm import tqdm
 
 from devices.BlackBodyCtrl import BlackBodyThread
@@ -16,7 +15,7 @@ from devices.Camera.CameraProcess import (
     TEMPERATURE_ACQUIRE_FREQUENCY_SECONDS, CameraCtrl)
 from devices.Oven.OvenProcess import (OVEN_RECORDS_FILENAME, OvenCtrl)
 from devices.Oven.plots import plot_oven_records_in_path, mp_realttime_plot
-from utils.misc import args_const_tbb, save_run_parameters, args_var_bb_fpa
+from utils.misc import save_run_parameters, args_var_bb_fpa
 
 sys.path.append(str(Path().cwd().parent))
 
@@ -60,14 +59,15 @@ if __name__ == "__main__":
     args = args_var_bb_fpa()
     if not 0.1 <= args.blackbody_increments <= 10:
         raise ValueError(f'blackbody_increments must be in [0.1, 10], got {args.blackbody_increments}')
-    if args.n_samples <=0:
+    if args.n_samples <= 0:
         raise ValueError(f'n_samples must be > 0, got {args.n_samples}')
     if not 10 < args.blackbody_max <= 70:
         raise ValueError(f'blackbody_max must be in [10, 70], got {args.blackbody_max}')
     if not 10 <= args.blackbody_min < 70:
         raise ValueError(f'blackbody_min must be in [0.1, 10], got {args.blackbody_min}')
     if args.blackbody_max <= args.blackbody_min:
-        raise ValueError(f'blackbody_min ({args.blackbody_min}) must be smaller than blackbody_max ({args.blackbody_max}.')
+        raise ValueError(
+            f'blackbody_min ({args.blackbody_min}) must be smaller than blackbody_max ({args.blackbody_max}.')
     if args.blackbody_increments >= (args.blackbody_max - args.blackbody_min):
         raise ValueError(f'blackbody_increments must be bigger than abs(max-min) of the Blackbody.')
     params = INIT_CAMERA_PARAMETERS.copy()
@@ -139,16 +139,16 @@ if __name__ == "__main__":
                     progressbar.update()
                 progressbar.set_postfix_str(f'BB {bb:.1f}C, '
                                             f'FPA {fpa / 100:.1f}C, '
-                                            f'Remaining {(limit_fpa-fpa) / 100:.1f}C')
+                                            f'Remaining {(limit_fpa - fpa) / 100:.1f}C')
 
                 if fpa >= limit_fpa:
                     flag_run = False
                     break
-            
+
             bb_temperatures = np.flip(bb_temperatures)
 
     oven.setpoint = 0  # turn the oven off
-    np.savez(str(path_to_save / filename), 
+    np.savez(str(path_to_save / filename),
              fpa=np.array(dict_meas[T_FPA]).astype('uint16'),
              housing=np.array(dict_meas[T_HOUSING]).astype('uint16'),
              blackbody=(100 * np.array(dict_meas['blackbody'])).astype('uint16'),
@@ -158,4 +158,3 @@ if __name__ == "__main__":
     fig, ax = plt.subplots()
     plot_oven_records_in_path(idx=0, fig=fig, ax=ax, path_to_log=path_to_save / OVEN_RECORDS_FILENAME)
     plt.savefig(path_to_save / 'temperature.png')
-

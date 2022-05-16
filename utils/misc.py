@@ -191,6 +191,19 @@ def args_var_bb_fpa():
     return parser.parse_args()
 
 
+def args_meas_bb_times():
+    parser = argparse.ArgumentParser(description='Check the time it takes the Blackbody to climb and to descend.')
+    parser.add_argument('--blackbody_max', type=int, required=True,
+                        help=f"The maximal value of the Blackbody in Celsius")
+    parser.add_argument('--blackbody_min', type=int, required=True,
+                        help=f"The minimal value of the Blackbody in Celsius")
+    parser.add_argument('--blackbody_increments', type=float, required=True,
+                    help=f"The increments in the Blackbody temperature. Allowed values [0.1, 10] C")
+    parser.add_argument('--n_samples', type=int, required=True,
+                    help=f"The number of samples to take at each Blackbody stop.")
+    return parser.parse_args()
+
+
 def tqdm_waiting(time_to_wait_seconds: int, postfix: str):
     for _ in tqdm(range(time_to_wait_seconds), total=time_to_wait_seconds, leave=True, postfix=postfix):
         sleep(1)
