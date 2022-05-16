@@ -136,7 +136,7 @@ if __name__ == "__main__":
                     dict_meas.setdefault('blackbody', []).append(bb)
                     dict_meas.setdefault(T_FPA, []).append(fpa)
                     dict_meas.setdefault(T_HOUSING, []).append(camera.housing)
-                    progressbar.update()
+                progressbar.update()
                 progressbar.set_postfix_str(f'BB {bb:.1f}C, '
                                             f'FPA {fpa / 100:.1f}C, '
                                             f'Remaining {(limit_fpa - fpa) / 100:.1f}C')
