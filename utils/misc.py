@@ -3,7 +3,7 @@ from datetime import datetime
 from multiprocessing import Event
 from pathlib import Path
 from time import time_ns, sleep
-from typing import Tuple
+from typing import Tuple, Union
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -193,6 +193,8 @@ def args_var_bb_fpa():
 
 def args_meas_bb_times():
     parser = argparse.ArgumentParser(description='Check the time it takes the Blackbody to climb and to descend.')
+    parser.add_argument('--path', help="The folder to save the results. Creates folder if invalid.",
+                        default='measurements')
     parser.add_argument('--blackbody_max', type=int, required=True,
                         help=f"The maximal value of the Blackbody in Celsius")
     parser.add_argument('--blackbody_min', type=int, required=True,
@@ -209,15 +211,16 @@ def tqdm_waiting(time_to_wait_seconds: int, postfix: str):
         sleep(1)
 
 
-def save_run_parameters(path: str, params: dict, args: argparse.Namespace) -> Tuple[Path, str]:
+def save_run_parameters(path: str, params: Union[dict, None], args: argparse.Namespace) -> Tuple[Path, str]:
     now = datetime.now().strftime("%Y%m%d_h%Hm%Ms%S")
     path_to_save = Path(path) / now
     if path_to_save.is_file():
         raise TypeError(f'Expected folder for path_to_save, given a file {path_to_save}.')
     elif not path_to_save.is_dir():
         path_to_save.mkdir(parents=True)
-    with open(str(path_to_save / 'camera_params.yaml'), 'w') as fp:
-        yaml.safe_dump(params, stream=fp, default_flow_style=False)
+    if params is not None:
+        with open(str(path_to_save / 'camera_params.yaml'), 'w') as fp:
+            yaml.safe_dump(params, stream=fp, default_flow_style=False)
     with open(str(path_to_save / 'arguments.yaml'), 'w') as fp:
         yaml.safe_dump(vars(args), stream=fp, default_flow_style=False)
     return path_to_save, now
