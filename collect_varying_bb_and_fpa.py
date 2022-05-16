@@ -16,7 +16,7 @@ from devices.Camera.CameraProcess import (
     TEMPERATURE_ACQUIRE_FREQUENCY_SECONDS, CameraCtrl)
 from devices.Oven.OvenProcess import (OVEN_RECORDS_FILENAME, OvenCtrl)
 from devices.Oven.plots import plot_oven_records_in_path, mp_realttime_plot
-from utils.misc import args_const_tbb, save_run_parameters
+from utils.misc import args_const_tbb, save_run_parameters, args_var_bb_fpa
 
 sys.path.append(str(Path().cwd().parent))
 
@@ -57,7 +57,7 @@ def th_t_cam_getter():
 if __name__ == "__main__":
     signal.signal(signal.SIGINT, _stop)
     signal.signal(signal.SIGTERM, _stop)
-    args = args_const_tbb()
+    args = args_var_bb_fpa()
     if not 0.1 <= args.blackbody_increments <= 10:
         raise ValueError(f'blackbody_increments must be in [0.1, 10], got {args.blackbody_increments}')
     if args.n_samples <=0:
@@ -87,9 +87,6 @@ if __name__ == "__main__":
     oven = OvenCtrl(logfile_path=None, output_path=path_to_save)
     oven.start()
 
-    print(f'\nEstimated size of data (256 x 336) shape * 2 bytes * 60Hz * Hour = '
-          f'{256 * 336 * 2 * 60 * 60 * 60 / 2 ** 30} Gb\n', flush=True)
-
     # wait for the devices to start
     sleep(1)
     with tqdm(desc="Waiting for devices to connect.") as progressbar:
@@ -118,9 +115,14 @@ if __name__ == "__main__":
     bb_max = args.blackbody_max
     bb_inc = args.blackbody_increments
     bb_temperatures = np.linspace(bb_min, bb_max, int((bb_max - bb_min) / bb_inc)).round(2)
+
+    print(f'\nEstimated size of data per iteration (256 x 336) shape * 2 bytes * n_samples * stops = '
+          f'{256 * 336 * 2 * args.n_samples * len(bb_temperatures) / 2 ** 30} Gb\n', flush=True)
+
     oven.setpoint = 120  # the Soft limit of the oven is 120C
     dict_meas = dict(camera_params=params.copy(), arguments=vars(args))
     filename = f"{now}.pkl" if not args.filename else Path(args.filename).with_suffix('.npz')
+    pickle.dump(dict_meas, open(path_to_save / 'params.pkl', 'rb'))
     fpa = -float('inf')
     flag_run = True
 
