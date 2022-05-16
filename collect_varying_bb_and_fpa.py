@@ -122,7 +122,6 @@ if __name__ == "__main__":
     oven.setpoint = 120  # the Soft limit of the oven is 120C
     dict_meas = dict(camera_params=params.copy(), arguments=vars(args))
     filename = f"{now}.pkl" if not args.filename else Path(args.filename).with_suffix('.npz')
-    pickle.dump(dict_meas, open(path_to_save / 'params.pkl', 'rb'))
     fpa = -float('inf')
     flag_run = True
 
