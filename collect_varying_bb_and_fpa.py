@@ -61,14 +61,11 @@ if __name__ == "__main__":
         raise ValueError(f'blackbody_increments must be in [0.1, 10], got {args.blackbody_increments}')
     if args.n_samples <= 0:
         raise ValueError(f'n_samples must be > 0, got {args.n_samples}')
-    if not 10 < args.blackbody_max <= 70:
+    if not 10 <= args.blackbody_max <= 70:
         raise ValueError(f'blackbody_max must be in [10, 70], got {args.blackbody_max}')
-    if not 10 <= args.blackbody_min < 70:
-        raise ValueError(f'blackbody_min must be in [0.1, 10], got {args.blackbody_min}')
-    if args.blackbody_max <= args.blackbody_min:
-        raise ValueError(
-            f'blackbody_min ({args.blackbody_min}) must be smaller than blackbody_max ({args.blackbody_max}.')
-    if args.blackbody_increments >= (args.blackbody_max - args.blackbody_min):
+    if not 10 <= args.blackbody_min <= 70:
+        raise ValueError(f'blackbody_min must be in [10, 70], got {args.blackbody_min}')
+    if args.blackbody_increments >= abs(args.blackbody_max - args.blackbody_min):
         raise ValueError(f'blackbody_increments must be bigger than abs(max-min) of the Blackbody.')
     params = INIT_CAMERA_PARAMETERS.copy()
     params['tlinear'] = int(args.tlinear)
@@ -114,7 +111,7 @@ if __name__ == "__main__":
     bb_min = args.blackbody_min
     bb_max = args.blackbody_max
     bb_inc = args.blackbody_increments
-    bb_temperatures = np.linspace(bb_min, bb_max, 1 + int((bb_max - bb_min) / bb_inc)).round(2)
+    bb_temperatures = np.linspace(bb_min, bb_max, 1 + int(abs(bb_max - bb_min) / bb_inc)).round(2)
 
     print(f'\nEstimated size of data per iteration (256 x 336) shape * 2 bytes * n_samples * stops = '
           f'{256 * 336 * 2 * args.n_samples * len(bb_temperatures) / 2 ** 30} Gb\n', flush=True)
