@@ -191,6 +191,31 @@ def args_var_bb_fpa():
     return parser.parse_args()
 
 
+
+def args_rand_bb():
+    parser = argparse.ArgumentParser(description='Set the oven to the highest temperature possible and cycle '
+                                                 'the Blackbody to different Tbb.'
+                                                 'The images are saved as a dict in a pickle file.')
+    # general
+    parser.add_argument('--path', help="The folder to save the results. Creates folder if invalid.",
+                        default='measurements')
+    parser.add_argument('--filename', help="The name of the measurements file", default='', type=str)
+
+    # camera
+    parser.add_argument('--tlinear', help=f"The grey levels are linear to the temperature as: 0.04 * t - 273.15.",
+                        action='store_true')
+    parser.add_argument('--limit_fpa', help='The maximal allowed value for the FPA temperate.'
+                                            'Should adhere to FLIR specs, which are at most 65C.', default=55)
+
+    # blackbody
+    parser.add_argument('--blackbody_max', type=int, default=70, help=f"The maximal value of the Blackbody in Celsius")
+    parser.add_argument('--blackbody_min', type=int, default=10, help=f"The minimal value of the Blackbody in Celsius")
+    parser.add_argument('--n_samples', type=int, default=100,
+                    help=f"The number of samples to take at each Blackbody stop.")
+
+    return parser.parse_args()
+
+
 def args_meas_bb_times():
     parser = argparse.ArgumentParser(description='Check the time it takes the Blackbody to climb and to descend.')
     parser.add_argument('--path', help="The folder to save the results. Creates folder if invalid.",
