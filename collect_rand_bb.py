@@ -57,8 +57,6 @@ if __name__ == "__main__":
     signal.signal(signal.SIGINT, _stop)
     signal.signal(signal.SIGTERM, _stop)
     args = args_rand_bb()
-    if not 0.1 <= args.blackbody_increments <= 10:
-        raise ValueError(f'blackbody_increments must be in [0.1, 10], got {args.blackbody_increments}')
     if args.n_samples <= 0:
         raise ValueError(f'n_samples must be > 0, got {args.n_samples}')
     if not 10 <= args.blackbody_max <= 70:
@@ -107,8 +105,8 @@ if __name__ == "__main__":
 
     # measurements
     RESOLUTION = 10
-    bb_min = args.blackbody_min * RESOLUTION
-    bb_max = args.blackbody_max * RESOLUTION
+    bb_min = int(args.blackbody_min * RESOLUTION)
+    bb_max = int(args.blackbody_max * RESOLUTION)
     bb_temperatures = np.random.randint(low=min(bb_min, bb_max), high=max(bb_min, bb_max), size=abs(bb_max - bb_min))
     bb_temperatures = bb_temperatures.astype('float') / RESOLUTION  # float for the bb
 
