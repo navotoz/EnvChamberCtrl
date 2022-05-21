@@ -7,7 +7,7 @@ scipy~=1.5
 pyserial~=3.4
 tqdm>=4.49
 matplotlib~=3.3
-pillow~=7.2
+pillow
 pandas~=1.1
 pyyaml~=5.3
 pylink~=0.3

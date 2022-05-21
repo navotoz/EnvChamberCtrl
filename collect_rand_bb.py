@@ -109,6 +109,16 @@ if __name__ == "__main__":
     bb_max = int(args.blackbody_max * RESOLUTION)
     bb_temperatures = np.random.randint(low=min(bb_min, bb_max), high=max(bb_min, bb_max), size=abs(bb_max - bb_min))
     bb_temperatures = bb_temperatures.astype('float') / RESOLUTION  # float for the bb
+    while True:
+        try:
+            bb_temperatures = bb_temperatures.reshape(len(bb_temperatures) // args.bins, args.bins)
+            bb_temperatures = np.sort(bb_temperatures, axis=1)
+            for idx in range(1, bb_temperatures.shape[0], 2):
+                bb_temperatures[idx] = np.flip(bb_temperatures[idx])
+            bb_temperatures = bb_temperatures.ravel()
+            break
+        except ValueError:
+            args.bins += 1
 
     oven.setpoint = 120  # the Soft limit of the oven is 120C
     dict_meas = dict(camera_params=params.copy(), arguments=vars(args))
