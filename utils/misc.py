@@ -212,7 +212,7 @@ def args_rand_bb():
     parser.add_argument('--blackbody_min', type=int, default=10, help=f"The minimal value of the Blackbody in Celsius")
     parser.add_argument('--n_samples', type=int, default=100,
                     help=f"The number of samples to take at each Blackbody stop.")
-    parser.add_argument('--bin', type=int, default=6, help="The number of bins in each iteration of BlackBody.")
+    parser.add_argument('--bins', type=int, default=6, help="The number of bins in each iteration of BlackBody.")
 
     return parser.parse_args()
 
