@@ -122,7 +122,7 @@ if __name__ == "__main__":
 
     oven.setpoint = 120  # the Soft limit of the oven is 120C
     dict_meas = dict(camera_params=params.copy(), arguments=vars(args))
-    filename = f"{now}.npz'" if not args.filename else Path(args.filename).with_suffix('.npz')
+    filename = f"{now}.npz" if not args.filename else Path(args.filename).with_suffix('.npz')
     fpa = -float('inf')
     flag_run = True
 
