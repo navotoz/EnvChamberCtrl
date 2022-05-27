@@ -13,13 +13,13 @@ from tqdm import tqdm
 import matplotlib as mpl
 
 
-
 def mean(values: (list, tuple, np.ndarray, float)) -> float:
     if not values:
         return -float('inf')
     if isinstance(values, float):
         return values
-    ret_values = list(filter(lambda x: x is not None and np.abs(x) != -float('inf'), values))
+    ret_values = list(
+        filter(lambda x: x is not None and np.abs(x) != -float('inf'), values))
     return np.mean(ret_values) if ret_values else -float('inf')
 
 
@@ -55,7 +55,7 @@ def wait_for_time(func, wait_time_in_sec: float = 1):
 def get_time() -> datetime.time: return datetime.now().replace(microsecond=0)
 
 
-def normalize_image(image: np.ndarray, cmap = mpl.cm.get_cmap('coolwarm')) -> Image.Image:
+def normalize_image(image: np.ndarray, cmap=mpl.cm.get_cmap('coolwarm')) -> Image.Image:
     if image.dtype == np.bool:
         return Image.fromarray(image.astype('uint8') * 255)
     image = image.astype('float32')
@@ -100,9 +100,11 @@ def save_average_from_images(path: (Path, str), suffix: str = 'npy'):
             continue
         images_list = list(dir_path.glob(f'*.{suffix}'))
         if images_list:
-            avg = np.mean(np.stack([np.load(str(x)) for x in dir_path.glob(f'*.{suffix}')]), 0).astype('uint16')
+            avg = np.mean(np.stack(
+                [np.load(str(x)) for x in dir_path.glob(f'*.{suffix}')]), 0).astype('uint16')
             np.save(str(dir_path / 'average.npy'), avg)
-            normalize_image(avg).save(str(dir_path / 'average.jpeg'), format='jpeg')
+            normalize_image(avg).save(
+                str(dir_path / 'average.jpeg'), format='jpeg')
 
 
 def args_const_fpa():
@@ -115,8 +117,10 @@ def args_const_fpa():
     # general
     parser.add_argument('--path', help="The folder to save the results. Creates folder if invalid.",
                         default='measurements')
-    parser.add_argument('--n_images', help="The number of images to capture for each point.", default=3000, type=int)
-    parser.add_argument('--filename', help="The name of the measurements file", default='', type=str)
+    parser.add_argument(
+        '--n_images', help="The number of images to capture for each point.", default=3000, type=int)
+    parser.add_argument(
+        '--filename', help="The name of the measurements file", default='', type=str)
 
     # camera
     parser.add_argument('--ffc', type=int, required=True,
@@ -127,9 +131,12 @@ def args_const_fpa():
     # blackbody
     parser.add_argument('--blackbody_stops', type=int, default=18,
                         help=f"How many BlackBody stops between blackbody_max to blackbody_min.")
-    parser.add_argument('--blackbody_max', help=f"Maximal temperature of the BlackBody in C.", type=int, default=80)
-    parser.add_argument('--blackbody_min', help=f"Minimal temperature of the BlackBody in C.", type=int, default=10)
-    parser.add_argument('--blackbody_dummy', help=f"Uses a dummy BlackBody.", action='store_true')
+    parser.add_argument(
+        '--blackbody_max', help=f"Maximal temperature of the BlackBody in C.", type=int, default=80)
+    parser.add_argument(
+        '--blackbody_min', help=f"Minimal temperature of the BlackBody in C.", type=int, default=10)
+    parser.add_argument('--blackbody_dummy',
+                        help=f"Uses a dummy BlackBody.", action='store_true')
 
     # oven
     parser.add_argument('--oven_temperature', type=int, required=True,
@@ -146,7 +153,8 @@ def args_const_tbb():
     # general
     parser.add_argument('--path', help="The folder to save the results. Creates folder if invalid.",
                         default='measurements')
-    parser.add_argument('--filename', help="The name of the measurements file", default='', type=str)
+    parser.add_argument(
+        '--filename', help="The name of the measurements file", default='', type=str)
 
     # camera
     parser.add_argument('--tlinear', help=f"The grey levels are linear to the temperature as: 0.04 * t - 273.15.",
@@ -170,7 +178,8 @@ def args_var_bb_fpa():
     # general
     parser.add_argument('--path', help="The folder to save the results. Creates folder if invalid.",
                         default='measurements')
-    parser.add_argument('--filename', help="The name of the measurements file", default='', type=str)
+    parser.add_argument(
+        '--filename', help="The name of the measurements file", default='', type=str)
 
     # camera
     parser.add_argument('--tlinear', help=f"The grey levels are linear to the temperature as: 0.04 * t - 273.15.",
@@ -184,12 +193,11 @@ def args_var_bb_fpa():
     parser.add_argument('--blackbody_min', type=int, required=True,
                         help=f"The minimal value of the Blackbody in Celsius")
     parser.add_argument('--blackbody_increments', type=float, required=True,
-                    help=f"The increments in the Blackbody temperature. Allowed values [0.1, 10] C")
-    parser.add_argument('--n_samples', type=int, required=True, 
-                    help=f"The number of samples to take at each Blackbody stop.")
+                        help=f"The increments in the Blackbody temperature. Allowed values [0.1, 10] C")
+    parser.add_argument('--n_samples', type=int, required=True,
+                        help=f"The number of samples to take at each Blackbody stop.")
 
     return parser.parse_args()
-
 
 
 def args_rand_bb():
@@ -199,26 +207,33 @@ def args_rand_bb():
     # general
     parser.add_argument('--path', help="The folder to save the results. Creates folder if invalid.",
                         default='measurements')
-    parser.add_argument('--filename', help="The name of the measurements file", default='', type=str)
+    parser.add_argument(
+        '--filename', help="The name of the measurements file", default='', type=str)
 
     # camera
     parser.add_argument('--tlinear', help=f"The grey levels are linear to the temperature as: 0.04 * t - 273.15.",
                         action='store_true')
     parser.add_argument('--limit_fpa', help='The maximal allowed value for the FPA temperate.'
                                             'Should adhere to FLIR specs, which are at most 65C.', default=55)
+    parser.add_argument('--ffc', default=0,
+                        help='A temperature at which the camera performs FFC once. If 0 - performs every 30 seconds.')
 
     # blackbody
-    parser.add_argument('--blackbody_max', type=int, default=70, help=f"The maximal value of the Blackbody in Celsius")
-    parser.add_argument('--blackbody_min', type=int, default=10, help=f"The minimal value of the Blackbody in Celsius")
+    parser.add_argument('--blackbody_max', type=int, default=70,
+                        help=f"The maximal value of the Blackbody in Celsius")
+    parser.add_argument('--blackbody_min', type=int, default=10,
+                        help=f"The minimal value of the Blackbody in Celsius")
     parser.add_argument('--n_samples', type=int, default=100,
-                    help=f"The number of samples to take at each Blackbody stop.")
-    parser.add_argument('--bins', type=int, default=6, help="The number of bins in each iteration of BlackBody.")
+                        help=f"The number of samples to take at each Blackbody stop.")
+    parser.add_argument('--bins', type=int, default=6,
+                        help="The number of bins in each iteration of BlackBody.")
 
     return parser.parse_args()
 
 
 def args_meas_bb_times():
-    parser = argparse.ArgumentParser(description='Check the time it takes the Blackbody to climb and to descend.')
+    parser = argparse.ArgumentParser(
+        description='Check the time it takes the Blackbody to climb and to descend.')
     parser.add_argument('--path', help="The folder to save the results. Creates folder if invalid.",
                         default='measurements')
     parser.add_argument('--blackbody_max', type=int, required=True,
@@ -226,9 +241,9 @@ def args_meas_bb_times():
     parser.add_argument('--blackbody_min', type=int, required=True,
                         help=f"The minimal value of the Blackbody in Celsius")
     parser.add_argument('--blackbody_increments', type=float, required=True,
-                    help=f"The increments in the Blackbody temperature. Allowed values [0.1, 10] C")
+                        help=f"The increments in the Blackbody temperature. Allowed values [0.1, 10] C")
     parser.add_argument('--n_samples', type=int, required=True,
-                    help=f"The number of samples to take at each Blackbody stop.")
+                        help=f"The number of samples to take at each Blackbody stop.")
     return parser.parse_args()
 
 
@@ -241,7 +256,8 @@ def save_run_parameters(path: str, params: Union[dict, None], args: argparse.Nam
     now = datetime.now().strftime("%Y%m%d_h%Hm%Ms%S")
     path_to_save = Path(path) / now
     if path_to_save.is_file():
-        raise TypeError(f'Expected folder for path_to_save, given a file {path_to_save}.')
+        raise TypeError(
+            f'Expected folder for path_to_save, given a file {path_to_save}.')
     elif not path_to_save.is_dir():
         path_to_save.mkdir(parents=True)
     if params is not None:

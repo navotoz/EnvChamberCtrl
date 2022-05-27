@@ -53,6 +53,20 @@ def th_t_cam_getter():
         sleep(TEMPERATURE_ACQUIRE_FREQUENCY_SECONDS)
 
 
+def th_ffc_on_t():
+    while True:
+        try:
+            fpa = camera.fpa
+            if fpa and fpa >= t_ffc:
+                while not camera.ffc:
+                    sleep(0.5)
+                break
+        except (BrokenPipeError, ValueError, TypeError, AttributeError, RuntimeError):
+            pass
+        finally:
+            sleep(2*TEMPERATURE_ACQUIRE_FREQUENCY_SECONDS)
+
+
 if __name__ == "__main__":
     signal.signal(signal.SIGINT, _stop)
     signal.signal(signal.SIGTERM, _stop)
@@ -65,8 +79,15 @@ if __name__ == "__main__":
         raise ValueError(f'blackbody_min must be in [10, 70], got {args.blackbody_min}')
     params = INIT_CAMERA_PARAMETERS.copy()
     params['tlinear'] = int(args.tlinear)
-    params['ffc_mode'] = 'auto'
-    params['ffc_period'] = 1800  # automatic FFC every 30 seconds
+    t_ffc = args.ffc
+    if not t_ffc:  # no ffc parameters is given, so perform ffc every 30 seconds
+        params['ffc_mode'] = 'auto'
+        params['ffc_period'] = 1800  # automatic FFC every 30 seconds
+        th_ffc = None
+    else:
+        params['ffc_mode'] = 'manual'
+        params['ffc_period'] = 0
+        th_ffc = th.Thread(target=th_ffc_on_t, name='th_ffc_on_t', daemon=True)
     limit_fpa = args.limit_fpa
     print(f'Maximal FPA {limit_fpa}C')
     limit_fpa *= 100  # C -> 100C, same as camera.fpa
@@ -90,6 +111,7 @@ if __name__ == "__main__":
             progressbar.update()
             sleep(1)
     print('Devices Connected.', flush=True)
+    th_ffc.start() if th_ffc is not None else None
 
     # wait for the records file to be created
     while not (path_to_save / OVEN_RECORDS_FILENAME).is_file():
