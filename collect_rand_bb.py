@@ -152,15 +152,17 @@ if __name__ == "__main__":
         while flag_run:
             for bb in bb_temperatures:
                 blackbody.temperature = bb
+                sleep(0.5)
+                t_bb = blackbody.temperature
                 s = time_ns()
                 for _ in range(args.n_samples):
                     fpa = camera.fpa
                     dict_meas.setdefault('frames', []).append(camera.image)
-                    dict_meas.setdefault('blackbody', []).append(bb)
+                    dict_meas.setdefault('blackbody', []).append(t_bb)
                     dict_meas.setdefault(T_FPA, []).append(fpa)
                     dict_meas.setdefault(T_HOUSING, []).append(camera.housing)
                 progressbar.update()
-                progressbar.set_postfix_str(f'BB {bb:.1f}C, '
+                progressbar.set_postfix_str(f'BB {t_bb:.1f}C, '
                                             f'FPA {fpa / 100:.1f}C, '
                                             f'Remaining {(limit_fpa - fpa) / 100:.1f}C')
 
