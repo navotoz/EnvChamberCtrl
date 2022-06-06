@@ -53,20 +53,62 @@ def th_t_cam_getter():
         sleep(TEMPERATURE_ACQUIRE_FREQUENCY_SECONDS)
 
 
+class TbbGenerator:
+    def __init__(self, *, bb_min: int, bb_max: int, bb_inc : int, bb_start: int = None, bb_is_decreasing: bool = False):
+        if not 10 <= bb_max <= 70:
+            raise ValueError(f'blackbody_max must be in [10, 70], got {bb_max}')
+        if not 10 <= bb_min <= 70:
+            raise ValueError(f'blackbody_min must be in [10, 70], got {bb_min}')
+        if bb_inc >= abs(bb_max - bb_min):
+            raise ValueError(f'blackbody_increments must be bigger than abs(max-min) of the Blackbody.')
+        if bb_start is not None and not bb_min <= bb_start <= bb_max:
+            raise ValueError(f'blackbody_start must be inside the range of the Blackbody.')
+        if not 0.1 <= bb_inc <= 10:
+            raise ValueError(f'blackbody_increments must be in [0.1, 10], got {bb_inc}')
+        self.bb_min = bb_min
+        self.bb_max = bb_max
+        self.bb_inc = bb_inc
+        self._direction = 'down' if bb_is_decreasing else 'up'
+        if bb_start is not None:
+            if self._direction == 'up':
+                self._current = max(bb_start - bb_inc, bb_min)
+            elif self._direction == 'down':
+                self._current = min(bb_start + bb_inc, bb_max)
+        else:
+            self._current = bb_max + bb_inc if bb_is_decreasing else bb_min - bb_inc
+
+    def __iter__(self):
+        return self
+
+    def __next__(self):
+        if self._direction == 'up':
+            self._current += self.bb_inc
+            if self._current <= self.bb_max:
+                return self._current
+            elif self._current > self.bb_max:
+                self._direction = 'down'
+                self._current -= 2 * self.bb_inc
+                return self._current
+        elif self._direction == 'down':
+            self._current -= self.bb_inc
+            if self._current >= self.bb_min:
+                return self._current
+            elif self._current < self.bb_min:
+                self._direction = 'up'
+                self._current += 2 * self.bb_inc
+                return self._current
+        else:
+            raise ValueError(f'Direction must be either "up" or "down", got {self._direction}')
+
+
 if __name__ == "__main__":
     signal.signal(signal.SIGINT, _stop)
     signal.signal(signal.SIGTERM, _stop)
     args = args_var_bb_fpa()
-    if not 0.1 <= args.blackbody_increments <= 10:
-        raise ValueError(f'blackbody_increments must be in [0.1, 10], got {args.blackbody_increments}')
+    bb_generator = TbbGenerator(bb_min=args.blackbody_min, bb_max=args.blackbody_max, bb_inc=args.blackbody_increments,
+                bb_start=args.blackbody_start, bb_is_decreasing=args.blackbody_is_decreasing)
     if args.n_samples <= 0:
         raise ValueError(f'n_samples must be > 0, got {args.n_samples}')
-    if not 10 <= args.blackbody_max <= 70:
-        raise ValueError(f'blackbody_max must be in [10, 70], got {args.blackbody_max}')
-    if not 10 <= args.blackbody_min <= 70:
-        raise ValueError(f'blackbody_min must be in [10, 70], got {args.blackbody_min}')
-    if args.blackbody_increments >= abs(args.blackbody_max - args.blackbody_min):
-        raise ValueError(f'blackbody_increments must be bigger than abs(max-min) of the Blackbody.')
     params = INIT_CAMERA_PARAMETERS.copy()
     params['tlinear'] = int(args.tlinear)
     params['ffc_mode'] = 'auto'
@@ -110,14 +152,6 @@ if __name__ == "__main__":
     mp_plot.start()
 
     # measurements
-    bb_min = args.blackbody_min
-    bb_max = args.blackbody_max
-    bb_inc = args.blackbody_increments
-    bb_temperatures = np.linspace(bb_min, bb_max, 1 + int(abs(bb_max - bb_min) / bb_inc)).round(2)
-
-    print(f'\nEstimated size of data per iteration (256 x 336) shape * 2 bytes * n_samples * stops = '
-          f'{256 * 336 * 2 * args.n_samples * len(bb_temperatures) / 2 ** 30} Gb\n', flush=True)
-
     oven.setpoint = 120  # the Soft limit of the oven is 120C
     dict_meas = dict(camera_params=params.copy(), arguments=vars(args))
     filename = f"{now}.npz" if not args.filename else Path(args.filename).with_suffix('.npz')
@@ -126,7 +160,7 @@ if __name__ == "__main__":
 
     with tqdm() as progressbar:
         while flag_run:
-            for bb in bb_temperatures:
+            for bb in bb_generator:
                 blackbody.temperature = bb
                 s = time_ns()
                 for _ in range(args.n_samples):
@@ -143,8 +177,6 @@ if __name__ == "__main__":
                 if fpa >= limit_fpa:
                     flag_run = False
                     break
-
-            bb_temperatures = np.flip(bb_temperatures)
 
     oven.setpoint = 0  # turn the oven off
     np.savez(str(path_to_save / filename),

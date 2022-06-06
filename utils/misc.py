@@ -178,8 +178,7 @@ def args_var_bb_fpa():
     # general
     parser.add_argument('--path', help="The folder to save the results. Creates folder if invalid.",
                         default='measurements')
-    parser.add_argument(
-        '--filename', help="The name of the measurements file", default='', type=str)
+    parser.add_argument('--filename', help="The name of the measurements file", default='', type=str)
 
     # camera
     parser.add_argument('--tlinear', help=f"The grey levels are linear to the temperature as: 0.04 * t - 273.15.",
@@ -189,14 +188,18 @@ def args_var_bb_fpa():
                                             'Should adhere to FLIR specs, which are at most 65C.', default=55)
 
     # blackbody
-    parser.add_argument('--blackbody_max', type=int, required=True,
+    parser.add_argument('--blackbody_max', type=int, required=False, default=70,
                         help=f"The maximal value of the Blackbody in Celsius")
-    parser.add_argument('--blackbody_min', type=int, required=True,
+    parser.add_argument('--blackbody_min', type=int, required=False, default=10,
                         help=f"The minimal value of the Blackbody in Celsius")
     parser.add_argument('--blackbody_increments', type=float, required=True,
                         help=f"The increments in the Blackbody temperature. Allowed values [0.1, 10] C")
     parser.add_argument('--n_samples', type=int, required=True,
                         help=f"The number of samples to take at each Blackbody stop.")
+    parser.add_argument('--blackbody_start', type=int,
+                        help="The starting temperature for the first Blackbody iteration.")
+    parser.add_argument('--blackbody_is_decreasing', action='store_true',
+                        help="If True, the Blackbody first iteration will have decreasing temperatures.")
 
     return parser.parse_args()
 
