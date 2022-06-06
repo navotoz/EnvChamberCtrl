@@ -71,6 +71,8 @@ if __name__ == "__main__":
     params['tlinear'] = int(args.tlinear)
     params['ffc_mode'] = 'auto'
     params['ffc_period'] = 1800  # automatic FFC every 30 seconds
+    params['lens_number'] = args.lens_number
+    print(f'Lens Number = {args.lens_number}', flush=True)
     limit_fpa = args.limit_fpa
     print(f'Maximal FPA {limit_fpa}C')
     limit_fpa *= 100  # C -> 100C, same as camera.fpa

@@ -184,6 +184,7 @@ def args_var_bb_fpa():
     # camera
     parser.add_argument('--tlinear', help=f"The grey levels are linear to the temperature as: 0.04 * t - 273.15.",
                         action='store_true')
+    parser.add_argument('--lens_number', help=f"The lens number for calibration.", type=int, required=True)
     parser.add_argument('--limit_fpa', help='The maximal allowed value for the FPA temperate.'
                                             'Should adhere to FLIR specs, which are at most 65C.', default=55)
 
@@ -211,6 +212,7 @@ def args_rand_bb():
         '--filename', help="The name of the measurements file", default='', type=str)
 
     # camera
+    parser.add_argument('--lens_number', help=f"The lens number for calibration.", type=int, required=True)
     parser.add_argument('--tlinear', help=f"The grey levels are linear to the temperature as: 0.04 * t - 273.15.",
                         action='store_true')
     parser.add_argument('--limit_fpa', help='The maximal allowed value for the FPA temperate.'

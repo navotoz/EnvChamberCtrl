@@ -88,6 +88,8 @@ if __name__ == "__main__":
         params['ffc_mode'] = 'manual'
         params['ffc_period'] = 0
         th_ffc = th.Thread(target=th_ffc_on_t, name='th_ffc_on_t', daemon=True)
+    params['lens_number'] = args.lens_number
+    print(f'Lens Number = {args.lens_number}', flush=True)
     limit_fpa = args.limit_fpa
     print(f'Maximal FPA {limit_fpa}C')
     limit_fpa *= 100  # C -> 100C, same as camera.fpa
