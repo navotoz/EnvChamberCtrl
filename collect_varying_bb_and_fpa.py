@@ -1,46 +1,20 @@
-import signal
+import sys
 import sys
 import threading as th
 from multiprocessing import Process
 from pathlib import Path
-from time import sleep, time_ns
+from time import sleep
 
-import matplotlib.pyplot as plt
-import numpy as np
-from tqdm import tqdm
-
-from devices.BlackBodyCtrl import BlackBodyThread
-from devices.Camera import INIT_CAMERA_PARAMETERS, T_FPA, T_HOUSING
+from devices.Camera import INIT_CAMERA_PARAMETERS
 from devices.Camera.CameraProcess import (
-    TEMPERATURE_ACQUIRE_FREQUENCY_SECONDS, CameraCtrl)
-from devices.Oven.OvenProcess import (OVEN_RECORDS_FILENAME, OvenCtrl)
-from devices.Oven.plots import plot_oven_records_in_path, mp_realttime_plot
-from utils.misc import save_run_parameters, args_var_bb_fpa
+    TEMPERATURE_ACQUIRE_FREQUENCY_SECONDS)
+from devices.Oven.OvenProcess import (OVEN_RECORDS_FILENAME)
+from devices.Oven.plots import mp_realttime_plot
+from utils.args import args_var_bb_fpa
+from utils.bb_iterators import TbbGenSawTooth
+from utils.misc import save_run_parameters, init_devices, wait_for_devices_to_start, save_results, collect_measurements
 
 sys.path.append(str(Path().cwd().parent))
-
-
-def _stop(a, b, **kwargs) -> None:
-    try:
-        oven.setpoint = 0  # turn the oven off
-    except:
-        pass
-    try:
-        camera.terminate()
-        print('Camera terminated.', flush=True)
-    except (ValueError, TypeError, AttributeError, RuntimeError, NameError, KeyError, AssertionError):
-        pass
-    try:
-        blackbody.terminate()
-        print('BlackBody terminated.', flush=True)
-    except (ValueError, TypeError, AttributeError, RuntimeError, NameError, KeyError, AssertionError):
-        pass
-    try:
-        oven.terminate()
-        oven.join()  # allows the last records to be saved
-        print('Oven terminated.', flush=True)
-    except (ValueError, TypeError, AttributeError, RuntimeError, NameError, KeyError, AssertionError):
-        pass
 
 
 def th_t_cam_getter():
@@ -53,91 +27,46 @@ def th_t_cam_getter():
         sleep(TEMPERATURE_ACQUIRE_FREQUENCY_SECONDS)
 
 
-class TbbGenerator:
-    def __init__(self, *, bb_min: int, bb_max: int, bb_inc : int, bb_start: int = None, bb_is_decreasing: bool = False):
-        if not 10 <= bb_max <= 70:
-            raise ValueError(f'blackbody_max must be in [10, 70], got {bb_max}')
-        if not 10 <= bb_min <= 70:
-            raise ValueError(f'blackbody_min must be in [10, 70], got {bb_min}')
-        if bb_inc >= abs(bb_max - bb_min):
-            raise ValueError(f'blackbody_increments must be bigger than abs(max-min) of the Blackbody.')
-        if bb_start is not None and not bb_min <= bb_start <= bb_max:
-            raise ValueError(f'blackbody_start must be inside the range of the Blackbody.')
-        if not 0.1 <= bb_inc <= 10:
-            raise ValueError(f'blackbody_increments must be in [0.1, 10], got {bb_inc}')
-        self.bb_min = bb_min
-        self.bb_max = bb_max
-        self.bb_inc = bb_inc
-        self._direction = 'down' if bb_is_decreasing else 'up'
-        if bb_start is not None:
-            if self._direction == 'up':
-                self._current = max(bb_start - bb_inc, bb_min)
-            elif self._direction == 'down':
-                self._current = min(bb_start + bb_inc, bb_max)
-        else:
-            self._current = bb_max + bb_inc if bb_is_decreasing else bb_min - bb_inc
-
-    def __iter__(self):
-        return self
-
-    def __next__(self):
-        if self._direction == 'up':
-            self._current += self.bb_inc
-            if self._current <= self.bb_max:
-                return self._current
-            elif self._current > self.bb_max:
-                self._direction = 'down'
-                self._current -= 2 * self.bb_inc
-                return self._current
-        elif self._direction == 'down':
-            self._current -= self.bb_inc
-            if self._current >= self.bb_min:
-                return self._current
-            elif self._current < self.bb_min:
-                self._direction = 'up'
-                self._current += 2 * self.bb_inc
-                return self._current
-        else:
-            raise ValueError(f'Direction must be either "up" or "down", got {self._direction}')
+def th_ffc_on_t():
+    while True:
+        try:
+            fpa = camera.fpa
+            if fpa and fpa >= t_ffc:
+                while not camera.ffc:
+                    sleep(0.5)
+                break
+        except (BrokenPipeError, ValueError, TypeError, AttributeError, RuntimeError):
+            pass
+        finally:
+            sleep(2 * TEMPERATURE_ACQUIRE_FREQUENCY_SECONDS)
 
 
 if __name__ == "__main__":
-    signal.signal(signal.SIGINT, _stop)
-    signal.signal(signal.SIGTERM, _stop)
     args = args_var_bb_fpa()
-    bb_generator = TbbGenerator(bb_min=args.blackbody_min, bb_max=args.blackbody_max, bb_inc=args.blackbody_increments,
-                bb_start=args.blackbody_start, bb_is_decreasing=args.blackbody_is_decreasing)
+    bb_generator = TbbGenSawTooth(bb_min=args.blackbody_min, bb_max=args.blackbody_max, bb_start=args.blackbody_start,
+                                  bb_inc=args.blackbody_increments, bb_is_decreasing=args.blackbody_is_decreasing)
     if args.n_samples <= 0:
         raise ValueError(f'n_samples must be > 0, got {args.n_samples}')
     params = INIT_CAMERA_PARAMETERS.copy()
     params['tlinear'] = int(args.tlinear)
-    params['ffc_mode'] = 'auto'
-    params['ffc_period'] = 1800  # automatic FFC every 30 seconds
+    t_ffc = args.ffc
+    if not t_ffc:  # no ffc parameters is given, so perform ffc every 30 seconds
+        params['ffc_mode'] = 'auto'
+        params['ffc_period'] = 1800  # automatic FFC every 30 seconds
+        th_ffc = None
+    else:
+        params['ffc_mode'] = 'manual'
+        params['ffc_period'] = 0
+        th_ffc = th.Thread(target=th_ffc_on_t, name='th_ffc_on_t', daemon=True)
     params['lens_number'] = args.lens_number
     print(f'Lens Number = {args.lens_number}', flush=True)
     limit_fpa = args.limit_fpa
     print(f'Maximal FPA {limit_fpa}C')
     limit_fpa *= 100  # C -> 100C, same as camera.fpa
     path_to_save, now = save_run_parameters(args.path, params, args)
-
-    # init devices
-    blackbody = BlackBodyThread(logfile_path=None, output_folder_path=path_to_save)
-    blackbody.start()
-    camera = CameraCtrl(camera_parameters=params)
-    camera.start()
-    oven = OvenCtrl(logfile_path=None, output_path=path_to_save)
-    oven.start()
-
-    # wait for the devices to start
-    sleep(1)
-    with tqdm(desc="Waiting for devices to connect.") as progressbar:
-        while not oven.is_connected or not camera.is_connected or not blackbody.is_connected:
-            progressbar.set_postfix_str(f"Blackbody {'Connected' if blackbody.is_connected else 'Waiting'}, "
-                                        f"Oven {'Connected' if oven.is_connected else 'Waiting'}, "
-                                        f"Camera {'Connected' if camera.is_connected else 'Waiting'}")
-            progressbar.update()
-            sleep(1)
-    print('Devices Connected.', flush=True)
+    blackbody, camera, oven = init_devices(path_to_save=path_to_save, params=params)
+    wait_for_devices_to_start(blackbody, camera, oven)
+    th_ffc.start() if th_ffc is not None else None
 
     # wait for the records file to be created
     while not (path_to_save / OVEN_RECORDS_FILENAME).is_file():
@@ -153,39 +82,10 @@ if __name__ == "__main__":
 
     # measurements
     oven.setpoint = 120  # the Soft limit of the oven is 120C
-    dict_meas = dict(camera_params=params.copy(), arguments=vars(args))
     filename = f"{now}.npz" if not args.filename else Path(args.filename).with_suffix('.npz')
-    fpa = -float('inf')
-    flag_run = True
-
-    with tqdm() as progressbar:
-        while flag_run:
-            for bb in bb_generator:
-                blackbody.temperature = bb
-                s = time_ns()
-                for _ in range(args.n_samples):
-                    fpa = camera.fpa
-                    dict_meas.setdefault('frames', []).append(camera.image)
-                    dict_meas.setdefault('blackbody', []).append(bb)
-                    dict_meas.setdefault(T_FPA, []).append(fpa)
-                    dict_meas.setdefault(T_HOUSING, []).append(camera.housing)
-                progressbar.update()
-                progressbar.set_postfix_str(f'BB {bb:.1f}C, '
-                                            f'FPA {fpa / 100:.1f}C, '
-                                            f'Remaining {(limit_fpa - fpa) / 100:.1f}C')
-
-                if fpa >= limit_fpa:
-                    flag_run = False
-                    break
-
+    dict_meas = collect_measurements(bb_generator=bb_generator, blackbody=blackbody, camera=camera,
+                                     n_samples=args.n_samples, limit_fpa=limit_fpa)
     oven.setpoint = 0  # turn the oven off
-    np.savez(str(path_to_save / filename),
-             fpa=np.array(dict_meas[T_FPA]).astype('uint16'),
-             housing=np.array(dict_meas[T_HOUSING]).astype('uint16'),
-             blackbody=(100 * np.array(dict_meas['blackbody'])).astype('uint16'),
-             frames=np.stack(dict_meas['frames']).astype('uint16'))
-
-    # save temperature plot
-    fig, ax = plt.subplots()
-    plot_oven_records_in_path(idx=0, fig=fig, ax=ax, path_to_log=path_to_save / OVEN_RECORDS_FILENAME)
-    plt.savefig(path_to_save / 'temperature.png')
+    dict_meas['camera_params'] = params.copy()
+    dict_meas['arguments'] = vars(args)
+    save_results(path_to_save=path_to_save, filename=filename, dict_meas=dict_meas)

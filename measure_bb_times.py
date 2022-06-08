@@ -7,7 +7,8 @@ import numpy as np
 from tqdm import tqdm
 
 from devices.BlackBodyCtrl import BlackBodyThread
-from utils.misc import args_meas_bb_times, save_run_parameters
+from utils.args import args_meas_bb_times
+from utils.misc import save_run_parameters
 
 sys.path.append(str(Path().cwd().parent))
 
@@ -64,10 +65,10 @@ if __name__ == "__main__":
 
     for bb in tqdm(bb_temperatures, desc="Rise"):
         blackbody.temperature = bb
-        sleep((1/60) * args.n_samples)  # wait for the frames to be captured at 60Hz
+        sleep((1 / 60) * args.n_samples)  # wait for the frames to be captured at 60Hz
 
     sleep(5)  # clear the tqdm buffers
 
     for bb in tqdm(np.flip(bb_temperatures), desc="Descent"):
         blackbody.temperature = bb
-        sleep((1/60) * args.n_samples)  # wait for the frames to be captured at 60Hz
+        sleep((1 / 60) * args.n_samples)  # wait for the frames to be captured at 60Hz

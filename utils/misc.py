@@ -2,25 +2,21 @@ import argparse
 from datetime import datetime
 from multiprocessing import Event
 from pathlib import Path
-from time import time_ns, sleep
+from time import sleep
 from typing import Tuple, Union
 
+import matplotlib as mpl
 import matplotlib.pyplot as plt
 import numpy as np
 import yaml
 from PIL import Image
 from tqdm import tqdm
-import matplotlib as mpl
 
-
-def mean(values: (list, tuple, np.ndarray, float)) -> float:
-    if not values:
-        return -float('inf')
-    if isinstance(values, float):
-        return values
-    ret_values = list(
-        filter(lambda x: x is not None and np.abs(x) != -float('inf'), values))
-    return np.mean(ret_values) if ret_values else -float('inf')
+from devices.BlackBodyCtrl import BlackBodyThread
+from devices.Camera import T_FPA, T_HOUSING
+from devices.Camera.CameraProcess import CameraCtrl
+from devices.Oven.OvenProcess import OvenCtrl, OVEN_RECORDS_FILENAME
+from devices.Oven.plots import plot_oven_records_in_path
 
 
 def show_image(image: (Image.Image, np.ndarray), title=None, v_min=None, v_max=None, to_close: bool = True,
@@ -40,16 +36,6 @@ def show_image(image: (Image.Image, np.ndarray), title=None, v_min=None, v_max=N
     plt.axis('off' if not show_axis else 'on')
     plt.show()
     plt.close() if to_close else None
-
-
-def wait_for_time(func, wait_time_in_sec: float = 1):
-    def do_func(*args, **kwargs):
-        start_time = time_ns()
-        res = func(*args, **kwargs)
-        sleep(max(0.0, 1e-9 * (start_time + wait_time_in_sec * 1e9 - time_ns())))
-        return res
-
-    return do_func
 
 
 def get_time() -> datetime.time: return datetime.now().replace(microsecond=0)
@@ -107,151 +93,6 @@ def save_average_from_images(path: (Path, str), suffix: str = 'npy'):
                 str(dir_path / 'average.jpeg'), format='jpeg')
 
 
-def args_const_fpa():
-    parser = argparse.ArgumentParser(description='Measures multiple images of the BlackBody at different setpoints, '
-                                                 'at a predefined camera temperature.'
-                                                 'The Oven temperature is first settled at the predefined temperature, '
-                                                 'and when the temperature of the camera settles, '
-                                                 'measurements of the BlackBody at different setpoints commence.'
-                                                 'The images are saved as a dict in a pickle file.')
-    # general
-    parser.add_argument('--path', help="The folder to save the results. Creates folder if invalid.",
-                        default='measurements')
-    parser.add_argument(
-        '--n_images', help="The number of images to capture for each point.", default=3000, type=int)
-    parser.add_argument(
-        '--filename', help="The name of the measurements file", default='', type=str)
-
-    # camera
-    parser.add_argument('--ffc', type=int, required=True,
-                        help=f"The camera performs FFC before every stop if arg is 0, else at the given temperature.")
-    parser.add_argument('--tlinear', help=f"The grey levels are linear to the temperature as: 0.04 * t - 273.15.",
-                        action='store_true')
-
-    # blackbody
-    parser.add_argument('--blackbody_stops', type=int, default=18,
-                        help=f"How many BlackBody stops between blackbody_max to blackbody_min.")
-    parser.add_argument(
-        '--blackbody_max', help=f"Maximal temperature of the BlackBody in C.", type=int, default=80)
-    parser.add_argument(
-        '--blackbody_min', help=f"Minimal temperature of the BlackBody in C.", type=int, default=10)
-    parser.add_argument('--blackbody_dummy',
-                        help=f"Uses a dummy BlackBody.", action='store_true')
-
-    # oven
-    parser.add_argument('--oven_temperature', type=int, required=True,
-                        help=f"What Oven temperatures will be set.\nIf 0 than oven will be dummy.")
-    parser.add_argument('--settling_time', help=f"The time in Minutes to wait for the camera temperature to settle"
-                                                f" in an Oven setpoint before measurement.", type=int, default=30)
-    return parser.parse_args()
-
-
-def args_const_tbb():
-    parser = argparse.ArgumentParser(description='Set the oven to the highest temperature possible and measure a '
-                                                 'constant Blackbody temperature. '
-                                                 'The images are saved as a dict in a pickle file.')
-    # general
-    parser.add_argument('--path', help="The folder to save the results. Creates folder if invalid.",
-                        default='measurements')
-    parser.add_argument(
-        '--filename', help="The name of the measurements file", default='', type=str)
-
-    # camera
-    parser.add_argument('--tlinear', help=f"The grey levels are linear to the temperature as: 0.04 * t - 273.15.",
-                        action='store_true')
-    parser.add_argument('--rate', help=f"The rate in Hz. The maximal value is 60Hz", type=int,
-                        required=True, default=60)
-    parser.add_argument('--limit_fpa', help='The maximal allowed value for the FPA temperate.'
-                                            'Should adhere to FLIR specs, which are at most 65C.', default=55)
-
-    # blackbody
-    parser.add_argument('--blackbody', type=int, required=True,
-                        help=f"A constant Blackbody temperature to set, in Celsius.")
-
-    return parser.parse_args()
-
-
-def args_var_bb_fpa():
-    parser = argparse.ArgumentParser(description='Set the oven to the highest temperature possible and cycle '
-                                                 'the Blackbody to different Tbb.'
-                                                 'The images are saved as a dict in a pickle file.')
-    # general
-    parser.add_argument('--path', help="The folder to save the results. Creates folder if invalid.",
-                        default='measurements')
-    parser.add_argument('--filename', help="The name of the measurements file", default='', type=str)
-
-    # camera
-    parser.add_argument('--tlinear', help=f"The grey levels are linear to the temperature as: 0.04 * t - 273.15.",
-                        action='store_true')
-    parser.add_argument('--lens_number', help=f"The lens number for calibration.", type=int, required=True)
-    parser.add_argument('--limit_fpa', help='The maximal allowed value for the FPA temperate.'
-                                            'Should adhere to FLIR specs, which are at most 65C.', default=55)
-
-    # blackbody
-    parser.add_argument('--blackbody_max', type=int, required=False, default=70,
-                        help=f"The maximal value of the Blackbody in Celsius")
-    parser.add_argument('--blackbody_min', type=int, required=False, default=10,
-                        help=f"The minimal value of the Blackbody in Celsius")
-    parser.add_argument('--blackbody_increments', type=float, required=True,
-                        help=f"The increments in the Blackbody temperature. Allowed values [0.1, 10] C")
-    parser.add_argument('--n_samples', type=int, required=True,
-                        help=f"The number of samples to take at each Blackbody stop.")
-    parser.add_argument('--blackbody_start', type=int,
-                        help="The starting temperature for the first Blackbody iteration.")
-    parser.add_argument('--blackbody_is_decreasing', action='store_true',
-                        help="If True, the Blackbody first iteration will have decreasing temperatures.")
-
-    return parser.parse_args()
-
-
-def args_rand_bb():
-    parser = argparse.ArgumentParser(description='Set the oven to the highest temperature possible and cycle '
-                                                 'the Blackbody to different Tbb.'
-                                                 'The images are saved as a dict in a pickle file.')
-    # general
-    parser.add_argument('--path', help="The folder to save the results. Creates folder if invalid.",
-                        default='measurements')
-    parser.add_argument(
-        '--filename', help="The name of the measurements file", default='', type=str)
-
-    # camera
-    parser.add_argument('--lens_number', help=f"The lens number for calibration.", type=int, required=True)
-    parser.add_argument('--tlinear', help=f"The grey levels are linear to the temperature as: 0.04 * t - 273.15.",
-                        action='store_true')
-    parser.add_argument('--limit_fpa', help='The maximal allowed value for the FPA temperate.'
-                                            'Should adhere to FLIR specs, which are at most 65C.', default=55)
-    parser.add_argument('--ffc', default=0,
-                        help='A temperature at which the camera performs FFC once. If 0 - performs every 30 seconds.')
-
-    # blackbody
-    parser.add_argument('--blackbody_max', type=int, default=70,
-                        help=f"The maximal value of the Blackbody in Celsius")
-    parser.add_argument('--blackbody_min', type=int, default=10,
-                        help=f"The minimal value of the Blackbody in Celsius")
-    parser.add_argument('--n_samples', type=int, default=100,
-                        help=f"The number of samples to take at each Blackbody stop.")
-    parser.add_argument('--bins', type=int, default=6,
-                        help="The number of bins in each iteration of BlackBody.")
-
-    return parser.parse_args()
-
-
-def args_meas_bb_times():
-    parser = argparse.ArgumentParser(
-        description='Check the time it takes the Blackbody to climb and to descend.')
-    parser.add_argument('--path', help="The folder to save the results. Creates folder if invalid.",
-                        default='measurements')
-    parser.add_argument('--blackbody_max', type=int, required=True,
-                        help=f"The maximal value of the Blackbody in Celsius")
-    parser.add_argument('--blackbody_min', type=int, required=True,
-                        help=f"The minimal value of the Blackbody in Celsius")
-    parser.add_argument('--blackbody_increments', type=float, required=True,
-                        help=f"The increments in the Blackbody temperature. Allowed values [0.1, 10] C")
-    parser.add_argument('--n_samples', type=int, required=True,
-                        help=f"The number of samples to take at each Blackbody stop.")
-    return parser.parse_args()
-
-
 def tqdm_waiting(time_to_wait_seconds: int, postfix: str):
     for _ in tqdm(range(time_to_wait_seconds), total=time_to_wait_seconds, leave=True, postfix=postfix):
         sleep(1)
@@ -271,3 +112,64 @@ def save_run_parameters(path: str, params: Union[dict, None], args: argparse.Nam
     with open(str(path_to_save / 'arguments.yaml'), 'w') as fp:
         yaml.safe_dump(vars(args), stream=fp, default_flow_style=False)
     return path_to_save, now
+
+
+def init_devices(*, path_to_save, params):
+    blackbody = BlackBodyThread(logfile_path=None, output_folder_path=path_to_save)
+    blackbody.start()
+    camera = CameraCtrl(camera_parameters=params)
+    camera.start()
+    oven = OvenCtrl(logfile_path=None, output_path=path_to_save)
+    oven.start()
+    return blackbody, camera, oven
+
+
+def wait_for_devices_to_start(blackbody, camera, oven):
+    sleep(1)
+    with tqdm(desc="Waiting for devices to connect.") as progressbar:
+        while not oven.is_connected or not camera.is_connected or not blackbody.is_connected:
+            progressbar.set_postfix_str(f"Blackbody {'Connected' if blackbody.is_connected else 'Waiting'}, "
+                                        f"Oven {'Connected' if oven.is_connected else 'Waiting'}, "
+                                        f"Camera {'Connected' if camera.is_connected else 'Waiting'}")
+            progressbar.update()
+            sleep(1)
+    print('Devices Connected.', flush=True)
+
+
+def save_results(path_to_save, filename, dict_meas):
+    np.savez(str(path_to_save / filename),
+             fpa=np.array(dict_meas[T_FPA]).astype('uint16'),
+             housing=np.array(dict_meas[T_HOUSING]).astype('uint16'),
+             blackbody=(100 * np.array(dict_meas['blackbody'])).astype('uint16'),
+             frames=np.stack(dict_meas['frames']).astype('uint16'))
+
+    # save temperature plot
+    fig, ax = plt.subplots()
+    plot_oven_records_in_path(idx=0, fig=fig, ax=ax, path_to_log=path_to_save / OVEN_RECORDS_FILENAME)
+    plt.savefig(path_to_save / 'temperature.png')
+
+
+def collect_measurements(bb_generator, blackbody, camera, n_samples, limit_fpa) -> dict:
+    dict_meas = {}
+    fpa = -float('inf')
+    flag_run = True
+
+    with tqdm() as progressbar:
+        while flag_run:
+            for bb in bb_generator:
+                blackbody.temperature = bb
+                for _ in range(n_samples):
+                    fpa = camera.fpa
+                    dict_meas.setdefault('frames', []).append(camera.image)
+                    dict_meas.setdefault('blackbody', []).append(bb)
+                    dict_meas.setdefault(T_FPA, []).append(fpa)
+                    dict_meas.setdefault(T_HOUSING, []).append(camera.housing)
+                progressbar.update()
+                progressbar.set_postfix_str(f'BB {bb:.1f}C, '
+                                            f'FPA {fpa / 100:.1f}C, '
+                                            f'Remaining {(limit_fpa - fpa) / 100:.1f}C')
+
+                if fpa >= limit_fpa:
+                    flag_run = False
+                    break
+    return dict_meas
