@@ -48,15 +48,8 @@ if __name__ == "__main__":
         raise ValueError(f'n_samples must be > 0, got {args.n_samples}')
     params = INIT_CAMERA_PARAMETERS.copy()
     params['tlinear'] = int(args.tlinear)
-    t_ffc = args.ffc
-    if not t_ffc:  # no ffc parameters is given, so perform ffc every 30 seconds
-        params['ffc_mode'] = 'auto'
-        params['ffc_period'] = 1800  # automatic FFC every 30 seconds
-        th_ffc = None
-    else:
-        params['ffc_mode'] = 'manual'
-        params['ffc_period'] = 0
-        th_ffc = th.Thread(target=th_ffc_on_t, name='th_ffc_on_t', daemon=True)
+    params['ffc_mode'] = 'manual'
+    params['ffc_period'] = 0
     params['lens_number'] = args.lens_number
     print(f'Lens Number = {args.lens_number}', flush=True)
     limit_fpa = args.limit_fpa
@@ -65,6 +58,10 @@ if __name__ == "__main__":
     path_to_save, now = save_run_parameters(args.path, params, args)
     blackbody, camera, oven = init_devices(path_to_save=path_to_save, params=params)
     wait_for_devices_to_start(blackbody, camera, oven)
+
+    # if args.ffc == 0 performs FFC before each measurement. Else perform only on the given temperature
+    t_ffc = args.ffc
+    th_ffc = None if not t_ffc else th.Thread(target=th_ffc_on_t, name='th_ffc_on_t', daemon=True)
     th_ffc.start() if th_ffc is not None else None
 
     # wait for the records file to be created
@@ -82,7 +79,7 @@ if __name__ == "__main__":
     oven.setpoint = 120  # the Soft limit of the oven is 120C
     filename = f"{now}.npz" if not args.filename else Path(args.filename).with_suffix('.npz')
     dict_meas = collect_measurements(bb_generator=bb_generator, blackbody=blackbody, camera=camera,
-                                     n_samples=args.n_samples, limit_fpa=limit_fpa)
+                                     n_samples=args.n_samples, limit_fpa=limit_fpa, t_ffc=t_ffc)
     oven.setpoint = 0  # turn the oven off
     dict_meas['camera_params'] = params.copy()
     dict_meas['arguments'] = vars(args)

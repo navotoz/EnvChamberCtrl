@@ -149,7 +149,7 @@ def save_results(path_to_save, filename, dict_meas):
     plt.savefig(path_to_save / 'temperature.png')
 
 
-def collect_measurements(bb_generator, blackbody, camera, n_samples, limit_fpa) -> dict:
+def collect_measurements(bb_generator, blackbody, camera, n_samples, limit_fpa, t_ffc) -> dict:
     dict_meas = {}
     fpa = -float('inf')
     flag_run = True
@@ -158,6 +158,8 @@ def collect_measurements(bb_generator, blackbody, camera, n_samples, limit_fpa) 
         while flag_run:
             for bb in bb_generator:
                 blackbody.temperature = bb
+                while t_ffc == 0 and not camera.ffc:
+                    sleep(0.5)
                 for _ in range(n_samples):
                     fpa = camera.fpa
                     dict_meas.setdefault('frames', []).append(camera.image)
