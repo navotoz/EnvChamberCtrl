@@ -16,7 +16,7 @@ from devices.Camera.CameraProcess import (
 from devices.Oven.OvenProcess import (OVEN_RECORDS_FILENAME, OvenCtrl)
 from devices.Oven.plots import plot_oven_records_in_path, mp_realttime_plot
 from utils.args import args_const_tbb
-from utils.misc import save_run_parameters
+from utils.common import save_run_parameters
 
 sys.path.append(str(Path().cwd().parent))
 

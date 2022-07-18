@@ -1,6 +1,3 @@
-import utils.constants as const
-
-
 class DummyOven:
     def __init__(self, *args):
         super(DummyOven, self).__init__()

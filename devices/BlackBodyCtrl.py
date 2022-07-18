@@ -121,7 +121,7 @@ class BlackBody:
             self._wait_for_stable_temperature()
             self._log.info(f"Temperature {temperature_to_set}C is set.")
 
-    def _wait_for_stable_temperature(self):
+    def _wait_for_stable_temperature(self) -> None:
         """
         A busy-waiting loop for the temperature in the BlackBody to settle.
         Repeatedly pools the BB until "Stable" is received.

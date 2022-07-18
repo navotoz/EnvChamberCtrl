@@ -8,7 +8,7 @@ from tqdm import tqdm
 
 from devices.BlackBodyCtrl import BlackBodyThread
 from utils.args import args_meas_bb_times
-from utils.misc import save_run_parameters
+from utils.common import save_run_parameters
 
 sys.path.append(str(Path().cwd().parent))
 

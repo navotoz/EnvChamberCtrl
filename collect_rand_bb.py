@@ -12,7 +12,8 @@ from devices.Oven.OvenProcess import (OVEN_RECORDS_FILENAME)
 from devices.Oven.plots import mp_realttime_plot
 from utils.args import args_rand_bb
 from utils.bb_iterators import TbbGenRand
-from utils.misc import save_run_parameters, init_devices, wait_for_devices_to_start, save_results, collect_measurements
+from utils.common import collect_measurements, save_results, wait_for_devices_to_start, init_devices, \
+    save_run_parameters
 
 sys.path.append(str(Path().cwd().parent))
 
