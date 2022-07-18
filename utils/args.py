@@ -52,6 +52,9 @@ def args_var_bb_fpa():
     parser.add_argument('--lens_number', help=f"The lens number for calibration.", type=int, required=True)
     parser.add_argument('--limit_fpa', help='The maximal allowed value for the FPA temperate.'
                                             'Should adhere to FLIR specs, which are at most 65C.', default=55)
+    parser.add_argument('--ffc', type=int, required=False, default=0,
+                        help=f"The camera performs FFC before every stop if arg is 0, else at the given temperature."
+                             f"The temperature is in [100C].")
 
     # blackbody
     parser = _args_bb_basic(parser)

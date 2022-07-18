@@ -137,6 +137,7 @@ class CameraCtrl(DeviceAbstract):
 
     @property
     def fpa(self) -> float:
+        """ Returns the current FPA temperature in [100C]. """
         return self._fpa.value
 
     @property
