@@ -28,10 +28,14 @@ class CameraCtrl(DeviceAbstract):
         self._event_new_image.clear()
         self._semaphore_ffc_do = mp.Semaphore(value=0)
         self._semaphore_ffc_finished = mp.Semaphore(value=0)
+        self._semaphore_ffc_mode_do = mp.Semaphore(value=0)
+        self._semaphore_ffc_mode_finished = mp.Semaphore(value=0)
 
         # process-safe ffc results
         self._ffc_result: mp.Value = mp.Value(typecode_or_type=c_byte)
         self._ffc_result.value = 0
+        self._ffc_mode_result: mp.Value = mp.Value(typecode_or_type=c_byte)
+        self._ffc_mode_result.value = 0
 
         # process-safe image
         self._image_array = mp.RawArray(c_ushort, HEIGHT_IMAGE_TAU2 * WIDTH_IMAGE_TAU2)
@@ -71,6 +75,7 @@ class CameraCtrl(DeviceAbstract):
         self._workers_dict['get_t'] = th.Thread(target=self._th_getter_temperature, name='th_cam_get_t', daemon=True)
         self._workers_dict['getter'] = th.Thread(target=self._th_getter_image, name='th_cam_getter', daemon=False)
         self._workers_dict['ffc'] = th.Thread(target=self._th_ffc_func, name='th_cam_ffc', daemon=True)
+        self._workers_dict['mode'] = th.Thread(target=self._th_ffc_mode, name='th_cam_ffc_mode', daemon=True)
 
     def _th_connect(self) -> None:
         handlers = make_logging_handlers(None, True)
@@ -78,7 +83,7 @@ class CameraCtrl(DeviceAbstract):
             with self._lock_camera:
                 try:
                     self._camera = Tau2Grabber(logging_handlers=handlers)
-                    self._camera.set_params_by_dict(self._camera_params) if self._camera_params is not None else None
+                    # self._camera.set_params_by_dict(self._camera_params) if self._camera_params is not None else None
                     self._getter_temperature(T_FPA)
                     self._getter_temperature(T_HOUSING)
                     self._event_connected.set()
@@ -93,6 +98,14 @@ class CameraCtrl(DeviceAbstract):
             self._semaphore_ffc_do.acquire()
             self._ffc_result.value = self._camera.ffc()
             self._semaphore_ffc_finished.release()
+
+    def _th_ffc_mode(self) -> None:
+        self._event_connected.wait()
+        while self._flag_run:
+            self._semaphore_ffc_mode_do.acquire()
+            self._camera.ffc_mode = 'external'
+            self._ffc_mode_result.value = int(self._camera.ffc_mode == 'external')
+            self._semaphore_ffc_mode_finished.release()
 
     def _getter_temperature(self, t_type: str):  # this function exists for the th_connect function, otherwise redundant
         with self._lock_camera:
@@ -147,3 +160,13 @@ class CameraCtrl(DeviceAbstract):
     @property
     def is_connected(self) -> bool:
         return self._event_connected.is_set()
+
+    def disable_ffc(self) -> None:
+        while True:
+            sleep(1)
+            self._semaphore_ffc_mode_do.release()
+            self._semaphore_ffc_mode_finished.acquire()
+            res = bool(self._ffc_mode_result.value)
+            if res:
+                return
+            print('Failed to disable FFC, retrying...', flush=True)
