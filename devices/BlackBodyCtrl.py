@@ -108,17 +108,21 @@ class BlackBody:
         res = self._recv()
         return float(res) if res else None
 
+    @property
+    def is_stable(self) -> bool:
+        sleep(1)  # defined in p.118, sec.6.2.25 of the BB manual
+        self._send('IsTemperatureStable')
+        return bool(int(self._recv()))
+
     def _wait_for_stable_temperature(self) -> None:
         """
         A busy-waiting loop for the temperature in the BlackBody to settle.
         Repeatedly pools the BB until "Stable" is received.
         Upon receiving the "Stable" signal, logs the results and finishes the function without returning a value.
         """
-        t, is_temperature_stable = time_ns(), False
-        while not is_temperature_stable:
-            sleep(1)  # defined in p.118, sec.6.2.25 of the BB manual
-            self._send('IsTemperatureStable')
-            is_temperature_stable = bool(int(self._recv()))
+        t = time_ns()
+        while not self.is_stable:
+            continue
         t = (time_ns() - t) * 1e-9
         t = f"in {t / 60:.1f} minutes." if t > 60 else f"in {t:.1f} seconds."
         self._log.info(f"Reached stable temperature of {self.temperature}C {t}")
@@ -224,6 +228,8 @@ class BlackBodyThread(th.Thread):
     def set_temperature_non_blocking(self, temperature_to_set: Union[int, float]):
         if self._event_is_connected.is_set():
             with self._lock_access:
+                if self._blackbody.is_stable and abs(temperature_to_set - self._blackbody.temperature) <= 0.01:
+                    return
                 self._blackbody(temperature_to_set=temperature_to_set, wait_for_stable_temperature=False)
 
     @property
