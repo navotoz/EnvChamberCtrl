@@ -95,17 +95,17 @@ def save_run_parameters(path: str, params: Union[dict, None], args: argparse.Nam
 def wait_for_fpa(*, t_ffc, camera: CameraCtrl, wait_time_camera: Union[int, tuple]) -> int:
     """ if args.ffc == 0 performs FFC before each measurement. Else perform only on the given temperature """
     if t_ffc != 0:
-        with tqdm(f'Waiting for FPA temperature of {t_ffc/100}C') as progressbar:
+        with tqdm(desc=f'Waiting for FPA temperature of {t_ffc/100}C') as progressbar:
             while True:
                 try:
                     fpa = camera.fpa
                     if fpa and fpa >= t_ffc:
                         while not camera.ffc:
                             sleep(0.5)
+                        print(f'FFC performed at {fpa / 100:.1f}C')
                         return t_ffc
                     progressbar.update()
-                    progressbar.set_postfix_str(f'FPA {fpa / 100:.1f}C, '
-                                                f'Remaining {(t_ffc - fpa) / 100:.1f}C')
+                    progressbar.set_postfix_str(f'FPA {fpa / 100:.1f}C, Remaining {(t_ffc - fpa) / 100:.1f}C')
                 except (BrokenPipeError, ValueError, TypeError, AttributeError, RuntimeError):
                     pass
                 finally:
