@@ -46,7 +46,7 @@ if __name__ == "__main__":
     path_to_save, now = save_run_parameters(args.path, params, args)
     blackbody, camera, oven = init_devices(path_to_save=path_to_save, params=params)
     wait_for_devices_to_start(blackbody, camera, oven)
-    blackbody.set_temperature_non_blocking(args.blackbody_min)
+    blackbody.set_temperature_non_blocking(args.blackbody_start)
 
     # wait for the records file to be created
     while not (path_to_save / OVEN_RECORDS_FILENAME).is_file():
