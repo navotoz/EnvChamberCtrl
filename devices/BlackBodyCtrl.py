@@ -4,6 +4,7 @@ import threading as th
 from pathlib import Path
 from queue import SimpleQueue, Empty
 from time import time_ns, sleep
+from typing import Union
 
 import utils.constants as const
 from utils.logger import make_logger, make_logging_handlers
@@ -107,20 +108,6 @@ class BlackBody:
         res = self._recv()
         return float(res) if res else None
 
-    @temperature.setter
-    def temperature(self, temperature_to_set: (float, int), *, wait_for_stable_temperature: bool = True):
-        """
-        Temperature setter. Sends the given temperature to the BlackBody,
-        and waits until the BlackBody stabilizes to it.
-        Function is finished when the BlackBody is stable.
-        """
-        self._send(f'SetTemperature {temperature_to_set}')
-        msg = f"Set temperature to {temperature_to_set}C."
-        self._log.info(msg + ' Waiting for stable temperature.' if wait_for_stable_temperature else '')
-        if wait_for_stable_temperature:
-            self._wait_for_stable_temperature()
-            self._log.info(f"Temperature {temperature_to_set}C is set.")
-
     def _wait_for_stable_temperature(self) -> None:
         """
         A busy-waiting loop for the temperature in the BlackBody to settle.
@@ -167,11 +154,18 @@ class BlackBody:
         self._send('GetBitError')
         return self._recv()
 
-    def __call__(self, temperature_to_set: (float, int)):
+    def __call__(self, temperature_to_set: Union[float, int], *, wait_for_stable_temperature: bool = True):
         """
-        The temperature setter as a call function.
+        Temperature setter. Sends the given temperature to the BlackBody,
+        and waits until the BlackBody stabilizes to it.
+        Function is finished when the BlackBody is stable.
         """
-        self.temperature = temperature_to_set
+        self._send(f'SetTemperature {temperature_to_set}')
+        msg = f"Set temperature to {temperature_to_set}C."
+        self._log.info(msg + ' Waiting for stable temperature.' if wait_for_stable_temperature else '')
+        if wait_for_stable_temperature:
+            self._wait_for_stable_temperature()
+            self._log.info(f"Temperature {temperature_to_set}C is set.")
 
     @property
     def is_dummy(self):
@@ -225,7 +219,12 @@ class BlackBodyThread(th.Thread):
     def temperature(self, temperature_to_set: (int, float)):
         if self._event_is_connected.is_set():
             with self._lock_access:
-                self._blackbody.temperature = temperature_to_set
+                self._blackbody(temperature_to_set=temperature_to_set, wait_for_stable_temperature=True)
+
+    def set_temperature_non_blocking(self, temperature_to_set: Union[int, float]):
+        if self._event_is_connected.is_set():
+            with self._lock_access:
+                self._blackbody(temperature_to_set=temperature_to_set, wait_for_stable_temperature=False)
 
     @property
     def is_connected(self) -> bool:

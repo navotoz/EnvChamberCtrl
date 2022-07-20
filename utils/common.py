@@ -19,10 +19,9 @@ from devices.Oven.plots import plot_oven_records_in_path
 def collect_measurements(bb_generator, blackbody, camera, n_samples, limit_fpa, t_ffc) -> dict:
     dict_meas = {}
     fpa = -float('inf')
-    flag_run = True
 
     with tqdm() as progressbar:
-        while flag_run:
+        while True:
             for bb in bb_generator:
                 blackbody.temperature = bb
                 while t_ffc == 0 and not camera.ffc:
@@ -39,9 +38,7 @@ def collect_measurements(bb_generator, blackbody, camera, n_samples, limit_fpa, 
                                             f'Remaining {(limit_fpa - fpa) / 100:.1f}C')
 
                 if fpa >= limit_fpa:
-                    flag_run = False
-                    break
-    return dict_meas
+                    return dict_meas
 
 
 def save_results(path_to_save, filename, dict_meas):
@@ -69,7 +66,7 @@ def wait_for_devices_to_start(blackbody, camera, oven):
     print('Devices Connected.', flush=True)
 
 
-def init_devices(*, path_to_save, params):
+def init_devices(*, path_to_save, params) -> Tuple[BlackBodyThread, CameraCtrl, OvenCtrl]:
     blackbody = BlackBodyThread(logfile_path=None, output_folder_path=path_to_save)
     blackbody.start()
     camera = CameraCtrl(camera_parameters=params)
@@ -93,3 +90,24 @@ def save_run_parameters(path: str, params: Union[dict, None], args: argparse.Nam
     with open(str(path_to_save / 'arguments.yaml'), 'w') as fp:
         yaml.safe_dump(vars(args), stream=fp, default_flow_style=False)
     return path_to_save, now
+
+
+def wait_for_fpa(*, t_ffc, camera: CameraCtrl, wait_time_camera: Union[int, tuple]) -> int:
+    """ if args.ffc == 0 performs FFC before each measurement. Else perform only on the given temperature """
+    if t_ffc != 0:
+        with tqdm(f'Waiting for FPA temperature of {t_ffc/100}C') as progressbar:
+            while True:
+                try:
+                    fpa = camera.fpa
+                    if fpa and fpa >= t_ffc:
+                        while not camera.ffc:
+                            sleep(0.5)
+                        return t_ffc
+                    progressbar.update()
+                    progressbar.set_postfix_str(f'FPA {fpa / 100:.1f}C, '
+                                                f'Remaining {(t_ffc - fpa) / 100:.1f}C')
+                except (BrokenPipeError, ValueError, TypeError, AttributeError, RuntimeError):
+                    pass
+                finally:
+                    sleep(2 * wait_time_camera)
+    return t_ffc

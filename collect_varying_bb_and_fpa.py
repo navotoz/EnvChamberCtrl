@@ -1,5 +1,4 @@
 import sys
-import sys
 import threading as th
 from multiprocessing import Process
 from pathlib import Path
@@ -13,7 +12,7 @@ from devices.Oven.plots import mp_realttime_plot
 from utils.args import args_var_bb_fpa
 from utils.bb_iterators import TbbGenSawTooth
 from utils.common import collect_measurements, save_results, wait_for_devices_to_start, init_devices, \
-    save_run_parameters
+    save_run_parameters, wait_for_fpa
 
 sys.path.append(str(Path().cwd().parent))
 
@@ -47,6 +46,7 @@ if __name__ == "__main__":
     path_to_save, now = save_run_parameters(args.path, params, args)
     blackbody, camera, oven = init_devices(path_to_save=path_to_save, params=params)
     wait_for_devices_to_start(blackbody, camera, oven)
+    blackbody.set_temperature_non_blocking(args.blackbody_min)
 
     # wait for the records file to be created
     while not (path_to_save / OVEN_RECORDS_FILENAME).is_file():
@@ -64,20 +64,7 @@ if __name__ == "__main__":
     oven.setpoint = 120  # the Soft limit of the oven is 120C
     filename = f"{now}.npz" if not args.filename else Path(args.filename).with_suffix('.npz')
 
-    # if args.ffc == 0 performs FFC before each measurement. Else perform only on the given temperature
-    t_ffc = args.ffc
-    if t_ffc != 0:
-        while True:
-            try:
-                fpa = camera.fpa
-                if fpa and fpa >= t_ffc:
-                    while not camera.ffc:
-                        sleep(0.5)
-                    break
-            except (BrokenPipeError, ValueError, TypeError, AttributeError, RuntimeError):
-                pass
-            finally:
-                sleep(2 * TEMPERATURE_ACQUIRE_FREQUENCY_SECONDS)
+    t_ffc = wait_for_fpa(t_ffc=args.ffc, camera=camera, wait_time_camera=TEMPERATURE_ACQUIRE_FREQUENCY_SECONDS)
 
     # start measurements
     dict_meas = collect_measurements(bb_generator=bb_generator, blackbody=blackbody, camera=camera,
