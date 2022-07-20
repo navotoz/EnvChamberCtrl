@@ -102,7 +102,9 @@ def wait_for_fpa(*, t_ffc: int, camera: CameraCtrl, wait_time_camera: Union[int,
                     if fpa and fpa >= t_ffc:
                         while not camera.ffc:
                             sleep(0.5)
-                        print(f'FFC performed at {fpa / 100:.1f}C')
+                        print(f'FFC performed at {fpa / 100:.1f}C', flush=True)
+                        camera.disable_ffc()
+                        print(f'FFC disabled.', flush=True)
                         return t_ffc
                     progressbar.update()
                     try:
