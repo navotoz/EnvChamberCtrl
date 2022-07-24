@@ -83,7 +83,7 @@ class CameraCtrl(DeviceAbstract):
             with self._lock_camera:
                 try:
                     self._camera = Tau2Grabber(logging_handlers=handlers)
-                    # self._camera.set_params_by_dict(self._camera_params) if self._camera_params is not None else None
+                    self._camera.set_params_by_dict(self._camera_params) if self._camera_params is not None else None
                     self._getter_temperature(T_FPA)
                     self._getter_temperature(T_HOUSING)
                     self._event_connected.set()
@@ -166,7 +166,6 @@ class CameraCtrl(DeviceAbstract):
             sleep(1)
             self._semaphore_ffc_mode_do.release()
             self._semaphore_ffc_mode_finished.acquire()
-            res = bool(self._ffc_mode_result.value)
-            if res:
+            if bool(self._ffc_mode_result.value):
                 return
             print('Failed to disable FFC, retrying...', flush=True)
