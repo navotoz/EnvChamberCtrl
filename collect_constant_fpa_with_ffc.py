@@ -5,14 +5,17 @@ from multiprocessing import Process
 from pathlib import Path
 from time import sleep
 
+from tqdm import tqdm
+from devices.BlackBodyCtrl import BlackBodyThread
+
 from devices.Camera import INIT_CAMERA_PARAMETERS
 from devices.Camera.CameraProcess import TEMPERATURE_ACQUIRE_FREQUENCY_SECONDS
 from devices.Oven.OvenProcess import OVEN_RECORDS_FILENAME, set_oven_and_settle
 from devices.Oven.plots import mp_realttime_plot
 from utils.args import args_fpa_with_ffc
 from utils.bb_iterators import TbbGenSawTooth
-from utils.common import save_results, wait_for_devices_to_start, init_devices, \
-    save_run_parameters, continuous_collection
+from utils.common import init_camera_and_oven, save_results, save_run_parameters, \
+    continuous_collection, wait_for_devices_without_bb
 
 
 sys.path.append(str(Path().cwd().parent))
@@ -45,9 +48,8 @@ if __name__ == "__main__":
     settling_time = args.settling_time
     print(f'Oven setpoint {oven_temperature}C.\nSettling time: {settling_time} minutes.', flush=True)
     path_to_save, now = save_run_parameters(args.path, params, args)
-    blackbody, camera, oven = init_devices(path_to_save=path_to_save, params=params)
-    wait_for_devices_to_start(blackbody, camera, oven)
-    blackbody.set_temperature_non_blocking(args.blackbody_start)
+    camera, oven = init_camera_and_oven(path_to_save=path_to_save, params=params)
+    wait_for_devices_without_bb(camera, oven)
 
     # wait for the records file to be created
     while not (path_to_save / OVEN_RECORDS_FILENAME).is_file():
@@ -69,6 +71,16 @@ if __name__ == "__main__":
     print(f'FFC performed at {camera.fpa / 100:.1f}C', flush=True)
     camera.disable_ffc()
     print(f'FFC disabled.', flush=True)
+
+    # start the blackbody and wait for it to connect
+    blackbody = BlackBodyThread(logfile_path=None, output_folder_path=path_to_save)
+    blackbody.start()
+    with tqdm(desc='Waiting for blackbody to connect') as progressbar:
+        while not blackbody.is_connected:
+            progressbar.update()
+            sleep(1)
+    blackbody.set_temperature_non_blocking(args.blackbody_start)
+    sleep(1)  # to flush the tqdm progress bar
 
     # start measurements
     MINUTES_IN_CHUNK = 5

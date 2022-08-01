@@ -177,10 +177,10 @@ class BlackBody:
 
 
 class BlackBodyThread(th.Thread):
-    _blackbody: (BlackBody, None) = None
+    _blackbody: Union[BlackBody, None] = None
     _workers_dict = {}
 
-    def __init__(self, logfile_path: (str, Path), output_folder_path: (str, Path)):
+    def __init__(self, logfile_path: Union[str, Path], output_folder_path: Union[str, Path]):
         super(BlackBodyThread, self).__init__()
         self._lock_access = th.Lock()
         self._event_is_connected = th.Event()
@@ -215,12 +215,12 @@ class BlackBodyThread(th.Thread):
             sleep(10)
 
     @property
-    def temperature(self) -> (float, int):
+    def temperature(self) -> Union[float, int]:
         with self._lock_access:
             return self._blackbody.temperature if self._event_is_connected.is_set() else None
 
     @temperature.setter
-    def temperature(self, temperature_to_set: (int, float)):
+    def temperature(self, temperature_to_set: Union[float, int]):
         if self._event_is_connected.is_set():
             with self._lock_access:
                 self._blackbody(temperature_to_set=temperature_to_set, wait_for_stable_temperature=True)
@@ -258,12 +258,12 @@ class BlackBodyDummyThread:
         self._temperature = 0.0
 
     @property
-    def temperature(self) -> (float, int):
+    def temperature(self) -> Union[float, int]:
         with self._lock_access:
             return self._temperature
 
     @temperature.setter
-    def temperature(self, temperature_to_set: (int, float)):
+    def temperature(self, temperature_to_set: Union[float, int]):
         with self._lock_access:
             self._temperature = temperature_to_set
 

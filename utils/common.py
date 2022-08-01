@@ -93,6 +93,25 @@ def wait_for_devices_to_start(blackbody, camera, oven):
     print('Devices Connected.', flush=True)
 
 
+def wait_for_devices_without_bb(camera, oven):
+    sleep(1)
+    with tqdm(desc="Waiting for devices to connect.") as progressbar:
+        while not oven.is_connected or not camera.is_connected:
+            progressbar.set_postfix_str(f"Oven {'Connected' if oven.is_connected else 'Waiting'}, "
+                                        f"Camera {'Connected' if camera.is_connected else 'Waiting'}")
+            progressbar.update()
+            sleep(1)
+    print('Devices Connected.', flush=True)
+
+
+def init_camera_and_oven(*, path_to_save, params) -> Tuple[CameraCtrl, OvenCtrl]:
+    camera = CameraCtrl(camera_parameters=params)
+    camera.start()
+    oven = OvenCtrl(logfile_path=None, output_path=path_to_save)
+    oven.start()
+    return camera, oven
+
+
 def init_devices(*, path_to_save, params) -> Tuple[BlackBodyThread, CameraCtrl, OvenCtrl]:
     blackbody = BlackBodyThread(logfile_path=None, output_folder_path=path_to_save)
     blackbody.start()
