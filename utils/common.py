@@ -1,7 +1,7 @@
 import argparse
 from datetime import datetime
 from pathlib import Path
-from time import sleep
+from time import sleep, time_ns
 from typing import Union, Tuple
 
 import numpy as np
@@ -41,6 +41,30 @@ def collect_measurements(bb_generator, blackbody, camera, n_samples, limit_fpa, 
                     return dict_meas
 
 
+def continuous_collection(*, bb_generator, blackbody, camera, n_samples, time_to_collect_minutes: int) -> dict:
+    assert time_to_collect_minutes > 0, f'time_to_collect_minutes must be positive, got {time_to_collect_minutes}.'
+    dict_meas = {}
+    fpa = -float('inf')
+
+    time_to_collect_ns = time_to_collect_minutes * 6e10
+    time_start_ns = time_ns()
+    with tqdm() as progressbar:
+        while time_ns() - time_start_ns < time_to_collect_ns:
+            for bb in bb_generator:
+                blackbody.temperature = bb
+                for _ in range(n_samples):
+                    fpa = camera.fpa
+                    dict_meas.setdefault('frames', []).append(camera.image)
+                    dict_meas.setdefault('blackbody', []).append(bb)
+                    dict_meas.setdefault(T_FPA, []).append(fpa)
+                    dict_meas.setdefault(T_HOUSING, []).append(camera.housing)
+                progressbar.update()
+                postfix = f'BB {bb:.1f}C, FPA {fpa / 100:.1f}C, ' \
+                          f'Remaining {1e-9 * (time_to_collect_ns - (time_ns() - time_start_ns)):.1f} Seconds.'
+                progressbar.set_postfix_str(postfix)
+    return dict_meas
+
+
 def save_results(path_to_save, filename, dict_meas):
     np.savez(str(path_to_save / filename),
              fpa=np.array(dict_meas[T_FPA]).astype('uint16'),
@@ -49,9 +73,12 @@ def save_results(path_to_save, filename, dict_meas):
              frames=np.stack(dict_meas['frames']).astype('uint16'))
 
     # save temperature plot
-    fig, ax = plt.subplots()
-    plot_oven_records_in_path(idx=0, fig=fig, ax=ax, path_to_log=path_to_save / OVEN_RECORDS_FILENAME)
-    plt.savefig(path_to_save / 'temperature.png')
+    try:
+        fig, ax = plt.subplots()
+        plot_oven_records_in_path(idx=0, fig=fig, ax=ax, path_to_log=path_to_save / OVEN_RECORDS_FILENAME)
+        plt.savefig(path_to_save / 'temperature.png')
+    except:
+        pass
 
 
 def wait_for_devices_to_start(blackbody, camera, oven):
@@ -95,7 +122,7 @@ def save_run_parameters(path: str, params: Union[dict, None], args: argparse.Nam
 def wait_for_fpa(*, t_ffc: int, camera: CameraCtrl, wait_time_camera: Union[int, tuple]) -> int:
     """ if args.ffc == 0 performs FFC before each measurement. Else perform only on the given temperature """
     if t_ffc != 0:
-        with tqdm(desc=f'Waiting for FPA temperature of {t_ffc/100}C') as progressbar:
+        with tqdm(desc=f'Waiting for FPA temperature of {t_ffc / 100}C') as progressbar:
             while True:
                 try:
                     fpa = camera.fpa

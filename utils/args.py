@@ -68,6 +68,33 @@ def args_var_bb_fpa():
     return parser.parse_args()
 
 
+def args_fpa_with_ffc():
+    parser = _args_base('Set the oven to a given temperature and waits for settling. Then, FFC is performed and the'
+                        'Blackbody begins to oscillate.')
+    # camera
+    parser.add_argument('--tlinear', help=f"The grey levels are linear to the temperature as: 0.04 * t - 273.15.",
+                        action='store_true')
+    parser.add_argument('--lens_number', help=f"The lens number for calibration.", type=int, required=True)
+
+    parser.add_argument('--time_to_collect', help=f"The time to collect measurements in Minute.",
+                        type=int, required=True)
+    parser.add_argument('--oven_temperature', type=int, required=True,
+                        help=f"What Oven temperatures will be set. If 0 than oven will be dummy. Should be in [C].")
+    parser.add_argument('--settling_time', help=f"The time in Minutes to wait for the camera temperature to settle "
+                                                f"in an Oven setpoint before measurement.", type=int, default=30)
+
+    # blackbody
+    parser = _args_bb_basic(parser)
+    parser.add_argument('--blackbody_increments', type=float, required=True,
+                        help=f"The increments in the Blackbody temperature. Allowed values [0.1, 10] C")
+    parser.add_argument('--blackbody_start', type=int,
+                        help="The starting temperature for the first Blackbody iteration.")
+    parser.add_argument('--blackbody_is_decreasing', action='store_true',
+                        help="If True, the Blackbody first iteration will have decreasing temperatures.")
+
+    return parser.parse_args()
+
+
 def args_const_tbb():
     parser = _args_base('Set the oven to the highest temperature possible and measure a constant Blackbody temperature.'
                         ' The images are saved as a dict in a pickle file.')

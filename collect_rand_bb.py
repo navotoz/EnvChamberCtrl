@@ -81,7 +81,5 @@ if __name__ == "__main__":
     filename = f"{now}.npz" if not args.filename else Path(args.filename).with_suffix('.npz')
     dict_meas = collect_measurements(bb_generator=bb_generator, blackbody=blackbody, camera=camera,
                                      n_samples=args.n_samples, limit_fpa=limit_fpa, t_ffc=t_ffc)
-    oven.setpoint = 0  # turn the oven off
-    dict_meas['camera_params'] = params.copy()
-    dict_meas['arguments'] = vars(args)
     save_results(path_to_save=path_to_save, filename=filename, dict_meas=dict_meas)
+    oven.setpoint = 0  # turn the oven off
