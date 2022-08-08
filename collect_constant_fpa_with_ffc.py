@@ -65,13 +65,6 @@ if __name__ == "__main__":
 
     set_oven_and_settle(setpoint=oven_temperature, settling_time_minutes=settling_time, oven=oven, camera=camera)
 
-    # perform FFC after ambient temperature is settled
-    while not camera.ffc:
-        sleep(0.5)
-    print(f'FFC performed at {camera.fpa / 100:.1f}C', flush=True)
-    camera.disable_ffc()
-    print(f'FFC disabled.', flush=True)
-
     # start the blackbody and wait for it to connect
     blackbody = BlackBodyThread(logfile_path=None, output_folder_path=path_to_save)
     blackbody.start()
@@ -81,6 +74,13 @@ if __name__ == "__main__":
             sleep(1)
     blackbody.set_temperature_non_blocking(args.blackbody_start)
     sleep(1)  # to flush the tqdm progress bar
+
+    # perform FFC after ambient temperature is settled
+    while not camera.ffc:
+        sleep(0.5)
+    print(f'FFC performed at {camera.fpa / 100:.1f}C', flush=True)
+    camera.disable_ffc()
+    print(f'FFC disabled.', flush=True)
 
     # start measurements
     MINUTES_IN_CHUNK = 5

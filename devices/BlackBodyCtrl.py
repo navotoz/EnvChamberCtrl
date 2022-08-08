@@ -180,7 +180,7 @@ class BlackBodyThread(th.Thread):
     _blackbody: Union[BlackBody, None] = None
     _workers_dict = {}
 
-    def __init__(self, logfile_path: Union[str, Path], output_folder_path: Union[str, Path]):
+    def __init__(self, logfile_path: Union[str, Path, None], output_folder_path: Union[str, Path]):
         super(BlackBodyThread, self).__init__()
         self._lock_access = th.Lock()
         self._event_is_connected = th.Event()
