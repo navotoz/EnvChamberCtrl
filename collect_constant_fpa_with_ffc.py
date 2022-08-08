@@ -84,13 +84,13 @@ if __name__ == "__main__":
     print(f'FFC disabled.', flush=True)
 
     # start measurements
-    MINUTES_IN_CHUNK = 5
+    MINUTES_IN_CHUNK = 10
     n_chunks = int(math.ceil(args.time_to_collect / MINUTES_IN_CHUNK))
     print(f'Collection {args.time_to_collect} minutes, divided into {MINUTES_IN_CHUNK} minute chunks.', flush=True)
     for idx in range(1, n_chunks+1):
         print(f'{idx}|{n_chunks}', flush=True)
         dict_meas = continuous_collection(bb_generator=bb_generator, blackbody=blackbody, camera=camera,
-                                          n_samples=args.n_samples, time_to_collect_minutes=args.time_to_collect)
+                                          n_samples=args.n_samples, time_to_collect_minutes=int(MINUTES_IN_CHUNK))
         save_results(path_to_save=path_to_save, filename=f"{now}_{idx}.npz", dict_meas=dict_meas)
 
     oven.setpoint = 0  # turn the oven off

@@ -49,20 +49,21 @@ def continuous_collection(*, bb_generator, blackbody, camera, n_samples, time_to
     time_to_collect_ns = time_to_collect_minutes * 6e10
     time_start_ns = time_ns()
     with tqdm() as progressbar:
-        while time_ns() - time_start_ns < time_to_collect_ns:
-            for bb in bb_generator:
-                blackbody.temperature = bb
-                sleep(5)  # allows for thermal stabilization
-                for _ in range(n_samples):
-                    fpa = camera.fpa
-                    dict_meas.setdefault('frames', []).append(camera.image)
-                    dict_meas.setdefault('blackbody', []).append(bb)
-                    dict_meas.setdefault(T_FPA, []).append(fpa)
-                    dict_meas.setdefault(T_HOUSING, []).append(camera.housing)
-                progressbar.update()
-                postfix = f'BB {bb:.1f}C, FPA {fpa / 100:.1f}C, ' \
-                          f'Remaining {1e-9 * (time_to_collect_ns - (time_ns() - time_start_ns)):.1f} Seconds.'
-                progressbar.set_postfix_str(postfix)
+        for bb in bb_generator:
+            blackbody.temperature = bb
+            sleep(5)  # allows for thermal stabilization
+            for _ in range(n_samples):
+                fpa = camera.fpa
+                dict_meas.setdefault('frames', []).append(camera.image)
+                dict_meas.setdefault('blackbody', []).append(bb)
+                dict_meas.setdefault(T_FPA, []).append(fpa)
+                dict_meas.setdefault(T_HOUSING, []).append(camera.housing)
+            progressbar.update()
+            postfix = f'BB {bb:.1f}C, FPA {fpa / 100:.1f}C, ' \
+                      f'Remaining {1e-9 * (time_to_collect_ns - (time_ns() - time_start_ns)):.1f} Seconds.'
+            progressbar.set_postfix_str(postfix)
+            if time_ns() - time_start_ns > time_to_collect_ns:
+                break
     return dict_meas
 
 
