@@ -52,6 +52,7 @@ def continuous_collection(*, bb_generator, blackbody, camera, n_samples, time_to
         while time_ns() - time_start_ns < time_to_collect_ns:
             for bb in bb_generator:
                 blackbody.temperature = bb
+                sleep(5)  # allows for thermal stabilization
                 for _ in range(n_samples):
                     fpa = camera.fpa
                     dict_meas.setdefault('frames', []).append(camera.image)
