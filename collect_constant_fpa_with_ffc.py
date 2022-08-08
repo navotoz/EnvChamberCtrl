@@ -71,6 +71,7 @@ if __name__ == "__main__":
     with tqdm(desc='Waiting for blackbody to connect') as progressbar:
         while not blackbody.is_connected:
             progressbar.update()
+            progressbar.set_postfix_str(f'FPA {camera.fpa / 100:.1f}C')
             sleep(1)
     blackbody.set_temperature_non_blocking(args.blackbody_start)
     sleep(1)  # to flush the tqdm progress bar
