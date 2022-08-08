@@ -81,7 +81,7 @@ def args_fpa_with_ffc():
     parser.add_argument('--oven_temperature', type=int, required=True,
                         help=f"What Oven temperatures will be set. If 0 than oven will be dummy. Should be in [C].")
     parser.add_argument('--settling_time', help=f"The time in Minutes to wait for the camera temperature to settle "
-                                                f"in an Oven setpoint before measurement.", type=int, default=30)
+                                                f"in an Oven setpoint before measurement.", type=int, default=10)
 
     # blackbody
     parser = _args_bb_basic(parser)
