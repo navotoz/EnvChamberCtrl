@@ -14,7 +14,7 @@ from tqdm import tqdm
 
 from devices import DeviceAbstract
 from devices.Camera.CameraProcess import CameraCtrl
-from devices.Oven.utils import get_last_measurements, make_temperature_offset
+from devices.Oven.utils import get_last_measurements, get_offset
 from utils.constants import *
 from utils.logger import make_logging_handlers
 from utils.misc import tqdm_waiting, get_time
@@ -211,8 +211,14 @@ def set_oven_and_settle(setpoint: (float, int), settling_time_minutes: int, oven
     # creates a round-robin queue of differences (dt_camera) to wait until t_camera settles
     queue_temperatures = deque(maxlen=1 + (60 // PID_FREQ_SEC) * settling_time_minutes)
     queue_temperatures.append(camera.fpa)  # -inf so that the diff always returns +inf
-    offset = make_temperature_offset(t_next=setpoint, t_oven=oven.temperature(T_FLOOR), t_cam=camera.fpa)
-    oven.setpoint = setpoint + offset  # sets the setpoint with the offset of the oven
+    while True:
+        try:  # sets the setpoint with the offset of the oven
+            offset = get_offset(t_next=setpoint, t_oven=oven.temperature(T_FLOOR), t_cam=camera.fpa)
+            oven.setpoint = setpoint + offset
+            print(f'Current {oven.temperature(T_FLOOR):.2f}, Offset {offset:.2f}, Setpoint: {oven.setpoint:.2f}')
+            break
+        except TypeError as e:
+            print(e)
 
     # wait until signal error reaches within 1.5deg of setPoint
     initial_wait_time = PID_FREQ_SEC + OVEN_LOG_TIME_SECONDS * 4  # to let the average ErrSignal settle
@@ -223,6 +229,7 @@ def set_oven_and_settle(setpoint: (float, int), settling_time_minutes: int, oven
             progressbar.set_postfix_str(f'Floor temperature {oven.temperature(T_FLOOR):.2f}C, '
                                         f'Signal error {oven.temperature(SIGNALERROR):.2f}')
             sleep(1)
+
     oven.setpoint = setpoint  # sets the setpoint to the oven
     print(f'Waiting for the Camera to settle near {setpoint:.2f}C', flush=True)
     sleep(1)

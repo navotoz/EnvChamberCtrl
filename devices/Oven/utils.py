@@ -37,13 +37,10 @@ def get_last_measurements(oven) -> (dict, None):
     return records
 
 
-def make_temperature_offset(t_next: float, t_oven: float, t_cam: float) -> float:
-    try:
-        offset = t_next - max(t_oven, t_cam)
-    except TypeError:  # t_cam or t_oven were not yet calculated
-        offset = 0
+def get_offset(t_next: float, t_oven: float, t_cam: float) -> float:
+    offset = t_next - max(t_oven, t_cam)
     offset = round(max(0, DELAY_FLOOR2CAMERA_CONST * offset), 1)
     # empirically, MAX_TEMPERATURE_LINEAR_RISE is very slow to get to - around 75C
     if t_next + offset >= MAX_TEMPERATURE_LINEAR_RISE:
-        offset = MAX_TEMPERATURE_LINEAR_RISE - t_next
-    return max(0, offset) if offset is not None else 0
+        return max(0, MAX_TEMPERATURE_LINEAR_RISE - t_next)
+    return max(0, offset)
