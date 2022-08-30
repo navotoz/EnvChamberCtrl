@@ -55,7 +55,7 @@ def continuous_collection(*, bb_generator, blackbody, camera, n_samples, time_to
             for _ in range(n_samples):
                 fpa = camera.fpa
                 dict_meas.setdefault('frames', []).append(camera.image)
-                dict_meas.setdefault('blackbody', []).append(bb)
+                dict_meas.setdefault('blackbody', []).append(bb * 100)  # blackbody as [100C]
                 dict_meas.setdefault(T_FPA, []).append(fpa)
                 dict_meas.setdefault(T_HOUSING, []).append(camera.housing)
             progressbar.update()
@@ -68,11 +68,13 @@ def continuous_collection(*, bb_generator, blackbody, camera, n_samples, time_to
 
 
 def save_results(path_to_save, filename, dict_meas):
+    for k, v in dict_meas.items():
+        dict_meas[k] = np.array(v).astype('uint16')
     np.savez(str(path_to_save / filename),
-             fpa=np.array(dict_meas[T_FPA]).astype('uint16'),
-             housing=np.array(dict_meas[T_HOUSING]).astype('uint16'),
-             blackbody=(100 * np.array(dict_meas['blackbody'])).astype('uint16'),
-             frames=np.stack(dict_meas['frames']).astype('uint16'))
+             fpa=dict_meas[T_FPA],
+             housing=dict_meas[T_HOUSING],
+             blackbody=dict_meas['blackbody'],
+             frames=dict_meas['frames'])
 
     # save temperature plot
     try:
