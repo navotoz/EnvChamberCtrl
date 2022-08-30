@@ -84,14 +84,15 @@ if __name__ == "__main__":
     print(f'FFC disabled.', flush=True)
 
     # start measurements
-    MINUTES_IN_CHUNK = 10
-    n_chunks = int(math.ceil(args.time_to_collect / MINUTES_IN_CHUNK))
-    print(f'Collection {args.time_to_collect} minutes, divided into {MINUTES_IN_CHUNK} minute chunks.', flush=True)
+    minutes_in_chunk = int(args.minutes_in_chunk)
+    assert minutes_in_chunk > 0, f'argument minutes_in_chunk must be > 0, got {minutes_in_chunk}.'
+    n_chunks = int(math.ceil(args.time_to_collect / minutes_in_chunk))
+    print(f'Collection {args.time_to_collect} minutes, divided into {minutes_in_chunk} minute chunks.', flush=True)
     for idx in range(1, n_chunks+1):
         print(f'{idx}|{n_chunks}', flush=True)
-        continuous_collection(bb_generator=bb_generator, blackbody=blackbody, camera=camera,
-                              n_samples=args.n_samples, time_to_collect_minutes=int(MINUTES_IN_CHUNK),
-                              filename=f"{now}_{idx}.npz", path_to_save=path_to_save)
+        continuous_collection(bb_generator=bb_generator, blackbody=blackbody, camera=camera, n_samples=args.n_samples,
+                              time_to_collect_minutes=minutes_in_chunk, filename=f"{now}_{idx}.npz",
+                              path_to_save=path_to_save)
 
     oven.setpoint = 0  # turn the oven off
     print('######### END OF RUN #########', flush=True)

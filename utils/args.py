@@ -92,6 +92,8 @@ def args_fpa_with_ffc():
     parser.add_argument('--blackbody_is_decreasing', action='store_true',
                         help="If True, the Blackbody first iteration will have decreasing temperatures.")
 
+    parser.add_argument('--minutes_in_chunk', type=int, default=5,
+                        help="The number of minutes to save in each chunk.")
     return parser.parse_args()
 
 
