@@ -48,7 +48,7 @@ def continuous_collection(*, bb_generator, blackbody, camera, n_samples, time_to
     fpa = -float('inf')
 
     time_to_collect_ns = time_to_collect_minutes * 6e10
-    time_start_ns = time_ns()
+    dict_meas['t_start_ns'] = time_ns()
     with tqdm() as progressbar:
         for bb in bb_generator:
             blackbody.temperature = bb
@@ -61,15 +61,18 @@ def continuous_collection(*, bb_generator, blackbody, camera, n_samples, time_to
                 dict_meas.setdefault(T_HOUSING, []).append(camera.housing)
             progressbar.update()
             postfix = f'BB {bb:.1f}C, FPA {fpa / 100:.1f}C, ' \
-                      f'Remaining {1e-9 * (time_to_collect_ns - (time_ns() - time_start_ns)):.1f} Seconds.'
+                      f"Remaining {1e-9 * (time_to_collect_ns - (time_ns() - dict_meas['t_start_ns'])):.1f} Seconds."
             progressbar.set_postfix_str(postfix)
-            if time_ns() - time_start_ns > time_to_collect_ns:
+            if time_ns() - dict_meas['t_start_ns'] > time_to_collect_ns:
                 break
+    dict_meas['t_end_ns'] = time_ns()
     save_results(path_to_save=path_to_save, filename=filename, dict_meas=dict_meas)
 
 
 def save_results(path_to_save, filename, dict_meas):
     np.savez(str(path_to_save / filename),
+             t_start_ns=dict_meas.get('t_start_ns', np.zeros(1, dtype=int)),
+             t_end_ns=dict_meas.get('t_end_ns', np.zeros(1, dtype=int)),
              fpa=np.array(dict_meas[T_FPA]).astype('uint16'),
              housing=np.array(dict_meas[T_HOUSING]).astype('uint16'),
              blackbody=(100 * np.array(dict_meas['blackbody'])).astype('uint16'),

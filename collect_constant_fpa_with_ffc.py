@@ -80,8 +80,6 @@ if __name__ == "__main__":
     while not camera.ffc:
         sleep(0.5)
     print(f'FFC performed at {camera.fpa / 100:.1f}C', flush=True)
-    camera.disable_ffc()
-    print(f'FFC disabled.', flush=True)
 
     # start measurements
     minutes_in_chunk = int(args.minutes_in_chunk)
