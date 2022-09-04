@@ -30,7 +30,7 @@ def plot_oven_records_in_path(idx, *, fig: plt.Figure, ax: plt.Subplot, path_to_
     ax.cla()
     df_t = df_t.rename(columns={name: name.split('T_')[-1].capitalize() for name in df_t.columns}, inplace=False)
     ax.plot(df_t, label=df_t.columns)
-    fig.legend(loc='upper left')
+    fig.legend(loc='lower left')
     ax.set_xlabel('Time [Minutes]')
     ax.set_ylabel(TEMPERATURE_LABEL)
     ax.xaxis.set_major_locator(plt.MaxNLocator(n_ticks))
