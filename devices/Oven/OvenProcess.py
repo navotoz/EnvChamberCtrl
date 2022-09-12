@@ -213,7 +213,7 @@ def set_oven_and_settle(setpoint: (float, int), settling_time_minutes: int, oven
     queue_temperatures.append(camera.fpa)  # -inf so that the diff always returns +inf
     while True:
         try:  # sets the setpoint with the offset of the oven
-            offset = get_offset(t_next=setpoint, t_oven=oven.temperature(T_FLOOR), t_cam=camera.fpa)
+            offset = get_offset(t_next=setpoint, t_oven=oven.temperature(T_FLOOR), t_cam=camera.fpa / 100)
             oven.setpoint = setpoint + offset
             print(f'Current {oven.temperature(T_FLOOR):.2f}, Offset {offset:.2f}, Setpoint: {oven.setpoint:.2f}')
             break
