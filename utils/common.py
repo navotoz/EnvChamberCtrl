@@ -17,13 +17,14 @@ from devices.Oven.plots import plot_oven_records_in_path
 
 
 def collect_measurements(bb_generator, blackbody, camera, n_samples, limit_fpa, t_ffc) -> dict:
-    dict_meas = {}
+    dict_meas = {'t_start_ns': time_ns()}
     fpa = -float('inf')
 
     with tqdm() as progressbar:
         while True:
             for bb in bb_generator:
                 blackbody.temperature = bb
+                sleep(5)  # allows for thermal stabilization
                 while t_ffc == 0 and not camera.ffc:
                     sleep(0.5)
                 for _ in range(n_samples):
@@ -38,14 +39,15 @@ def collect_measurements(bb_generator, blackbody, camera, n_samples, limit_fpa, 
                                             f'Remaining {(limit_fpa - fpa) / 100:.1f}C')
 
                 if fpa >= limit_fpa:
+                    dict_meas['t_end_ns'] = time_ns()
                     return dict_meas
 
 
 def continuous_collection(*, bb_generator, blackbody, camera, n_samples, time_to_collect_minutes: int,
-                          filename: str, path_to_save: Path) -> None:
+                          filename: str, path_to_save: Path, limit_fpa: Union[None, int] = None) -> None:
     assert time_to_collect_minutes > 0, f'time_to_collect_minutes must be positive, got {time_to_collect_minutes}.'
     dict_meas = {}
-    fpa = -float('inf')
+    fpa, flag_fpa = -float('inf'), False
 
     time_to_collect_ns = time_to_collect_minutes * 6e10
     dict_meas['t_start_ns'] = time_ns()
@@ -63,10 +65,14 @@ def continuous_collection(*, bb_generator, blackbody, camera, n_samples, time_to
             postfix = f'BB {bb:.1f}C, FPA {fpa / 100:.1f}C, ' \
                       f"Remaining {1e-9 * (time_to_collect_ns - (time_ns() - dict_meas['t_start_ns'])):.1f} Seconds."
             progressbar.set_postfix_str(postfix)
+            if limit_fpa is not None and fpa >= limit_fpa:
+                flag_fpa = True
+                break
             if time_ns() - dict_meas['t_start_ns'] > time_to_collect_ns:
                 break
     dict_meas['t_end_ns'] = time_ns()
     save_results(path_to_save=path_to_save, filename=filename, dict_meas=dict_meas)
+    return flag_fpa
 
 
 def save_results(path_to_save, filename, dict_meas):
@@ -155,8 +161,6 @@ def wait_for_fpa(*, t_ffc: int, camera: CameraCtrl, wait_time_camera: Union[int,
                         while not camera.ffc:
                             sleep(0.5)
                         print(f'FFC performed at {fpa / 100:.1f}C', flush=True)
-                        camera.disable_ffc()
-                        print(f'FFC disabled.', flush=True)
                         return t_ffc
                     progressbar.update()
                     try:

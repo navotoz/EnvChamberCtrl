@@ -1,3 +1,5 @@
+from itertools import count
+import math
 import sys
 import threading as th
 from multiprocessing import Process
@@ -11,7 +13,7 @@ from devices.Oven.OvenProcess import (OVEN_RECORDS_FILENAME)
 from devices.Oven.plots import mp_realttime_plot
 from utils.args import args_var_bb_fpa
 from utils.bb_iterators import TbbGenSawTooth
-from utils.common import collect_measurements, save_results, wait_for_devices_to_start, init_devices, \
+from utils.common import collect_measurements, continuous_collection, save_results, wait_for_devices_to_start, init_devices, \
     save_run_parameters, wait_for_fpa
 
 sys.path.append(str(Path().cwd().parent))
@@ -67,8 +69,11 @@ if __name__ == "__main__":
     t_ffc = wait_for_fpa(t_ffc=args.ffc, camera=camera, wait_time_camera=TEMPERATURE_ACQUIRE_FREQUENCY_SECONDS)
 
     # start measurements
-    dict_meas = collect_measurements(bb_generator=bb_generator, blackbody=blackbody, camera=camera,
-                                     n_samples=args.n_samples, limit_fpa=limit_fpa, t_ffc=t_ffc)
-    save_results(path_to_save=path_to_save, filename=filename, dict_meas=dict_meas)
-    oven.setpoint = 0  # turn the oven off
-    print('######### END OF RUN #########', flush=True)
+    minutes_in_chunk = int(args.minutes_in_chunk)
+    assert minutes_in_chunk > 0, f'argument minutes_in_chunk must be > 0, got {minutes_in_chunk}.'
+    for idx in count(start=1, step=1):
+        if continuous_collection(bb_generator=bb_generator, blackbody=blackbody, camera=camera,
+                                 n_samples=args.n_samples, time_to_collect_minutes=minutes_in_chunk, 
+                                 filename=f"{now}_{idx}.npz", path_to_save=path_to_save, limit_fpa=limit_fpa):
+            oven.setpoint = 0  # turn the oven off
+            limit_fpa = None
