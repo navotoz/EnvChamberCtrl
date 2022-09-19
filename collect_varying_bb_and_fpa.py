@@ -36,6 +36,7 @@ if __name__ == "__main__":
                                   bb_inc=args.blackbody_increments, bb_is_decreasing=args.blackbody_is_decreasing)
     if args.n_samples <= 0:
         raise ValueError(f'n_samples must be > 0, got {args.n_samples}')
+    assert args.ffc == 0 or args.ffc > 1000, f'FFC must be either 0 or given in [100C] range, got {args.ffc}'
     params = INIT_CAMERA_PARAMETERS.copy()
     params['tlinear'] = int(args.tlinear)
     params['ffc_mode'] = 'manual'
