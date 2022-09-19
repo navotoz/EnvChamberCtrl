@@ -44,7 +44,7 @@ def collect_measurements(bb_generator, blackbody, camera, n_samples, limit_fpa, 
 
 
 def continuous_collection(*, bb_generator, blackbody, camera, n_samples, time_to_collect_minutes: int,
-                          filename: str, path_to_save: Path, limit_fpa: Union[None, int] = None) -> None:
+                          filename: str, path_to_save: Path, limit_fpa: Union[None, int] = None) -> bool:
     assert time_to_collect_minutes > 0, f'time_to_collect_minutes must be positive, got {time_to_collect_minutes}.'
     dict_meas = {}
     fpa, flag_fpa = -float('inf'), False
