@@ -89,6 +89,7 @@ def save_results(path_to_save, filename, dict_meas):
         fig, ax = plt.subplots()
         plot_oven_records_in_path(idx=0, fig=fig, ax=ax, path_to_log=path_to_save / OVEN_RECORDS_FILENAME)
         plt.savefig(path_to_save / 'temperature.png')
+        plt.close()
     except:
         pass
 
