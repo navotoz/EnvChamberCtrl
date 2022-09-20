@@ -81,6 +81,7 @@ class Tau2Grabber(Tau):
             params = yaml_or_dict.copy()
         self.ffc_mode = params.get('ffc_mode', 'manual')
         self.ffc_period = params.get('ffc_period', 0)  # default is no ffc
+        self.ffc_temp_delta = params.get('ffc_temp_delta', 1000)  # 100.1C
         self.ace = params.get('ace', 0)
         self.tlinear = params.get('tlinear', 0)
         self.isotherm = params.get('isotherm', 0)

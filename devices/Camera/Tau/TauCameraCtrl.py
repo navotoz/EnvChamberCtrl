@@ -179,6 +179,22 @@ class Tau(CameraAbstract):
                 break
             sleep(1)
         self._log_set_values(value=period, result=res, value_name='FFC Period')
+    
+    @property
+    def ffc_temp_delta(self) -> int:
+        return self._get_values_without_arguments(ptc.GET_FFC_TEMP_DELTA)
+
+    @ffc_temp_delta.setter
+    def ffc_temp_delta(self, delta: int):
+        if not 0 <= delta <= 1000:
+            raise ValueError(f'Given FFC temperature delta {delta} not in 0 <= delta <= 1000.')
+        res = False
+        for _ in range(5):
+            res = self._set_values_with_2bytes_send_recv(value=delta, current_value=-1, command=ptc.SET_FFC_TEMP_DELTA)
+            if res is True:
+                break
+            sleep(1)
+        self._log_set_values(value=delta, result=res, value_name='FFC temperature delta')
 
     @property
     def correction_mask(self):
