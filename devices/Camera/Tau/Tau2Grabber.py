@@ -150,6 +150,10 @@ class Tau2Grabber(Tau):
             return None
 
         raw_image_16bit = 0x3FFF & np.array(raw_image_8bit).view('uint16')[:, 1:-1]
+        if (raw_image_16bit == 0).all():  # all pixels are empty
+            return None
+        if (raw_image_16bit >= ((2**14) - 1)).all():  # all pixels are saturated
+            return None
         if to_temperature:
             raw_image_16bit = 0.04 * raw_image_16bit - KELVIN2CELSIUS
         return raw_image_16bit
