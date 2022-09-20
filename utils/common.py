@@ -17,7 +17,7 @@ from devices.Oven.plots import plot_oven_records_in_path
 
 
 def collect_measurements(bb_generator, blackbody, camera, n_samples, limit_fpa, t_ffc) -> dict:
-    dict_meas = {'t_start_ns': time_ns()}
+    dict_meas = {}
     fpa = -float('inf')
 
     with tqdm() as progressbar:
@@ -33,13 +33,13 @@ def collect_measurements(bb_generator, blackbody, camera, n_samples, limit_fpa, 
                     dict_meas.setdefault('blackbody', []).append(bb)
                     dict_meas.setdefault(T_FPA, []).append(fpa)
                     dict_meas.setdefault(T_HOUSING, []).append(camera.housing)
+                    dict_meas.setdefault('time_ns', []).append(time_ns())
                 progressbar.update()
                 progressbar.set_postfix_str(f'BB {bb:.1f}C, '
                                             f'FPA {fpa / 100:.1f}C, '
                                             f'Remaining {(limit_fpa - fpa) / 100:.1f}C')
 
                 if fpa >= limit_fpa:
-                    dict_meas['t_end_ns'] = time_ns()
                     return dict_meas
 
 
@@ -49,8 +49,7 @@ def continuous_collection(*, bb_generator, blackbody, camera, n_samples, time_to
     dict_meas = {}
     fpa, flag_fpa = -float('inf'), False
 
-    time_to_collect_ns = time_to_collect_minutes * 6e10
-    dict_meas['t_start_ns'] = time_ns()
+    time_to_collect_ns, t_start_ns = time_to_collect_minutes * 6e10, time_ns()
     with tqdm() as progressbar:
         for bb in bb_generator:
             blackbody.temperature = bb
@@ -61,25 +60,25 @@ def continuous_collection(*, bb_generator, blackbody, camera, n_samples, time_to
                 dict_meas.setdefault('blackbody', []).append(bb)
                 dict_meas.setdefault(T_FPA, []).append(fpa)
                 dict_meas.setdefault(T_HOUSING, []).append(camera.housing)
+                dict_meas.setdefault('time_ns', []).append(time_ns())
             progressbar.update()
             postfix = f'BB {bb:.1f}C, FPA {fpa / 100:.1f}C, ' \
-                      f"Remaining {1e-9 * (time_to_collect_ns - (time_ns() - dict_meas['t_start_ns'])):.1f} Seconds."
+                      f"Remaining {1e-9 * (time_to_collect_ns - (time_ns() - t_start_ns)):.1f} Seconds."
             progressbar.set_postfix_str(postfix)
             if limit_fpa is not None and fpa >= limit_fpa:
                 flag_fpa = True
                 break
-            if time_ns() - dict_meas['t_start_ns'] > time_to_collect_ns:
+            if time_ns() - t_start_ns > time_to_collect_ns:
                 break
-    dict_meas['t_end_ns'] = time_ns()
     save_results(path_to_save=path_to_save, filename=filename, dict_meas=dict_meas)
     return flag_fpa
 
 
 def save_results(path_to_save, filename, dict_meas):
+    fpa = np.array(dict_meas[T_FPA]).astype('uint16')
     np.savez(str(path_to_save / filename),
-             t_start_ns=dict_meas.get('t_start_ns', np.zeros(1, dtype=int)),
-             t_end_ns=dict_meas.get('t_end_ns', np.zeros(1, dtype=int)),
-             fpa=np.array(dict_meas[T_FPA]).astype('uint16'),
+             time_ns=dict_meas.get('time_ns', np.zeros_like(fpa)),
+             fpa=fpa,
              housing=np.array(dict_meas[T_HOUSING]).astype('uint16'),
              blackbody=(100 * np.array(dict_meas['blackbody'])).astype('uint16'),
              frames=np.stack(dict_meas['frames']).astype('uint16'))
