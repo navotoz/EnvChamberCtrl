@@ -2,6 +2,7 @@ import logging
 import struct
 from pathlib import Path
 from time import sleep
+from typing import Union
 
 import numpy as np
 import serial
@@ -9,7 +10,7 @@ from serial.tools.list_ports import comports
 
 from devices.Camera import CameraAbstract, WIDTH_IMAGE_TAU2, HEIGHT_IMAGE_TAU2, CAMERA_TAU, T_FPA, T_HOUSING
 from devices.Camera.Tau import tau2_config as ptc
-from devices.Camera.Tau.tau2_config import ARGUMENT_FPA, ARGUMENT_HOUSING
+from devices.Camera.Tau.tau2_config import ARGUMENT_FPA, ARGUMENT_HOUSING, SET_SHUTTER_POSITION, SHUTTER_POSITION_DICT
 from utils.logger import make_logging_handlers, make_logger
 
 
@@ -99,7 +100,8 @@ class Tau(CameraAbstract):
         else:
             self._log.warning(f'Setting {value_name} to {value} failed.')
 
-    def _mode_setter(self, mode: str, current_value: int, setter_code: ptc.Code, code_dict: dict, name: str) -> bool:
+    def _mode_setter(self, mode: Union[int, str], current_value: int, setter_code: ptc.Code,
+                     code_dict: dict, name: str) -> bool:
         if isinstance(mode, str):
             if not mode.lower() in code_dict:
                 raise NotImplementedError(f"{name} mode {mode} is not implemented.")
@@ -179,7 +181,7 @@ class Tau(CameraAbstract):
                 break
             sleep(1)
         self._log_set_values(value=period, result=res, value_name='FFC Period')
-    
+
     @property
     def ffc_temp_delta(self) -> int:
         return self._get_values_without_arguments(ptc.GET_FFC_TEMP_DELTA)
@@ -389,3 +391,13 @@ class Tau(CameraAbstract):
             if value == res:
                 self._log.info(f'Set Lens number to {value + 1}.')
                 return
+
+    @property
+    def shutter_position(self):
+        return self._get_values_without_arguments(ptc.GET_SHUTTER_POSITION)
+
+    @shutter_position.setter
+    def shutter_position(self, position: int):
+        return self._mode_setter(
+            mode=position, current_value=self.shutter_position, setter_code=ptc.SET_SHUTTER_POSITION,
+            code_dict=ptc.SHUTTER_POSITION_DICT, name='Shutter Position')
