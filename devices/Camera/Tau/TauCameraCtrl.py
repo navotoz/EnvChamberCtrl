@@ -127,17 +127,13 @@ class Tau(CameraAbstract):
         if 'ext' in mode:
             while self.shutter_position != ptc.SHUTTER_POSITION_DICT['close']:
                 self.shutter_position = ptc.SHUTTER_POSITION_DICT['close']
-                sleep(0.1)
-            self._log.info('Shutter closed.')
-            sleep(0.5)  # wait for shutter to close and thermal stabilization
+                sleep(0.5)  # wait for shutter to close and thermal stabilization
         res = self.send_command(command=ptc.DO_FFC, argument=length)
         sleep(0.2)  # wait for FFC to complete, as instructed in the quark IDD manual
         if 'ext' in mode:
             while self.shutter_position != ptc.SHUTTER_POSITION_DICT['open']:
                 self.shutter_position = ptc.SHUTTER_POSITION_DICT['open']
-                sleep(0.1)
-            sleep(0.2)  # wait for shutter to open
-            self._log.info('Shutter open.')
+                sleep(0.2)  # wait for shutter to open
         if res and struct.unpack('H', res)[0] == 0xffff:
             t_fpa = self.get_inner_temperature(T_FPA)
             t_housing = self.get_inner_temperature(T_HOUSING)

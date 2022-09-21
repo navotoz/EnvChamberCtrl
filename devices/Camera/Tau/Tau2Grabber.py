@@ -85,7 +85,7 @@ class Tau2Grabber(Tau):
         self.ffc_temp_delta = params.get('ffc_temp_delta', 1000)  # 100.1C
         self.fps = params.get('fps', ptc.FPS_CODE_DICT[60])  # 60Hz NTSC
         self.cmos_depth = params.get('cmos_depth', 0)  # 14bit pre AGC
-        self.ffc_mode = params.get('ffc_mode', 'manual')
+        self.ffc_mode = params.get('ffc_mode', 'external')
         self.ace = params.get('ace', 0)
         self.tlinear = params.get('tlinear', 0)
         self.isotherm = params.get('isotherm', 0)

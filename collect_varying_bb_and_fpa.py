@@ -39,7 +39,7 @@ if __name__ == "__main__":
     assert args.ffc == 0 or args.ffc > 1000, f'FFC must be either 0 or given in [100C] range, got {args.ffc}'
     params = INIT_CAMERA_PARAMETERS.copy()
     params['tlinear'] = int(args.tlinear)
-    params['ffc_mode'] = 'manual'
+    params['ffc_mode'] = 'external'
     params['ffc_period'] = 0
     params['ffc_temp_delta'] = 1000
     params['lens_number'] = args.lens_number

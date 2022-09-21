@@ -40,7 +40,7 @@ if __name__ == "__main__":
         raise ValueError(f'n_samples must be > 0, got {args.n_samples}')
     params = INIT_CAMERA_PARAMETERS.copy()
     params['tlinear'] = int(args.tlinear)
-    params['ffc_mode'] = 'manual'
+    params['ffc_mode'] = 'external'
     params['ffc_period'] = 0
     params['lens_number'] = args.lens_number
     print(f'Lens Number = {args.lens_number}', flush=True)
