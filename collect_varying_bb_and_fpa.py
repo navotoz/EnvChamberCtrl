@@ -41,6 +41,7 @@ if __name__ == "__main__":
     params['tlinear'] = int(args.tlinear)
     params['ffc_mode'] = 'manual'
     params['ffc_period'] = 0
+    params['ffc_temp_delta'] = 1000
     params['lens_number'] = args.lens_number
     print(f'Lens Number = {args.lens_number}', flush=True)
     limit_fpa = args.limit_fpa

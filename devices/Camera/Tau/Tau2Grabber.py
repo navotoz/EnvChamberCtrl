@@ -79,22 +79,22 @@ class Tau2Grabber(Tau):
             params = yaml.safe_load(yaml_or_dict)
         else:
             params = yaml_or_dict.copy()
-        self.ffc_mode = params.get('ffc_mode', 'manual')
+        self.lens_number = params.get('lens_number', 1)
+        self.gain = params.get('gain', 'high')
         self.ffc_period = params.get('ffc_period', 0)  # default is no ffc
         self.ffc_temp_delta = params.get('ffc_temp_delta', 1000)  # 100.1C
+        self.fps = params.get('fps', ptc.FPS_CODE_DICT[60])  # 60Hz NTSC
+        self.cmos_depth = params.get('cmos_depth', 0)  # 14bit pre AGC
+        self.ffc_mode = params.get('ffc_mode', 'manual')
         self.ace = params.get('ace', 0)
         self.tlinear = params.get('tlinear', 0)
         self.isotherm = params.get('isotherm', 0)
         self.dde = params.get('dde', 0)
-        self.gain = params.get('gain', 'high')
         self.agc = params.get('agc', 'manual')
         self.sso = params.get('sso', 0)
         self.contrast = params.get('contrast', 0)
         self.brightness = params.get('brightness', 0)
         self.brightness_bias = params.get('brightness_bias', 0)
-        self.cmos_depth = params.get('cmos_depth', 0)  # 14bit pre AGC
-        self.fps = params.get('fps', ptc.FPS_CODE_DICT[60])  # 60Hz NTSC
-        self.lens_number = params.get('lens_number', 1)
         ####### self.correction_mask = params.get('corr_mask', 0)  # Always OFF!!!
 
     def _th_reader_func(self) -> None:

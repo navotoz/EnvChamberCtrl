@@ -75,7 +75,7 @@ class CameraCtrl(DeviceAbstract):
         self._workers_dict['get_t'] = th.Thread(target=self._th_getter_temperature, name='th_cam_get_t', daemon=True)
         self._workers_dict['getter'] = th.Thread(target=self._th_getter_image, name='th_cam_getter', daemon=False)
         self._workers_dict['ffc'] = th.Thread(target=self._th_ffc_func, name='th_cam_ffc', daemon=True)
-        self._workers_dict['mode'] = th.Thread(target=self._th_ffc_mode, name='th_cam_ffc_mode', daemon=True)
+        self._workers_dict['mode'] = th.Thread(target=self._th_ffc_mode_to_ext, name='th_cam_ffc_mode', daemon=True)
 
     def _th_connect(self) -> None:
         handlers = make_logging_handlers(None, True)
@@ -99,7 +99,7 @@ class CameraCtrl(DeviceAbstract):
             self._ffc_result.value = self._camera.ffc()
             self._semaphore_ffc_finished.release()
 
-    def _th_ffc_mode(self) -> None:
+    def _th_ffc_mode_to_ext(self) -> None:
         self._event_connected.wait()
         while self._flag_run:
             self._semaphore_ffc_mode_do.acquire()
