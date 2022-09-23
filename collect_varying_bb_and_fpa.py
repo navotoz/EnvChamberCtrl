@@ -2,7 +2,7 @@ from itertools import count
 import math
 import sys
 import threading as th
-from multiprocessing import Process
+from multiprocessing import Process, Semaphore
 from pathlib import Path
 from time import sleep
 
@@ -13,7 +13,7 @@ from devices.Oven.OvenProcess import (OVEN_RECORDS_FILENAME)
 from devices.Oven.plots import mp_realttime_plot
 from utils.args import args_var_bb_fpa
 from utils.bb_iterators import TbbGenSawTooth
-from utils.common import collect_measurements, continuous_collection, save_results, wait_for_devices_to_start, init_devices, \
+from utils.common import continuous_collection, mp_save_measurements_to_zip, wait_for_devices_to_start, init_devices, \
     save_run_parameters, wait_for_fpa
 
 sys.path.append(str(Path().cwd().parent))
@@ -64,6 +64,12 @@ if __name__ == "__main__":
     mp_plot = Process(target=mp_realttime_plot, args=(path_to_save,), name='mp_realtime_plot', daemon=True)
     mp_plot.start()
 
+    # save measurements to zip
+    lock_zip = Semaphore(value=0)
+    mp_zip_saver = Process(target=mp_save_measurements_to_zip, args=(path_to_save, lock_zip, ), name='mp_zip_saver',
+                           daemon=True)
+    mp_zip_saver.start()
+
     # measurements
     oven.setpoint = 120  # the Soft limit of the oven is 120C
     filename = f"{now}.npz" if not args.filename else Path(args.filename).with_suffix('.npz')
@@ -75,7 +81,7 @@ if __name__ == "__main__":
     assert minutes_in_chunk > 0, f'argument minutes_in_chunk must be > 0, got {minutes_in_chunk}.'
     for idx in count(start=1, step=1):
         if continuous_collection(bb_generator=bb_generator, blackbody=blackbody, camera=camera,
-                                 n_samples=args.n_samples, time_to_collect_minutes=minutes_in_chunk, 
+                                 n_samples=args.n_samples, time_to_collect_minutes=minutes_in_chunk,
                                  filename=f"{now}_{idx}.npz", path_to_save=path_to_save, limit_fpa=limit_fpa):
             oven.setpoint = 0  # turn the oven off
             limit_fpa = None

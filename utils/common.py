@@ -3,7 +3,8 @@ from datetime import datetime
 from pathlib import Path
 from time import sleep, time_ns
 from typing import Union, Tuple
-
+import multiprocessing as mp
+from zipfile import ZipFile
 import numpy as np
 import yaml
 from matplotlib import pyplot as plt
@@ -41,6 +42,17 @@ def collect_measurements(bb_generator, blackbody, camera, n_samples, limit_fpa, 
 
                 if fpa >= limit_fpa:
                     return dict_meas
+
+
+def mp_save_measurements_to_zip(path_to_save: Path, lock_new_meas: mp.Semaphore):
+    set_save_measurements = set()
+    path_zip = path_to_save / 'measurements.zip'
+    while True:
+        lock_new_meas.acquire()
+        for path in filter(lambda p: p not in set_save_measurements, path_to_save.glob('*.npz')):
+            set_save_measurements.add(path)
+            with ZipFile(path_zip, 'a') as zip:
+                zip.write(path, arcname=path.name)
 
 
 def continuous_collection(*, bb_generator, blackbody, camera, n_samples, time_to_collect_minutes: int,
