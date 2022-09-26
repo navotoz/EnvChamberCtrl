@@ -44,8 +44,10 @@ def args_rand_bb():
 
 
 def args_var_bb_fpa():
-    parser = _args_base('Set the oven to the highest temperature possible and cycle the Blackbody to different Tbb.'
-                        'The images are saved as a dict in a pickle file.')
+    parser = _args_base(
+        'Set the oven to the highest temperature possible and cycle the Blackbody to different Tbb.'
+        'The images are saved as npz files, ordered by an index.'
+        'If blackbody_min == blackbody_max and blackbody_increments = 0, outputs a constant bb temperature.')
     # camera
     parser.add_argument('--tlinear', help=f"The grey levels are linear to the temperature as: 0.04 * t - 273.15.",
                         action='store_true')
