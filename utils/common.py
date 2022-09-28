@@ -51,8 +51,8 @@ def mp_save_measurements_to_zip(path_to_save: Path, lock_new_meas: mp.Semaphore)
         lock_new_meas.acquire()
         for path in filter(lambda p: p not in set_save_measurements, path_to_save.glob('*.npz')):
             set_save_measurements.add(path)
-            with ZipFile(path_zip, 'a') as zip:
-                zip.write(path, arcname=path.name)
+            with ZipFile(path_zip, 'a') as fp_zip:
+                fp_zip.write(path, arcname=path.name)
 
 
 def continuous_collection(*, bb_generator, blackbody, camera, n_samples, time_to_collect_minutes: int,
@@ -74,13 +74,12 @@ def continuous_collection(*, bb_generator, blackbody, camera, n_samples, time_to
                 dict_meas.setdefault(T_HOUSING, []).append(camera.housing)
                 dict_meas.setdefault('time_ns', []).append(time_ns())
             progressbar.update()
-            postfix = f'BB {bb:.1f}C, FPA {fpa / 100:.1f}C, ' \
-                      f"Remaining {1e-9 * (time_to_collect_ns - (time_ns() - t_start_ns)):.1f} Seconds."
-            progressbar.set_postfix_str(postfix)
+            time_remaining = 1e-9 * (time_to_collect_ns - (time_ns() - t_start_ns))
+            progressbar.set_postfix_str(f'BB {bb:.1f}C, FPA {fpa / 100:.1f}C, Remaining {time_remaining:.1f} Seconds.')
             if limit_fpa is not None and fpa >= limit_fpa:
                 flag_fpa = True
                 break
-            if time_ns() - t_start_ns > time_to_collect_ns:
+            if time_remaining <= 0:
                 break
     save_results(path_to_save=path_to_save, filename=filename, dict_meas=dict_meas)
     return flag_fpa
@@ -117,7 +116,7 @@ def wait_for_devices_to_start(blackbody, camera, oven):
     print('Devices Connected.', flush=True)
 
 
-def wait_for_devices_without_bb(camera, oven):
+def wait_for_devices_without_bb(camera: CameraCtrl, oven: OvenCtrl) -> None:
     sleep(1)
     with tqdm(desc="Waiting for devices to connect.") as progressbar:
         while not oven.is_connected or not camera.is_connected:

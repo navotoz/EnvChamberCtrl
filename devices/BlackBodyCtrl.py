@@ -186,6 +186,7 @@ class BlackBodyThread(th.Thread):
         self._event_is_connected = th.Event()
         self._event_is_connected.clear()
         self._flag_run = SyncFlag(init_state=True)
+        self._temperature_current = 0
 
         self._logging_handlers = make_logging_handlers(logfile_path=logfile_path)
         self._log_temperature = make_logger(f'{const.BLACKBODY_NAME}Temperatures',
@@ -221,8 +222,11 @@ class BlackBodyThread(th.Thread):
 
     @temperature.setter
     def temperature(self, temperature_to_set: Union[float, int]):
+        if self._temperature_current == temperature_to_set:
+            return
         if self._event_is_connected.is_set():
             with self._lock_access:
+                self._temperature_current = temperature_to_set
                 self._blackbody(temperature_to_set=temperature_to_set, wait_for_stable_temperature=True)
 
     def set_temperature_non_blocking(self, temperature_to_set: Union[int, float]):

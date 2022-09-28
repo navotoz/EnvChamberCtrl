@@ -85,3 +85,4 @@ if __name__ == "__main__":
                                  filename=f"{now}_{idx}.npz", path_to_save=path_to_save, limit_fpa=limit_fpa):
             oven.setpoint = 0  # turn the oven off
             limit_fpa = None
+        lock_zip.release()  # release the lock to save the measurements to zip
