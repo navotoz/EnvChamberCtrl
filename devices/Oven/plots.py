@@ -17,7 +17,7 @@ COLOR_SETPOINT = {'linestyle': 'dashed', 'color': 'red'}
 def plot_oven_records_in_path(idx, *, fig: plt.Figure, ax: plt.Subplot, path_to_log: Path, n_ticks: int = 10):
     try:
         df = get_dataframe(path_to_log)
-        df = df.drop(df[df.setPoint == 0].index)
+        df = df.iloc[3:]  # removes the first 3 rows, which are usually not valid
         df.index = pd.to_datetime(list(df.index))
         df.index -= df.index[0]
         df.index = df.index.total_seconds()
