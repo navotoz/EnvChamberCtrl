@@ -66,6 +66,7 @@ def continuous_collection(*, bb_generator, blackbody, camera, n_samples, time_to
         for bb in bb_generator:
             blackbody.temperature = bb
             sleep(5)  # allows for thermal stabilization
+            progressbar.set_description_str(f'BB {bb:.1f}C')
             for _ in range(n_samples):
                 fpa = camera.fpa
                 dict_meas.setdefault('frames', []).append(camera.image)
@@ -73,9 +74,9 @@ def continuous_collection(*, bb_generator, blackbody, camera, n_samples, time_to
                 dict_meas.setdefault(T_FPA, []).append(fpa)
                 dict_meas.setdefault(T_HOUSING, []).append(camera.housing)
                 dict_meas.setdefault('time_ns', []).append(time_ns())
-            progressbar.update()
+                progressbar.update()
             time_remaining = 1e-9 * (time_to_collect_ns - (time_ns() - t_start_ns))
-            progressbar.set_postfix_str(f'BB {bb:.1f}C, FPA {fpa / 100:.1f}C, Remaining {time_remaining:.1f} Seconds.')
+            progressbar.set_postfix_str(f'FPA {fpa / 100:.1f}C, Remaining {time_remaining:.1f} Seconds.')
             if limit_fpa is not None and fpa >= limit_fpa:
                 flag_fpa = True
                 break
