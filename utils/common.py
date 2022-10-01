@@ -4,7 +4,7 @@ from pathlib import Path
 from time import sleep, time_ns
 from typing import Union, Tuple
 import multiprocessing as mp
-from zipfile import ZipFile
+from zipfile import ZIP_DEFLATED, ZipFile
 import numpy as np
 import yaml
 from matplotlib import pyplot as plt
@@ -51,7 +51,7 @@ def mp_save_measurements_to_zip(path_to_save: Path, lock_new_meas: mp.Semaphore)
         lock_new_meas.acquire()
         for path in filter(lambda p: p not in set_save_measurements, path_to_save.glob('*.npz')):
             set_save_measurements.add(path)
-            with ZipFile(path_zip, 'a') as fp_zip:
+            with ZipFile(path_zip, 'a', compression=ZIP_DEFLATED, compresslevel=7) as fp_zip:
                 fp_zip.write(path, arcname=path.name)
 
 
