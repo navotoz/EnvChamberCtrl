@@ -82,6 +82,7 @@ if __name__ == "__main__":
     for idx in count(start=1, step=1):
         if continuous_collection(bb_generator=bb_generator, blackbody=blackbody, camera=camera,
                                  n_samples=args.n_samples, time_to_collect_minutes=minutes_in_chunk,
+                                 sample_rate=args.sample_rate,
                                  filename=f"{now}_{idx}.npz", path_to_save=path_to_save, limit_fpa=limit_fpa):
             oven.setpoint = 0  # turn the oven off
             limit_fpa = None

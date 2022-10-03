@@ -56,7 +56,8 @@ def mp_save_measurements_to_zip(path_to_save: Path, lock_new_meas: mp.Semaphore)
 
 
 def continuous_collection(*, bb_generator, blackbody, camera, n_samples, time_to_collect_minutes: int,
-                          filename: str, path_to_save: Path, limit_fpa: Union[None, int] = None) -> bool:
+                          sample_rate: int, filename: str, path_to_save: Path,
+                          limit_fpa: Union[None, int] = None) -> bool:
     assert time_to_collect_minutes > 0, f'time_to_collect_minutes must be positive, got {time_to_collect_minutes}.'
     dict_meas = {}
     fpa, flag_fpa = -float('inf'), False
@@ -82,6 +83,8 @@ def continuous_collection(*, bb_generator, blackbody, camera, n_samples, time_to
                 break
             if time_remaining <= 0:
                 break
+    if sample_rate != 1:
+        dict_meas = {k: v[::sample_rate] for k, v in dict_meas.items()}
     save_results(path_to_save=path_to_save, filename=filename, dict_meas=dict_meas)
     return flag_fpa
 

@@ -70,6 +70,9 @@ def args_var_bb_fpa():
     parser.add_argument('--minutes_in_chunk', type=int, default=5,
                         help="The number of minutes to save in each chunk.")
 
+    parser.add_argument('--sample_rate', type=int, default=1,
+                        help="The sampling rate. E.g., 120 frames sampled at rate 4 will leave 30 frames.")
+
     return parser.parse_args()
 
 
