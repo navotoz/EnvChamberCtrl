@@ -93,5 +93,6 @@ if __name__ == "__main__":
         continuous_collection(bb_generator=bb_generator, blackbody=blackbody, camera=camera,
                               n_samples=args.n_samples, time_to_collect_minutes=minutes_in_chunk,
                               sample_rate=args.sample_rate, filename=f"{now}_{idx}.npz", path_to_save=path_to_save)
+        lock_zip.release()
     oven.setpoint = 0  # turn the oven off
     print('######### END OF RUN #########', flush=True)
