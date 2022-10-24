@@ -1,7 +1,7 @@
-import math
 import sys
 import threading as th
-from multiprocessing import Process
+from itertools import count
+from multiprocessing import Process, Semaphore
 from pathlib import Path
 from time import sleep
 
@@ -14,10 +14,8 @@ from devices.Oven.OvenProcess import OVEN_RECORDS_FILENAME, set_oven_and_settle
 from devices.Oven.plots import mp_realttime_plot
 from utils.args import args_fpa_with_ffc
 from utils.bb_iterators import TbbGenSawTooth
-from utils.common import init_camera_and_oven, save_results, save_run_parameters, \
-    continuous_collection, wait_for_devices_without_bb
-
-
+from utils.common import init_camera_and_oven, save_run_parameters, \
+    continuous_collection, wait_for_devices_without_bb, mp_save_measurements_to_zip
 sys.path.append(str(Path().cwd().parent))
 
 
@@ -42,6 +40,7 @@ if __name__ == "__main__":
     params['tlinear'] = int(args.tlinear)
     params['ffc_mode'] = 'external'
     params['ffc_period'] = 0
+    params['ffc_temp_delta'] = 1000
     params['lens_number'] = args.lens_number
     print(f'Lens Number = {args.lens_number}', flush=True)
     oven_temperature = args.oven_temperature
@@ -76,6 +75,12 @@ if __name__ == "__main__":
     blackbody.set_temperature_non_blocking(args.blackbody_start)
     sleep(1)  # to flush the tqdm progress bar
 
+    # save measurements to zip
+    lock_zip = Semaphore(value=0)
+    mp_zip_saver = Process(target=mp_save_measurements_to_zip, args=(path_to_save, lock_zip, ), name='mp_zip_saver',
+                           daemon=True)
+    mp_zip_saver.start()
+
     # perform FFC after ambient temperature is settled
     while not camera.ffc:
         sleep(0.5)
@@ -84,13 +89,9 @@ if __name__ == "__main__":
     # start measurements
     minutes_in_chunk = int(args.minutes_in_chunk)
     assert minutes_in_chunk > 0, f'argument minutes_in_chunk must be > 0, got {minutes_in_chunk}.'
-    n_chunks = int(math.ceil(args.time_to_collect / minutes_in_chunk))
-    print(f'Collection {args.time_to_collect} minutes, divided into {minutes_in_chunk} minute chunks.', flush=True)
-    for idx in range(1, n_chunks+1):
-        print(f'{idx}|{n_chunks}', flush=True)
-        continuous_collection(bb_generator=bb_generator, blackbody=blackbody, camera=camera, n_samples=args.n_samples,
-                              time_to_collect_minutes=minutes_in_chunk, filename=f"{now}_{idx}.npz",
-                              path_to_save=path_to_save)
-
+    for idx in count(start=1, step=1):
+        continuous_collection(bb_generator=bb_generator, blackbody=blackbody, camera=camera,
+                              n_samples=args.n_samples, time_to_collect_minutes=minutes_in_chunk,
+                              sample_rate=args.sample_rate, filename=f"{now}_{idx}.npz", path_to_save=path_to_save)
     oven.setpoint = 0  # turn the oven off
     print('######### END OF RUN #########', flush=True)

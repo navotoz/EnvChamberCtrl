@@ -84,8 +84,6 @@ def args_fpa_with_ffc():
                         action='store_true')
     parser.add_argument('--lens_number', help=f"The lens number for calibration.", type=int, required=True)
 
-    parser.add_argument('--time_to_collect', help=f"The time to collect measurements in Minute.",
-                        type=int, required=True)
     parser.add_argument('--oven_temperature', type=int, required=True,
                         help=f"What Oven temperatures will be set. If 0 than oven will be dummy. Should be in [C].")
     parser.add_argument('--settling_time', help=f"The time in Minutes to wait for the camera temperature to settle "
@@ -102,6 +100,9 @@ def args_fpa_with_ffc():
 
     parser.add_argument('--minutes_in_chunk', type=int, default=5,
                         help="The number of minutes to save in each chunk.")
+
+    parser.add_argument('--sample_rate', type=int, default=1,
+                        help="The sampling rate. E.g., 120 frames sampled at rate 4 will leave 30 frames.")
     return parser.parse_args()
 
 
