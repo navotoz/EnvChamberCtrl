@@ -33,7 +33,7 @@ def args_rand_bb():
     parser.add_argument('--tlinear', help=f"The grey levels are linear to the temperature as: 0.04 * t - 273.15.",
                         action='store_true')
     parser.add_argument('--limit_fpa', help='The maximal allowed value for the FPA temperate.'
-                                            'Should adhere to FLIR specs, which are at most 65C.', default=50)
+                                            'Should adhere to FLIR specs, which are at most 65C.', default=46)
     parser.add_argument('--ffc', default=0,
                         help='A temperature at which the camera performs FFC once. If 0 - performs every 30 seconds.')
     # blackbody
@@ -53,7 +53,7 @@ def args_var_bb_fpa():
                         action='store_true')
     parser.add_argument('--lens_number', help=f"The lens number for calibration.", type=int, required=True)
     parser.add_argument('--limit_fpa', help='The maximal allowed value for the FPA temperate.'
-                                            'Should adhere to FLIR specs, which are at most 65C.', type=int, default=50)
+                                            'Should adhere to FLIR specs, which are at most 65C.', type=int, default=46)
     parser.add_argument('--ffc', type=int, required=False, default=0,
                         help=f"The camera performs FFC before every stop if arg is 0, else at the given temperature."
                              f"The temperature is in [100C].")
@@ -116,7 +116,7 @@ def args_const_tbb():
     parser.add_argument('--rate', help=f"The rate in Hz. The maximal value is 60Hz", type=int,
                         required=True, default=60)
     parser.add_argument('--limit_fpa', help='The maximal allowed value for the FPA temperate.'
-                                            'Should adhere to FLIR specs, which are at most 65C.', default=50)
+                                            'Should adhere to FLIR specs, which are at most 65C.', default=46)
 
     # blackbody
     parser.add_argument('--blackbody', type=int, required=True,
