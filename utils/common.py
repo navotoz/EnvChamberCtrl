@@ -53,6 +53,10 @@ def mp_save_measurements_to_zip(path_to_save: Path, lock_new_meas: mp.Semaphore)
             set_save_measurements.add(path)
             with ZipFile(path_zip, 'a', compression=ZIP_DEFLATED, compresslevel=9) as fp_zip:
                 fp_zip.write(path, arcname=path.name)
+            try:
+                path.unlink()  # try to remove the file that was zipped
+            except:
+                pass
 
 
 def continuous_collection(*, bb_generator, blackbody, camera, n_samples, time_to_collect_minutes: int,
