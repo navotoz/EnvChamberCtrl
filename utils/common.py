@@ -70,7 +70,7 @@ def continuous_collection(*, bb_generator, blackbody, camera, n_samples, time_to
     with tqdm() as progressbar:
         for bb in bb_generator:
             blackbody.temperature = bb
-            sleep(5)  # allows for thermal stabilization
+            sleep(1)  # allows for thermal stabilization
             progressbar.set_description_str(f'BB {bb:.1f}C')
             for _ in range(n_samples):
                 fpa = camera.fpa
