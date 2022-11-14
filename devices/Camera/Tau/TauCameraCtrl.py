@@ -277,11 +277,11 @@ class Tau(CameraAbstract):
 
     @property
     def dde(self) -> int:
-        return self._get_values_without_arguments(ptc.GET_SPATIAL_THRESHOLD)
+        return self._get_values_without_arguments(ptc.GET_MANUAL_DDE)
 
     @dde.setter
     def dde(self, value: int):
-        result = self._set_values_with_2bytes_send_recv(value, self.dde, ptc.SET_SPATIAL_THRESHOLD)
+        result = self._set_values_with_2bytes_send_recv(value, self.dde, ptc.SET_MANUAL_DDE)
         self._log_set_values(value, result, 'DDE')
 
     @property
