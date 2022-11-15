@@ -261,6 +261,10 @@ class BlackBodyDummyThread:
         self._lock_access = th.Lock()
         self._temperature = 0.0
 
+    def set_temperature_non_blocking(self, temperature_to_set: Union[int, float]):
+        with self._lock_access:
+            self._temperature = temperature_to_set
+
     @property
     def temperature(self) -> Union[float, int]:
         with self._lock_access:
