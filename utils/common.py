@@ -89,6 +89,8 @@ def continuous_collection(*, bb_generator, blackbody, camera, n_samples, time_to
                 break
     if sample_rate != 1:
         dict_meas = {k: v[::sample_rate] for k, v in dict_meas.items()}
+    if flag_fpa:  # Saves the time in which the oven was turned off. This is done here to avoid the sampling above.
+        dict_meas.setdefault('time_limit_fpa_ns', time_ns())
     save_results(path_to_save=path_to_save, filename=filename, dict_meas=dict_meas)
     return flag_fpa
 
@@ -97,6 +99,7 @@ def save_results(path_to_save, filename, dict_meas):
     fpa = np.array(dict_meas[T_FPA]).astype('uint16')
     np.savez(str(path_to_save / filename),
              time_ns=dict_meas.get('time_ns', np.zeros_like(fpa)),
+             time_limit_fpa_ns=dict_meas.get('time_limit_fpa_ns', 0),
              fpa=fpa,
              housing=np.array(dict_meas[T_HOUSING]).astype('uint16'),
              blackbody=(100 * np.array(dict_meas['blackbody'])).astype('uint16'),
