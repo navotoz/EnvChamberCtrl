@@ -6,8 +6,7 @@ from matplotlib import pyplot as plt
 from matplotlib.animation import FuncAnimation
 
 from devices.Oven.OvenProcess import OVEN_RECORDS_FILENAME
-from utils.constants import *
-from utils.constants import OVEN_LOG_TIME_SECONDS
+from .constants import *
 
 COLOR_FLOOR = {'color': 'blue'}
 COLOR_CTRLSIGNAL = {'color': 'magenta'}

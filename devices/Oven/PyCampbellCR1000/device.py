@@ -15,7 +15,7 @@ from functools import wraps
 from pathlib import Path
 from multiprocessing import RLock, Lock
 
-from utils.constants import DATETIME, SETPOINT
+from ..constants import DATETIME, SETPOINT
 from utils.logger import make_logger, make_logging_handlers, make_device_logging_handler
 
 from datetime import datetime, timedelta

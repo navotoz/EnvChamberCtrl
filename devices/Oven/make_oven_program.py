@@ -1,9 +1,8 @@
 from pathlib import Path
+from constants import *
 
-from utils.constants import *
 
-
-def make_oven_basic_prog(path: Path = Path.cwd() / 'devices' / 'Oven'):
+def make_oven_basic_prog(path: Path = Path.cwd()):
     prog = f"""
 Const PORT_MAIN = 1
 Const PORT_VENTILATION  = 2
@@ -195,3 +194,6 @@ EndProg
 
     with open(path / 'ovenCtrl_CRbasic.CR1', 'w') as fp:
         fp.write(prog)
+
+
+make_oven_basic_prog()

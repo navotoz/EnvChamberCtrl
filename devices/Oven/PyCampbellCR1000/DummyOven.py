@@ -1,6 +1,6 @@
 from datetime import datetime
 
-from utils.constants import OVEN_TABLE_NAME
+from ..constants import OVEN_TABLE_NAME
 from utils.logger import make_logger, make_logging_handlers
 
 

@@ -16,12 +16,12 @@ from __future__ import division, unicode_literals
 import struct
 import time
 
-from utils.constants import PAKBUS_HEADER_LENGTH
 from .compat import ord, chr, is_text, is_py3, bytes
 from .logger import LOGGER
 from .utils import Singleton
 from .exceptions import DeliveryFailureException
 from .utils import bytes_to_hex, nsec_to_time
+PAKBUS_HEADER_LENGTH = 8
 
 
 class Transaction(Singleton):

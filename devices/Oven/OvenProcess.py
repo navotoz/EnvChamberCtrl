@@ -15,7 +15,7 @@ from tqdm import tqdm
 from devices import DeviceAbstract
 from devices.Camera.CameraProcess import CameraCtrl
 from devices.Oven.utils import get_last_measurements, get_offset
-from utils.constants import *
+from .constants import *
 from utils.logger import make_logging_handlers
 from utils.misc import tqdm_waiting, get_time
 
