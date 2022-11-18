@@ -25,29 +25,15 @@ def args_meas_bb_times():
     return parser.parse_args()
 
 
-def args_rand_bb():
-    parser = _args_base('Set the oven to the highest temperature possible and cycle the Blackbody to different Tbb.'
-                        'The images are saved as a dict in a pickle file.')
-    # camera
-    parser.add_argument('--lens_number', help=f"The lens number for calibration.", type=int, required=True)
-    parser.add_argument('--tlinear', help=f"The grey levels are linear to the temperature as: 0.04 * t - 273.15.",
-                        action='store_true')
-    parser.add_argument('--limit_fpa', help='The maximal allowed value for the FPA temperate.'
-                                            'Should adhere to FLIR specs, which are at most 65C.', default=40)
-    parser.add_argument('--ffc', default=0,
-                        help='A temperature at which the camera performs FFC once. If 0 - performs every 30 seconds.')
-    # blackbody
-    parser = _args_bb_basic(parser)
-    parser.add_argument('--bins', type=int, default=6, help="The number of bins in each iteration of BlackBody.")
-
-    return parser.parse_args()
-
-
 def args_var_bb_fpa():
     parser = _args_base(
         'Set the oven to the highest temperature possible and cycle the Blackbody to different Tbb.'
-        'The images are saved as npz files, ordered by an index.'
+        'If --random is set, the Blackbody temperature is chosen randomly. ' 
+        'Otherwise, it is chosen by --blackbody_increments .'
+        'The images are saved as npz files, ordered by the time they were taken (key=time_ns).'
         'If blackbody_min == blackbody_max and blackbody_increments = 0, outputs a constant bb temperature.')
+    parser.add_argument('--random', help=f"If True, the Blackbody temperature will be random.", action='store_true')
+    
     # camera
     parser.add_argument('--tlinear', help=f"The grey levels are linear to the temperature as: 0.04 * t - 273.15.",
                         action='store_true')
@@ -66,10 +52,11 @@ def args_var_bb_fpa():
                         help="The starting temperature for the first Blackbody iteration.")
     parser.add_argument('--blackbody_is_decreasing', action='store_true',
                         help="If True, the Blackbody first iteration will have decreasing temperatures.")
+    parser.add_argument('--bins', type=int, default=6, help="The number of bins in each iteration of BlackBody, "
+                                                            "relevant in random mode.")
 
     parser.add_argument('--minutes_in_chunk', type=int, default=5,
                         help="The number of minutes to save in each chunk.")
-
     parser.add_argument('--sample_rate', type=int, default=1,
                         help="The sampling rate. E.g., 120 frames sampled at rate 4 will leave 30 frames.")
 

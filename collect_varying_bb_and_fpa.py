@@ -7,12 +7,11 @@ from pathlib import Path
 from time import sleep
 
 from devices.Camera import INIT_CAMERA_PARAMETERS
-from devices.Camera.CameraProcess import (
-    TEMPERATURE_ACQUIRE_FREQUENCY_SECONDS)
-from devices.Oven.OvenProcess import (OVEN_RECORDS_FILENAME)
+from devices.Camera.CameraProcess import TEMPERATURE_ACQUIRE_FREQUENCY_SECONDS
+from devices.Oven.OvenProcess import OVEN_RECORDS_FILENAME
 from devices.Oven.plots import mp_realttime_plot
 from utils.args import args_var_bb_fpa
-from utils.bb_iterators import TbbGenSawTooth
+from utils.bb_iterators import TbbGenRand, TbbGenSawTooth
 from utils.common import continuous_collection, mp_save_measurements_to_zip, wait_for_devices_to_start, init_devices, \
     save_run_parameters, wait_for_fpa
 
@@ -32,8 +31,12 @@ def th_t_cam_getter():
 if __name__ == "__main__":
     print('\n###### TURN ON BOTH OVEN SWITCHES ######\n')
     args = args_var_bb_fpa()
-    bb_generator = TbbGenSawTooth(bb_min=args.blackbody_min, bb_max=args.blackbody_max, bb_start=args.blackbody_start,
-                                  bb_inc=args.blackbody_increments, bb_is_decreasing=args.blackbody_is_decreasing)
+    if args.random:
+        bb_generator = TbbGenRand(bb_min=args.blackbody_min, bb_max=args.blackbody_max, bins=args.bins)
+    else:
+        bb_generator = TbbGenSawTooth(bb_min=args.blackbody_min, bb_max=args.blackbody_max,
+                                      bb_start=args.blackbody_start, bb_inc=args.blackbody_increments,
+                                      bb_is_decreasing=args.blackbody_is_decreasing)
     if args.n_samples <= 0:
         raise ValueError(f'n_samples must be > 0, got {args.n_samples}')
     assert args.ffc == 0 or args.ffc > 1000, f'FFC must be either 0 or given in [100C] range, got {args.ffc}'
