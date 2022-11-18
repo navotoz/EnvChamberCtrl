@@ -60,11 +60,10 @@ def mp_save_measurements_to_zip(path_to_save: Path, lock_new_meas: mp.Semaphore)
 
 
 def continuous_collection(*, bb_generator, blackbody, camera, n_samples, time_to_collect_minutes: int,
-                          sample_rate: int, filename: str, path_to_save: Path,
-                          limit_fpa: Union[None, int] = None) -> bool:
+                          sample_rate: int, filename: str, path_to_save: Path) -> bool:
     assert time_to_collect_minutes > 0, f'time_to_collect_minutes must be positive, got {time_to_collect_minutes}.'
     dict_meas = {}
-    fpa, flag_fpa = -float('inf'), False
+    fpa = -float('inf')
 
     time_to_collect_ns, t_start_ns = time_to_collect_minutes * 6e10, time_ns()
     with tqdm() as progressbar:
@@ -82,17 +81,11 @@ def continuous_collection(*, bb_generator, blackbody, camera, n_samples, time_to
                 progressbar.update()
             time_remaining = 1e-9 * (time_to_collect_ns - (time_ns() - t_start_ns))
             progressbar.set_postfix_str(f'FPA {fpa / 100:.1f}C, Remaining {time_remaining:.1f} Seconds.')
-            if limit_fpa is not None and fpa >= limit_fpa:
-                flag_fpa = True
-                break
             if time_remaining <= 0:
                 break
     if sample_rate != 1:
         dict_meas = {k: v[::sample_rate] for k, v in dict_meas.items()}
-    if flag_fpa:  # Saves the time in which the oven was turned off. This is done here to avoid the sampling above.
-        dict_meas.setdefault('time_limit_fpa_ns', time_ns())
     save_results(path_to_save=path_to_save, filename=filename, dict_meas=dict_meas)
-    return flag_fpa
 
 
 def save_results(path_to_save, filename, dict_meas):

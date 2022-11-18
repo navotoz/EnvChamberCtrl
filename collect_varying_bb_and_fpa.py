@@ -1,10 +1,9 @@
 from itertools import count
-import math
 import sys
 import threading as th
 from multiprocessing import Process, Semaphore
 from pathlib import Path
-from time import sleep
+from time import sleep, time_ns
 
 from devices.Camera import INIT_CAMERA_PARAMETERS
 from devices.Camera.CameraProcess import TEMPERATURE_ACQUIRE_FREQUENCY_SECONDS
@@ -20,12 +19,34 @@ sys.path.append(str(Path().cwd().parent))
 
 def th_t_cam_getter():
     while True:
-        fpa = camera.fpa
         try:
-            oven.set_camera_temperatures(fpa=fpa, housing=camera.housing)
+            oven.set_camera_temperatures(fpa=camera.fpa, housing=camera.housing)
         except (BrokenPipeError, ValueError, TypeError, AttributeError, RuntimeError):
             pass
         sleep(TEMPERATURE_ACQUIRE_FREQUENCY_SECONDS)
+
+
+def th_oven_control():
+    INCREMENT_CELSIUS = 1
+    TIME_TO_RISE_MINUTES = 10
+    t_rise_ns = TIME_TO_RISE_MINUTES * 60 * 1e9
+    oven.setpoint = 25  # initial setpoint
+    while True:
+        time_start = time_ns()
+        while time_ns() - time_start < t_rise_ns and camera.fpa < limit_fpa:
+            sleep(5)
+        if camera.fpa >= limit_fpa:
+            while True:
+                try:
+                    oven.setpoint = 0
+                    print(f'\nFPA limit {limit_fpa // 100} reached. Oven set to 0C\n', flush=True)
+                    return
+                except (BrokenPipeError, ValueError, TypeError, AttributeError, RuntimeError):
+                    sleep(1)
+        try:
+            oven.setpoint = oven.setpoint + INCREMENT_CELSIUS
+        except (BrokenPipeError, ValueError, TypeError, AttributeError, RuntimeError):
+            pass
 
 
 if __name__ == "__main__":
@@ -54,6 +75,8 @@ if __name__ == "__main__":
     blackbody, camera, oven = init_devices(path_to_save=path_to_save, params=params)
     wait_for_devices_to_start(blackbody, camera, oven)
     blackbody.set_temperature_non_blocking(args.blackbody_start)
+    th_oven = th.Thread(target=th_oven_control, name='th_oven_control', daemon=True)
+    th_oven.start()
 
     # wait for the records file to be created
     while not (path_to_save / OVEN_RECORDS_FILENAME).is_file():
@@ -73,20 +96,14 @@ if __name__ == "__main__":
                            daemon=True)
     mp_zip_saver.start()
 
-    # measurements
-    oven.setpoint = 120  # the Soft limit of the oven is 120C
-    filename = f"{now}.npz" if not args.filename else Path(args.filename).with_suffix('.npz')
-
-    t_ffc = wait_for_fpa(t_ffc=args.ffc, camera=camera, wait_time_camera=TEMPERATURE_ACQUIRE_FREQUENCY_SECONDS)
-
     # start measurements
+    filename = f"{now}.npz" if not args.filename else Path(args.filename).with_suffix('.npz')
+    t_ffc = wait_for_fpa(t_ffc=args.ffc, camera=camera, wait_time_camera=TEMPERATURE_ACQUIRE_FREQUENCY_SECONDS)
     minutes_in_chunk = int(args.minutes_in_chunk)
     assert minutes_in_chunk > 0, f'argument minutes_in_chunk must be > 0, got {minutes_in_chunk}.'
     for idx in count(start=1, step=1):
-        if continuous_collection(bb_generator=bb_generator, blackbody=blackbody, camera=camera,
-                                 n_samples=args.n_samples, time_to_collect_minutes=minutes_in_chunk,
-                                 sample_rate=args.sample_rate,
-                                 filename=f"{now}_{idx}.npz", path_to_save=path_to_save, limit_fpa=limit_fpa):
-            oven.setpoint = 0  # turn the oven off
-            limit_fpa = None
+        continuous_collection(bb_generator=bb_generator, blackbody=blackbody, camera=camera,
+                              n_samples=args.n_samples, time_to_collect_minutes=minutes_in_chunk,
+                              sample_rate=args.sample_rate,
+                              filename=f"{now}_{idx}.npz", path_to_save=path_to_save)
         lock_zip.release()  # release the lock to save the measurements to zip
