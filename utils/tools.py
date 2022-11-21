@@ -51,7 +51,7 @@ class Data:
             print(f'FPA temperatures limits: {min(self.fpa):.1f}K - {max(self.fpa):.1f}K')
             print(f'BlackBody temperatures limits: {min(self.blackbody):.1f}K - {max(self.blackbody):.1f}K')
 
-    def K2C(self):
+    def K2C(self, verbose: bool = True):
         if verbose:
             print(f'FPA temperatures limits: {min(self.fpa):.1f}K - {max(self.fpa):.1f}K')
             print(f'BlackBody temperatures limits: {min(self.blackbody):.1f}K - {max(self.blackbody):.1f}K')
