@@ -23,3 +23,4 @@ T_FPA = 'fpa'
 T_HOUSING = 'housing'
 T_BLACKBODY = 'T_blackbody'
 T_CAMERA = 'T_camera'  # thermo-caple attached to the camera inside the oven
+DELAY_FLOOR2CAMERA_CONST = 1.5

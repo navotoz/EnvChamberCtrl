@@ -3,7 +3,8 @@ from time import sleep
 
 from devices.Oven.PyCampbellCR1000.device import CR1000
 
-from utils.constants import *
+from devices.Oven.constants import OVEN_LOG_TIME_SECONDS, MAX_TEMPERATURE_LINEAR_RISE, OVEN_TABLE_NAME, \
+    DELAY_FLOOR2CAMERA_CONST
 from utils.misc import get_time
 
 
