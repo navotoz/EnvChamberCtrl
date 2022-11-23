@@ -46,7 +46,7 @@ def args_var_bb_fpa():
 
     # blackbody
     parser = _args_bb_basic(parser)
-    parser.add_argument('--blackbody_increments', type=float, required=True,
+    parser.add_argument('--blackbody_increments', type=float, default=2,
                         help=f"The increments in the Blackbody temperature. Allowed values [0.1, 10] C")
     parser.add_argument('--blackbody_start', type=int,
                         help="The starting temperature for the first Blackbody iteration.")
