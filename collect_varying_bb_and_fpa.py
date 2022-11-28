@@ -28,8 +28,8 @@ def th_t_cam_getter():
 
 def th_oven_control():
     INCREMENT_CELSIUS = 1
-    TIME_TO_RISE_MINUTES = 12
-    INITAL_OVEN_SETPOINT = 20
+    TIME_TO_RISE_MINUTES = 10
+    INITAL_OVEN_SETPOINT = 22
     t_rise_ns = TIME_TO_RISE_MINUTES * 60 * 1e9
     oven.setpoint = INITAL_OVEN_SETPOINT  # initial setpoint
     while True:
