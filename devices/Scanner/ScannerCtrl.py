@@ -32,6 +32,10 @@ class Scanner:
         else:
             self.__log.critical("Couldn't open connection to the arduino.")
             raise RuntimeError("Couldn't open connection to the arduino.")
+        self._pos = 0
+        self._left_limit = -float('inf')
+        self._right_limit = float('inf')
+        self._direction = 'left'
 
     def __send(self, cmd: str) -> bytes:
         cmd = (cmd if cmd.endswith('\n') else f"{cmd}\n").encode('UTF-8')
@@ -62,7 +66,7 @@ class Scanner:
             return 'ok' in ret_msg
         return False
 
-    def move(self, num_of_steps: int) -> bool:
+    def __move(self, num_of_steps: int) -> bool:
         self.__send(f"{num_of_steps}\n")
         self.__log.info(f"Move {num_of_steps} steps.")
         num_of_steps_to_move = self.__receive()
@@ -71,13 +75,24 @@ class Scanner:
     def __set_zero_position(self):
         pass
 
-    def __set_limits(self):
-        pass
-
     def __call__(self, num_of_steps: int):
-        self.move(num_of_steps)
+        if self._pos + num_of_steps < self._right_limit and self._pos - num_of_steps > self._left_limit:
+            self.__move(num_of_steps)
+            self._pos += num_of_steps
+        else:
+            raise RuntimeError(f"Reached limit")
 
-    @property
-    def is_dummy(self):
-        return False
-# todo: set limits somehow..
+    def set_right_limit(self):
+        self._right_limit = self._pos
+
+    def set_left_limit(self):
+        self._pos = 0
+        self._left_limit = 0
+
+    def move_between_limits(self):
+        direction = -1 if self._direction == 'left' else 1
+        try:
+            while True:
+                self(direction)
+        except RuntimeError:
+            self._direction = 'right' if self._direction == 'left' else 'left'
