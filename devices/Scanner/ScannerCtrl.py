@@ -1,10 +1,14 @@
 import logging
 from time import sleep
-
+from ctypes import c_int16
 import serial
 import serial.tools.list_ports
 
+from devices import DeviceAbstract
 from utils.logger import make_logger, make_logging_handlers
+import multiprocessing as mp
+import threading as th
+
 
 RECV_ITERS = 8
 SLEEP_BETWEEN_CMD_SEC = 1
@@ -13,12 +17,37 @@ DEG_PER_STEP = 0.9  # in degrees
 BELT_RATIO = 16 / 72
 
 
-class Scanner:
-    def __init__(self, baud=19200, logging_handlers: tuple = make_logging_handlers(None, True),
+class Scanner(DeviceAbstract):
+    def _run(self):
+        self._workers_dict['connect'] = th.Thread(target=self._th_connect, name='th_scanner_conn', daemon=False)
+        self._workers_dict['move'] = th.Thread(target=self._th_move, name='th_scanner_move', daemon=True)
+
+    def _terminate_device_specifics(self) -> None:
+        try:
+            self._flag_run.set(False)
+        except (ValueError, TypeError, AttributeError, RuntimeError, NameError, KeyError):
+            pass
+        try:
+            self.__connection.close()
+        except (ValueError, TypeError, AttributeError, RuntimeError, NameError, KeyError):
+            pass
+
+    def __init__(self, logging_handlers: tuple = make_logging_handlers(None, True),
                  logging_level: int = logging.INFO):
         super().__init__()
         self.__log = make_logger('Scanner', logging_handlers, logging_level)
+        self._lock = th.Lock()
+        self._n_steps: mp.Value = mp.Value(typecode_or_type=c_int16)
+        self._pos: mp.Value = mp.Value(typecode_or_type=c_int16)
+        self._limit_left: mp.Value = mp.Value(typecode_or_type=c_int16)
+        self._limit_left.value = -2000
+        self._limit_right: mp.Value = mp.Value(typecode_or_type=c_int16)
+        self._limit_right.value = 2000
+        self._semaphore_move = mp.Semaphore(0)
+        self._event_limit = mp.Event()
+        self._event_limit.clear()
 
+    def _th_connect(self, baud=115200):
         ports = serial.tools.list_ports.comports()
         ports = filter(lambda x: x.manufacturer is not None, ports)
         ports = [p for p in ports if 'arduino' in p.manufacturer.lower()]
@@ -32,10 +61,29 @@ class Scanner:
         else:
             self.__log.critical("Couldn't open connection to the arduino.")
             raise RuntimeError("Couldn't open connection to the arduino.")
-        self._pos = 0
-        self._left_limit = -float('inf')
-        self._right_limit = float('inf')
-        self._direction = 'left'
+
+    def move(self, num_of_steps: int):
+        self._n_steps.value = num_of_steps
+        self._semaphore_move.release()
+
+    def _th_move(self):
+        self.__log.info('Started Thread Move')
+        while self._flag_run:
+            self._semaphore_move.acquire()
+            n_steps = self._n_steps.value
+            self.__log.info(f"Move {n_steps} steps.")
+            with self._lock:
+                if n_steps > 0 and self._pos.value + n_steps < self._limit_right.value:
+                    self._event_limit.clear()
+                    self.__move(n_steps)
+                    self._pos.value = self._pos.value + n_steps
+                elif n_steps < 0 and self._pos.value + n_steps > self._limit_left.value:
+                    self._event_limit.clear()
+                    self.__move(n_steps)
+                    self._pos.value = self._pos.value + n_steps
+                else:
+                    self._event_limit.set()
+                    self.__log.warning(f"Move {n_steps} steps is out of limits.")
 
     def __send(self, cmd: str) -> bytes:
         cmd = (cmd if cmd.endswith('\n') else f"{cmd}\n").encode('UTF-8')
@@ -66,33 +114,27 @@ class Scanner:
             return 'ok' in ret_msg
         return False
 
-    def __move(self, num_of_steps: int) -> bool:
+    def __move(self, num_of_steps: int) -> None:
         self.__send(f"{num_of_steps}\n")
         self.__log.info(f"Move {num_of_steps} steps.")
-        num_of_steps_to_move = self.__receive()
-        return int(num_of_steps_to_move) == num_of_steps
 
-    def __set_zero_position(self):
-        pass
-
-    def __call__(self, num_of_steps: int):
-        if self._pos + num_of_steps < self._right_limit and self._pos - num_of_steps > self._left_limit:
-            self.__move(num_of_steps)
-            self._pos += num_of_steps
+    def set_limit(self, pos):
+        if pos == 'left':
+            self._pos.value = 0
+            self._limit_left.value = 0
+            self.__log.info(f"Set limit left")
+        elif pos == 'right':
+            self._limit_right.value = self._pos.value
+            self.__log.info(f"Set limit right to {self._limit_right.value}")
         else:
-            raise RuntimeError(f"Reached limit")
+            raise ValueError(f"Invalid position {pos}")
 
-    def set_right_limit(self):
-        self._right_limit = self._pos
+    def move_between_limits(self, *args, **kwargs):
+        direction = -1
+        while self._flag_run:
+            while not self._event_limit.is_set():
+                self.move(direction)
+                sleep(0.06)  # prevent slipping of the motor
+            direction *= -1
+            self._event_limit.clear()
 
-    def set_left_limit(self):
-        self._pos = 0
-        self._left_limit = 0
-
-    def move_between_limits(self):
-        direction = -1 if self._direction == 'left' else 1
-        try:
-            while True:
-                self(direction)
-        except RuntimeError:
-            self._direction = 'right' if self._direction == 'left' else 'left'
