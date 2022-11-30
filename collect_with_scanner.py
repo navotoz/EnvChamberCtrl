@@ -1,8 +1,7 @@
 import tkinter as tk
 from datetime import datetime
 from pathlib import Path
-from threading import Thread
-from time import sleep, time_ns
+from time import time_ns
 
 from PIL import ImageTk
 from tqdm import tqdm
@@ -24,30 +23,17 @@ def closer():
         pass
 
 
-def left_key(event):
-    scanner(1)
-
-
-def right_key(event):
-    scanner(-1)
-
-
-def th_mover():
-    while True:
-        scanner.move_between_limits()
-        sleep(1)
-
-
-def save_key(event):
-    mover = Thread(target=th_mover, daemon=True, name='th_scanner_mover')
-    mover.start()
-
+def save_key(event) -> None:
+    print('Started saving data', flush=True)
+    path_to_save = Path.cwd() / 'measurements'
+    if not path_to_save.is_dir():
+        path_to_save.mkdir()
     dict_meas = {}
     time_to_collect_ns = 1e10  # save every 10 seconds
     now = datetime.now().strftime("%Y%m%d_h%Hm%Ms%S")
     n_saves = 0
-    with tqdm() as progressbar:
-        while True:
+    while True:
+        with tqdm() as progressbar:
             t_start_ns = time_ns()
             progressbar.set_description_str(f'Number of saves: {n_saves}')
             while 1e-9 * (time_to_collect_ns - (time_ns() - t_start_ns)) > 0:
@@ -59,7 +45,8 @@ def save_key(event):
                 dict_meas.setdefault('time_ns', []).append(time_ns())
                 progressbar.update()
             progressbar.set_postfix_str(f'FPA {fpa / 100:.1f}C')
-            save_results(path_to_save=Path.cwd() / 'meas', filename=f'{now}_{n_saves}.npz', dict_meas=dict_meas)
+            save_results(path_to_save=path_to_save, filename=f'{now}_{n_saves}.npz', dict_meas=dict_meas)
+            n_saves += 1
 
 
 def th_viewer():
@@ -74,23 +61,33 @@ def th_viewer():
     lmain.after(ms=1000 // 30, func=th_viewer)
 
 
-def right_limit():
-    scanner.set_right_limit()
+def left_key(event):
+    scanner.move(-1)
 
 
-def left_limit():
-    scanner.set_left_limit()
+def right_key(event):
+    scanner.move(1)
+
+
+def right_limit(event):
+    scanner.set_limit('right')
+
+
+def left_limit(event):
+    scanner.set_limit('left')
 
 
 if __name__ == "__main__":
-    # init devices
     scanner = Scanner()
+    scanner.start()
+
     params = INIT_CAMERA_PARAMETERS.copy()
     params['tlinear'] = 0
     params['ffc_mode'] = 'auto'
     params['ffc_period'] = 1800
     params['lens_number'] = 1
-    camera = CameraCtrl(camera_parameters=params)
+    # camera = CameraCtrl(camera_parameters=params)
+    camera = CameraCtrl(camera_parameters=None)
     camera.start()
 
     # init GUI
@@ -107,9 +104,11 @@ if __name__ == "__main__":
     print('\nPress left and right arrow to move the scanner.\n'
           'Go to the left-most limit and press "z".\n'
           'Go to the right-most limit and press "x".\n'
+          'Press "m" to start moving between limits.\n'
           'Then, press "s" to start saving the images.\n', flush=True)
-    root.bind('<z>', right_limit)
-    root.bind('<a>', left_limit)
+    root.bind('<z>', left_limit)
+    root.bind('<x>', right_limit)
+    root.bind('<m>', scanner.move_between_limits)
     root.bind('<s>', save_key)
     app.grid()
     lmain = tk.Label(app)

@@ -1,14 +1,14 @@
 import logging
-from time import sleep
+import multiprocessing as mp
+import threading as th
 from ctypes import c_int16
+from time import sleep
+
 import serial
 import serial.tools.list_ports
 
 from devices import DeviceAbstract
 from utils.logger import make_logger, make_logging_handlers
-import multiprocessing as mp
-import threading as th
-
 
 RECV_ITERS = 8
 SLEEP_BETWEEN_CMD_SEC = 1
@@ -71,7 +71,7 @@ class Scanner(DeviceAbstract):
         while self._flag_run:
             self._semaphore_move.acquire()
             n_steps = self._n_steps.value
-            self.__log.info(f"Move {n_steps} steps.")
+            self.__log.debug(f"Move {n_steps} steps.")
             with self._lock:
                 if n_steps > 0 and self._pos.value + n_steps < self._limit_right.value:
                     self._event_limit.clear()
@@ -83,7 +83,7 @@ class Scanner(DeviceAbstract):
                     self._pos.value = self._pos.value + n_steps
                 else:
                     self._event_limit.set()
-                    self.__log.warning(f"Move {n_steps} steps is out of limits.")
+                    self.__log.debug(f"Move {n_steps} steps is out of limits.")
 
     def __send(self, cmd: str) -> bytes:
         cmd = (cmd if cmd.endswith('\n') else f"{cmd}\n").encode('UTF-8')
@@ -116,7 +116,7 @@ class Scanner(DeviceAbstract):
 
     def __move(self, num_of_steps: int) -> None:
         self.__send(f"{num_of_steps}\n")
-        self.__log.info(f"Move {num_of_steps} steps.")
+        self.__log.debug(f"Move {num_of_steps} steps.")
 
     def set_limit(self, pos):
         if pos == 'left':
