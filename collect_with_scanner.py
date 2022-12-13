@@ -1,9 +1,11 @@
 import tkinter as tk
 from datetime import datetime
+from functools import partial
 from pathlib import Path
+from threading import Event, Thread
 from time import time_ns
 
-from PIL import ImageTk
+from PIL import ImageTk, ImageDraw, ImageFont
 from tqdm import tqdm
 
 from devices.Camera import INIT_CAMERA_PARAMETERS, T_FPA, T_HOUSING
@@ -24,19 +26,24 @@ def closer():
 
 
 def save_key(event) -> None:
-    print('Started saving data', flush=True)
+    if event_run.is_set():
+        print('Stopping acquisition, and saving data', flush=True)
+        event_run.clear()
+    else:
+        print('Starting acquisition', flush=True)
+        event_run.set()
+
+
+def th_saver():
     path_to_save = Path.cwd() / 'measurements'
     if not path_to_save.is_dir():
         path_to_save.mkdir()
-    dict_meas = {}
-    time_to_collect_ns = 1e10  # save every 10 seconds
-    now = datetime.now().strftime("%Y%m%d_h%Hm%Ms%S")
-    n_saves = 0
     while True:
+        event_run.wait()
+        now = datetime.now().strftime("%Y%m%d_h%Hm%Ms%S")
+        dict_meas = {}
         with tqdm() as progressbar:
-            t_start_ns = time_ns()
-            progressbar.set_description_str(f'Number of saves: {n_saves}')
-            while 1e-9 * (time_to_collect_ns - (time_ns() - t_start_ns)) > 0:
+            while event_run.is_set():
                 fpa = camera.fpa
                 dict_meas.setdefault('frames', []).append(camera.image)
                 dict_meas.setdefault('blackbody', []).append(-1)  # compatibility with save_results()
@@ -45,8 +52,7 @@ def save_key(event) -> None:
                 dict_meas.setdefault('time_ns', []).append(time_ns())
                 progressbar.update()
             progressbar.set_postfix_str(f'FPA {fpa / 100:.1f}C')
-            save_results(path_to_save=path_to_save, filename=f'{now}_{n_saves}.npz', dict_meas=dict_meas)
-            n_saves += 1
+            save_results(path_to_save=path_to_save, filename=f'{now}.npz', dict_meas=dict_meas)
 
 
 def th_viewer():
@@ -55,7 +61,15 @@ def th_viewer():
     size_canvas = (lmain.winfo_height(), lmain.winfo_width())
     if size_canvas != size_root:
         lmain.config(width=root.winfo_width(), height=root.winfo_height())
-    image_tk = ImageTk.PhotoImage(normalize_image(image).resize(reversed(size_canvas)))
+    image = normalize_image(image).resize(reversed(size_canvas))
+
+    # add text to the upper-left corner with ImageDraw
+    fnt = ImageFont.truetype("Pillow/Tests/fonts/FreeMono.ttf", 24)
+    drawer = partial(ImageDraw.Draw(image).text, fill='red', font=fnt, stroke_width=1)
+    drawer((2, 1), f'FPA {camera.fpa / 100:.1f}C')
+    drawer((root.winfo_width() - 5 * fnt.size, root.winfo_height() - fnt.size - 2),
+           'Sampling' if event_run.is_set() else '')
+    image_tk = ImageTk.PhotoImage(image)
     lmain.image_tk = image_tk
     lmain.configure(image=image_tk)
     lmain.after(ms=1000 // 30, func=th_viewer)
@@ -78,6 +92,10 @@ def left_limit(event):
 
 
 if __name__ == "__main__":
+    event_run = Event()
+    event_run.clear()
+    th_save = Thread(target=th_saver, daemon=True)
+    th_save.start()
     scanner = Scanner()
     scanner.start()
 
@@ -105,7 +123,7 @@ if __name__ == "__main__":
           'Go to the left-most limit and press "z".\n'
           'Go to the right-most limit and press "x".\n'
           'Press "m" to start moving between limits.\n'
-          'Then, press "s" to start saving the images.\n', flush=True)
+          'Then, press "s" to start acquiring the images and then to stop and save.\n', flush=True)
     root.bind('<z>', left_limit)
     root.bind('<x>', right_limit)
     root.bind('<m>', scanner.move_between_limits)
