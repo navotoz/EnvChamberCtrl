@@ -104,8 +104,7 @@ if __name__ == "__main__":
     params['ffc_mode'] = 'auto'
     params['ffc_period'] = 1800
     params['lens_number'] = 1
-    # camera = CameraCtrl(camera_parameters=params)
-    camera = CameraCtrl(camera_parameters=None)
+    camera = CameraCtrl(camera_parameters=params)
     camera.start()
 
     # init GUI
