@@ -232,9 +232,12 @@ class BlackBodyThread(th.Thread):
     def set_temperature_non_blocking(self, temperature_to_set: Union[int, float]):
         if self._event_is_connected.is_set():
             with self._lock_access:
-                if self._blackbody.is_stable and abs(temperature_to_set - self._blackbody.temperature) <= 0.01:
+                try:
+                    if self._blackbody.is_stable and abs(temperature_to_set - self._blackbody.temperature) <= 0.01:
+                        return
+                    self._blackbody(temperature_to_set=temperature_to_set, wait_for_stable_temperature=False)
+                except TypeError:
                     return
-                self._blackbody(temperature_to_set=temperature_to_set, wait_for_stable_temperature=False)
 
     @property
     def is_connected(self) -> bool:
